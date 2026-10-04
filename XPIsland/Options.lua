@@ -49,7 +49,13 @@ function O:Dropdown(parent,x,y,width,entries,get,choose,placeholder)
     local d=CreateFrame("DropdownButton",nil,parent,"WowStyle1DropdownTemplate")
     d:SetPoint("TOPLEFT",x,y);d:SetSize(width,24)
     d:SetDefaultText(placeholder or "Choose…")
-    d.Text:SetJustifyH("LEFT");d.Text:SetHeight(16);d.text=d.Text
+    -- The Classic template supplies TOP anchors for a 10px text box. Keep
+    -- native art/arrow, but center our 12px font in the control's full height.
+    d.Text:ClearAllPoints()
+    d.Text:SetPoint("LEFT",d,"LEFT",9,0)
+    d.Text:SetPoint("RIGHT",d.Arrow,"LEFT",-3,0)
+    d.Text:SetHeight(24);d.Text:SetJustifyV("MIDDLE")
+    d.Text:SetJustifyH("LEFT");d.Text:SetWordWrap(false);d.text=d.Text
     self.fontObjects[#self.fontObjects+1]={object=d.Text,size=12}
     d:SetupMenu(function(_,root)
         root:SetScrollMode(220)

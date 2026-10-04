@@ -39,7 +39,7 @@ W.click(O.checks[1]);eq(X.profile.locked,false,'native checkbox updates profile'
 W.choose(O.font,'Arial');eq(X.profile.fontCustomized,true)
 X.profile.font='Game tooltip';X.profile.fontSize=14
 W.click(O.format);eq(#O.format.menuDescription.entries,5);eq(O.format.menuDescription.entries[2].label,'Current / Total XP');eq(O.format.menuDescription.entries[5].label,'Time to Next Level')
-W.choose(O.format,'eta');eq(UI.label:GetText(),'—')
+W.choose(O.format,'eta');eq(UI.infinity:IsShown(),true,'no-activity infinity symbol')
 X.session.total=6000;X.session.buckets.other=6000;X.session.seconds=3600
 W.xp=60800;W.cap=95000;X:Sample();X.session.total=6000;X.session.buckets={kills=0,quests=0,dungeons=0,other=6000};X.session.rate={version=1,startedAt=0,buckets={}};M.RateAward(X.session,6000);UI:Update()
 eq(UI.label:GetText(),UI.cells[3].value:GetText(),'same ETA in bar and cell')

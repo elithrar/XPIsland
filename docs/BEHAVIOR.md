@@ -1,6 +1,6 @@
 # XPIsland
 
-A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.3.0 targets interface 16001 and was checked against Blizzard UI source for 1.60.1.70205. Retail, Classic Era, and other clients are not supported.
+A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.4.0 targets interface 16001 and was checked against Blizzard UI source for 1.60.1.70205. Retail, Classic Era, and other clients are not supported.
 
 ## Install
 
@@ -15,6 +15,7 @@ No other addon is required. Existing addon files and settings do not need modifi
 
 - Click the capsule or its expanded cells to expand/collapse. Configure **Expand / collapse XPIsland** in WoW Keybindings, accessible from XPIsland's Options page. No key is claimed by default.
 - Twenty segments show exact level progress with a partially filled final segment. The right label defaults to earned percentage. Alternatives are Current / Total XP, XP Remaining, XP Remaining (%), and Time to Next Level.
+- The bar hover shows exact current/total XP with the client’s number grouping and earned percentage. A short expand hint appears only until the first deliberate expansion by click, keybinding or settings. `XPIslandDB.expandedOnce` persists account-wide across reload/login, character changes and profile copies; automatic level-up previews do not dismiss it.
 - Normal XP is purple, rested XP blue. Color pickers preview changes and support cancel. The rested cell shows the remaining rested pool, including any amount beyond this level, or a dash.
 - Auto-collapse after 15 seconds is enabled by default. The capsule remains visible. Hovering the island, dragging it, or keeping its settings open suspends the timeout; leaving restarts the full interval. Pointer events react immediately, with the existing one-second ticker reconciling child-frame/geometry changes.
 - A level-up opens a ten-second preview when enabled, even if ordinary auto-collapse is disabled. Repeated level-ups restart those ten seconds. Manual toggling takes over: closing cancels the timer; opening uses the ordinary 15-second policy. Profile/settings changes replace the old timeout with the active profile's ordinary policy. Hover/settings/dragging suspend the level-up timeout too.
@@ -28,9 +29,11 @@ The default is bounded, not a percentage of an ultrawide screen. The following a
 
 | Usable UIParent width | Collapsed | Expanded |
 | --- | ---: | ---: |
-| Below 1400 | 360 × 34 | 460 × 144 |
-| 1400–1999 | 400 × 34 | 520 × 144 |
-| 2000 and above | 440 × 34 | 560 × 144 |
+| Below 1400 | 360 × 34 | 460 × ≥136 |
+| 1400–1999 | 400 × 34 | 520 × ≥136 |
+| 2000 and above | 440 × 34 | 560 × ≥136 |
+
+Expanded height starts at 136 units and grows when the selected font needs more room. The drawer measures the text block, centers each row, and uses equal 12-unit top/bottom insets with a 6-unit row gap.
 
 The independent island scale defaults to 100%. Its slider and numeric field both accept 50–150%. These multiply WoW's effective UI scale; maximum unscaled widths remain 440/560 even on larger screens. A final fit-to-screen limit keeps the expanded panel inside the available viewport. The collapsed width may grow within its 440-unit maximum for a wide custom font. Labels use unbounded text measurements and compact K/M numbers. A useful bar width is preserved without shrinking the selected text size. The header keeps its vertical position and horizontal centre while its width grows with the island. Segments fill the available header width and the measured label stays 14 units from its right edge. The two rows of four stat cells have centred labels/values and equal 20-unit outer margins. Custom anchors reserve the complete expanded footprint even while collapsed. Global WoW UI scale and graphics settings are never changed.
 
@@ -42,7 +45,7 @@ The island uses HIGH strata at level 100, above ordinary action bars/panels. Its
 
 ## XP accounting
 
-The first row shows remaining/total level XP, rolling XP/hour, estimated time to the next level, and rested XP. XP/hour uses the rolling model below. ETA is remaining XP divided by its unrounded effective rate. ETA remains unavailable for the first minute, at zero rate, at the cap, or after an unrecoverable accounting gap; zero XP/hour is shown as 0. Time displays use minutes (26m, 1h 42m), not a second countdown. The ETA tooltip adds expanded duration, rate and exact remaining XP.
+The first row shows remaining/total level XP, rolling XP/hour, estimated time to the next level, and rested XP. XP/hour uses the rolling model below. ETA is remaining XP divided by its unrounded effective rate. ETA remains unavailable for the first minute, at zero rate, at the cap, or after an unrecoverable accounting gap; zero XP/hour is shown as 0. Time displays use minutes (26m, 1h 42m), not a second countdown. The ETA stat tooltip adds expanded duration, rate and exact remaining XP when available. The collapsed ETA label uses an infinity mark only for a session with no XP activity or an expired rolling rate. This means no estimable current rate, not a promise of infinite leveling time. It uses a bundled symbol so custom font glyph coverage cannot break it; texture-load failure falls back to `n/a`. Warmup or an incomplete session keeps a dash. Hover distinguishes no session activity, first-minute history collection, prior XP outside the rate window, and an accounting gap, followed by exact current/total level XP (%).
 
 The second row consists of mutually exclusive session XP totals, in this order:
 
@@ -85,7 +88,7 @@ Sessions belong to a character, independently of settings profiles. Connected in
 
 ## Options and profiles
 
-`/xpisland` opens one Options page and one Profiles page in a restrained dark panel with thin grouped borders, small tabs, 12-point labels, colour swatches and compact action buttons. Native WowStyle1DropdownTemplate menus supply radio selections, dismissal, keyboard behavior and scrolling; native checkboxes, input fields and slider retain familiar controls. Settings are 620 × 462 UI units and fit smaller viewports without changing the island scale. Game Tooltip (default) reads the current tooltip body font without modifying it. For an unskinned roman client this is Friz Quadrata; other locales and installed tooltip skins may supply another face. Default island text is 14, with 12-point headings and a subtle shadow instead of a heavy outline. The user can explicitly choose Arial, Friz Quadrata, or a registered LibSharedMedia font. A missing external font falls back to the current tooltip face. The selected face also applies to settings.
+`/xpisland` opens one Options page and one Profiles page in a restrained dark panel with thin grouped borders, small tabs, 12-point labels, colour swatches and compact action buttons. The native dropdown selected-text box is anchored left/right, vertically centered in the full 24-unit control, and bounded before the arrow; it does not inherit the Classic template’s 10-unit TOP anchors. Native WowStyle1DropdownTemplate menus supply radio selections, dismissal, keyboard behavior and scrolling; native checkboxes, input fields and slider retain familiar controls. Settings are 620 × 462 UI units and fit smaller viewports without changing the island scale. Game Tooltip (default) reads the current tooltip body font without modifying it. For an unskinned roman client this is Friz Quadrata; other locales and installed tooltip skins may supply another face. Default island text is 14, with 12-point headings and a subtle shadow instead of a heavy outline. The user can explicitly choose Arial, Friz Quadrata, or a registered LibSharedMedia font. A missing external font falls back to the current tooltip face. The selected face also applies to settings.
 
 Settings schema 2 migrates unmarked Arial/12 defaults to the new face/size while preserving other choices and dragged positions. Version 0.1 did not record whether selecting Arial/12 was intentional, so that ambiguous old-default case follows the new default. Explicit choices are recorded from this version onward. Profile copies preserve those choices.
 

@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.3.0", formats={}}
+local X = {version="0.4.0", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -60,6 +60,7 @@ function X:Toggle()
     if not self.session then return end
     self:CancelAutoCollapse()
     if self:IsCapped() then say("The island is hidden while XP is capped or disabled.");return end
+    if not UI.expanded then self.db.expandedOnce=true end
     UI:SetExpanded(not UI.expanded)
     if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(15) end
 end

@@ -11,7 +11,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install LuaJIT
         run: sudo apt-get update && sudo apt-get install -y luajit
       - name: Test model and runtime
@@ -22,6 +22,10 @@ jobs:
           luajit tests/revision_test.lua
           luajit tests/rate_test.lua
           luajit tests/motion_test.lua
+          luajit tests/polish_test.lua
+          luajit tests/frame_work_test.lua
           luajit tests/stress_test.lua
+      - name: Test release guards
+        run: python3 tests/release_test.py
       - name: Validate and package addon
         run: python3 tests/package.py

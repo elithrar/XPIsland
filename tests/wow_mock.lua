@@ -19,7 +19,10 @@ function CreateFrame(kind,name,parent,template)
         o.CloseButton:SetSize(24,24);o.CloseButton:SetPoint("TOPRIGHT",0,0);o.CloseButton:SetText("×")
         o.CloseButton:SetScript("OnClick",function() o:Hide() end)
     elseif template=="WowStyle1DropdownTemplate" then
-        o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetPoint("LEFT",9,0);o.Text:SetFont("Fonts\\FRIZQT__.TTF",12,"")
+        o.Arrow=o:CreateTexture(nil,"OVERLAY");o.Arrow:SetSize(18,18);o.Arrow:SetPoint("RIGHT",-1,0)
+        o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetHeight(10)
+        o.Text:SetPoint("TOPRIGHT",o.Arrow,"LEFT");o.Text:SetPoint("TOPLEFT",9,-7)
+        o.Text:SetFont("Fonts\\FRIZQT__.TTF",12,"")
     elseif template=="UICheckButtonTemplate" then
         o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetPoint("LEFT",o,"RIGHT",-2,0)
     elseif template=="UISliderTemplate" then o:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal") end
@@ -36,6 +39,9 @@ function methods:SetPoint(point,a,b,c,d)
     local relative,relativePoint,x,y
     if type(a)=="table" then relative=a;relativePoint=b or point;x=c or 0;y=d or 0
     else relative=self.parent;relativePoint=point;x=a or 0;y=b or 0 end
+    for i,p in ipairs(self.points) do
+        if p[1]==point then self.points[i]={point,relative,relativePoint,x,y};return end
+    end
     self.points[#self.points+1]={point,relative,relativePoint,x,y}
 end
 function methods:ClearAllPoints() self.points={};self.all=nil end
@@ -99,7 +105,7 @@ function methods:Hide() local changed=self.shown;self.shown=false;if changed and
 function methods:SetShown(v) if v then self:Show() else self:Hide() end end
 function methods:IsShown() return self.shown end
 function methods:IsVisible() return self.shown and (not self.parent or self.parent:IsVisible()) end
-function methods:SetTexture(t) self.texture=t end
+function methods:SetTexture(t) self.texture=t;return not W.textureMissing end
 function methods:SetColorTexture(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:SetVertexColor(r,g,b,a) self.tint={r,g,b,a or 1} end
 function methods:SetTexCoord(...) self.coords={...} end
@@ -109,6 +115,8 @@ function methods:GetText() return self.text or "" end
 function methods:SetTextColor(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:GetStringWidth() return #(self.text or "")*(self.fontSize or 12)*.52 end
 methods.GetUnboundedStringWidth=methods.GetStringWidth
+function methods:GetStringHeight() return (self.fontSize or 12)*1.25 end
+function methods:SetJustifyV(v) self.justifyV=v end
 function methods:GetFont() return self.fontPath,self.fontSize,self.fontFlags end
 function methods:SetShadowColor() end
 function methods:SetShadowOffset() end
@@ -232,6 +240,22 @@ COMBATLOG_XPGAIN_FIRSTPERSON="%s dies, you gain %d experience."
 COMBATLOG_XPGAIN_EXHAUSTION1="%s dies, you gain %d experience. (%s exp %s bonus)"
 COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED="You gain %d experience."
 
+-- Count requested native-UI operations, not CPU/GPU duration.
+local counted={"SetPoint","ClearAllPoints","SetSize","SetWidth","SetHeight","SetScale","SetFont","SetText","GetUnboundedStringWidth","GetStringHeight","SetColorTexture","SetVertexColor","SetTexCoord","SetTexture","SetAlpha","SetShown","EnableMouse","CreateTexture","CreateFontString"}
+for _,name in ipairs(counted) do
+    local original=methods[name]
+    methods[name]=function(self,...)
+        if W.work then W.work[name]=(W.work[name] or 0)+1 end
+        return original(self,...)
+    end
+end
+function W.beginWork() W.work={} end
+function W.endWork() local result=W.work;W.work=nil;return result end
+function BreakUpLargeNumbers(n)
+    local s=tostring(n);local k
+    repeat s,k=s:gsub("^(%d+)(%d%d%d)","%1,%2") until k==0
+    return s
+end
 function W.load()
     local ns={}
     for _,name in ipairs({"Model","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
@@ -289,6 +313,7 @@ function W.svg(path,root)
             local s=o.fontSize*o:GetEffectiveScale()
             if o.kind=="EditBox" then x=x+8;y=y+(h-s)/2 end
             local anchor=o.justify=="RIGHT" and "end" or o.justify=="CENTER" and "middle" or "start"
+            if o.justifyV=="MIDDLE" then y=y+(h-s*1.25)/2 end
             local lines={o.text or ""}
             if o.wrap and w>0 then
                 lines={};local line=""
@@ -301,6 +326,10 @@ function W.svg(path,root)
             for li,line in ipairs(lines) do
                 f:write(string.format('<text x="%.2f" y="%.2f" font-family="Georgia" font-size="%.2f" fill="%s" text-anchor="%s">%s</text>',o.justify=="RIGHT" and x+w or o.justify=="CENTER" and x+w/2 or x,y+s+(li-1)*s*1.2,s,color(c),anchor,xml(line)))
             end
+        elseif o.parent and o.parent.Arrow==o then
+            f:write(string.format('<path d="M %f %f l 8 0 l -4 5 Z" fill="#d5b74c"/>',x+5,y+h/2-2))
+        elseif o.texture and o.texture:find("infinity.tga",1,true) then
+            f:write(string.format('<text x="%f" y="%f" font-family="Arial" font-size="%f" fill="%s">∞</text>',x,y+h,h*1.4,color(c)))
         elseif o.texture and o.texture:find("cap.tga",1,true) then
             local co=o.coords
             f:write(string.format('<defs><clipPath id="cap%d"><rect x="%f" y="%f" width="%f" height="%f"/></clipPath></defs><circle cx="%f" cy="%f" r="%f" fill="%s" clip-path="url(#cap%d)"/>',i,x,y,w,h,x+h*(.5-co[1]),y+h/2,h/2,color(c),i))

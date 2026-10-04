@@ -54,6 +54,7 @@ function M.Database(db)
     if M.Number(db.version) and db.version > 2 then return nil, "Saved settings belong to a newer XPIsland version." end
     local legacy = not M.Number(db.version) or db.version < 2
     db.version = 2
+    db.expandedOnce = db.expandedOnce == true -- account-wide onboarding, never copied with a profile
     db.profiles = type(db.profiles) == "table" and db.profiles or {}
     for name, p in pairs(db.profiles) do
         if type(name) ~= "string" then db.profiles[name] = nil else
@@ -180,6 +181,29 @@ function M.Estimate(session, xp, cap, capped)
     return perSecond*3600,duration
 end
 
+-- A missing estimate has several distinct causes. Never infer session activity
+-- from the rolling rate: earned XP remains earned after its rate window expires.
+function M.ETAState(session, rate, duration)
+    if not session or session.incomplete then return "unavailable" end
+    if session.total == 0 then return "empty" end
+    if duration then return "ready" end
+    if session.rate and session.seconds-session.rate.startedAt < 60 then return "warming" end
+    if rate == 0 then return "idle" end
+    return "unavailable"
+end
+
+M.ETAMessages = {
+    empty = "No XP activity in this session yet.",
+    warming = "Collecting a full minute of XP history for an estimate.",
+    idle = "Earlier XP has left the rate window; earn XP for a new estimate.",
+    unavailable = "Session contains a gap; time to level is unavailable.",
+}
+
+function M.ExactXP(xp, cap)
+    local number = BreakUpLargeNumbers or tostring
+    return string.format("%s / %s (%s)", number(xp), number(cap), M.Label("percent",xp,cap))
+end
+
 -- Widths use usable UIParent units, independent of 3D render scale.
 function M.Layout(usableWidth, scale)
     local collapsed, expanded = 360, 460
@@ -194,10 +218,10 @@ end
 -- All coordinates are in UIParent units: Blizzard already excludes the notch
 -- in Shift UI mode. Reserve the expanded footprint even while collapsed, so
 -- toggling never moves the bar to make room for its details.
-function M.Placement(viewWidth, viewHeight, p, minimumHeader)
+function M.Placement(viewWidth, viewHeight, p, minimumHeader, detailHeight)
     local cw, ew, scale = M.Layout(viewWidth, p.scale)
     cw=max(cw,min(440,minimumHeader or cw))
-    local barHeight, panelHeight = 34, 144
+    local barHeight, panelHeight = 34, 34+(detailHeight or 102)
     scale = min(scale, max(.01, (viewHeight-16)/panelHeight))
     local bh, ph = barHeight*scale, panelHeight*scale
     local xLimit = max(0,(viewWidth-ew*scale)/2-8)

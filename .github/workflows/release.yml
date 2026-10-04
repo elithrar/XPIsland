@@ -1,0 +1,103 @@
+name: Release addon
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated tag to publish or resume (must be on main)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      commit: ${{ steps.metadata.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify annotated tag, main ancestry and Forever metadata
+        id: metadata
+        run: |
+          git fetch origin main:refs/remotes/origin/main
+          python3 scripts/release.py
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+      - name: Test and build the addon-only ZIP
+        run: |
+          mkdir -p dist
+          luajit tests/model_test.lua
+          luajit tests/runtime_test.lua
+          luajit tests/revision_test.lua
+          luajit tests/rate_test.lua
+          luajit tests/motion_test.lua
+          luajit tests/polish_test.lua
+          luajit tests/frame_work_test.lua
+          luajit tests/stress_test.lua
+          python3 tests/release_test.py
+          python3 tests/package.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-package
+          path: |
+            dist/XPIsland-*.zip
+            dist/SHA256SUMS
+            dist/release.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-package
+          path: dist
+      - name: Publish validated GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 scripts/publish_github.py
+      - name: Report CurseForge setup
+        id: curseforge
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN || secrets.CF_API_KEY }}
+        run: |
+          if [ -n "$CF_API_TOKEN" ]; then
+            echo 'configured=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo '::warning::CF_API_TOKEN / CF_API_KEY is missing. GitHub release published; CurseForge upload NOT attempted.'
+            echo 'CurseForge upload was NOT attempted: add CF_API_TOKEN (or CF_API_KEY) as a repository secret, then rerun this workflow for the same tag.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload exact Forever package to CurseForge
+        if: steps.curseforge.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN || secrets.CF_API_KEY }}
+        run: python3 scripts/publish_curseforge.py

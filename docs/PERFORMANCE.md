@@ -31,3 +31,23 @@ The full game still needs a multi-hour soak covering quests, dungeon transitions
 ## Final local run
 
 After the 0.3 design changes: 211 UI objects stayed at 211, 43 registered font objects stayed at 43, 21 event registrations stayed at 21, and one ticker remained live. The final post-warmup 3,000-cycle windows retained 0.30 KiB and 0.00 KiB after garbage collection with JIT disabled. The complete mock stress run took approximately 1.8 seconds on the reviewing Mac. A separate motion suite exercises 2,000 interrupted transitions with hover, profile changes and combat, asserting constant owned object counts and no idle animation script. These measurements describe those runs only.
+
+## 0.4 animation work audit
+
+The animation was already elapsed-time based and unthrottled. Its workload was the problem found in source: every frame repeated static radius/scale setup, cleared/rebuilt many anchors, reset identical colors and visibility flags, repainted invisible fills, and rendered the endpoint twice. It also scanned the rate model and refreshed fonts/text at completion.
+
+Layout now owns fonts, font measurements, fixed anchors, scale and radius. Bar pieces cache color, visibility, shape and cap UV state separately; hidden fills do no native geometry work. Animated frames update changing dimensions, positions and coordinated opacity. The endpoint is rendered once, and the existing clock/event path owns model updates. Unchanged labels and stat values keep their measured text/font state at rest. There are no new recurring callbacks.
+
+A before/after expansion at 10% XP, with identical instrumented mock APIs:
+
+| Cadence | Delivered frames | 0.3 UI calls | 0.4 UI calls | Reduction |
+| --- | ---: | ---: | ---: | ---: |
+| 30 Hz | 7 | 3,533 | 736 | 79.2% |
+| 60 Hz | 14 | 6,606 | 1,462 | 77.9% |
+| 120 Hz | 27 | 12,313 | 2,810 | 77.2% |
+
+`luajit tests/frame_work_test.lua` records current work counts for 0%, partial-cap, 10%, 47.5% and 100% XP to `dist/frame-work-results.txt`. Across those cases, averages are 100–143 counted API calls per delivered animation frame. No font/text/measurement/color/anchor-clear/texture-creation calls or rate-model scans occur inside Animate. Cadence-independent progress is compared at 100 ms. Jitter, long delays, interrupted reversal and a model change during motion are tested. A delayed frame advances to the current position; it cannot reconstruct frames the game did not render.
+
+The baseline uses commit `8c612ad` UI code with the same instrumentation and initial 10%-XP state; its raw results remain in the local `dist/frame-work-before.txt`. These counters measure requested API operations, not native invalidation cost, render throughput or in-game FPS. The duration remains 220 ms. Native profiling is still needed if perceived lag persists.
+
+With the corrected native-arrow mock and one new infinity texture, the stress run now retains 217 mock UI objects rather than 211; five of those six are mock representations of already-existing Blizzard arrows, not new addon objects. Counts remain constant across 6,000 cycles, 43 font registrations, 21 events and one clock. The second post-warmup memory window remained 0.00 KiB. Idle segments still produce zero redraws over 600 seconds.
