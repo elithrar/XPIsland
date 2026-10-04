@@ -1,6 +1,6 @@
 # Validation
 
-XPIsland 0.4.0 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
+XPIsland 0.4.1 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
 
 ## Automated checks
 
@@ -13,6 +13,7 @@ luajit tests/runtime_test.lua
 luajit tests/revision_test.lua
 luajit tests/rate_test.lua
 luajit tests/motion_test.lua
+luajit tests/recovery_test.lua
 luajit tests/polish_test.lua
 luajit tests/frame_work_test.lua
 luajit tests/stress_test.lua
@@ -25,6 +26,7 @@ python3 tests/package.py
 - 36,623 revision assertions: font/default migration, explicit customization, unchanged category tooltip behavior, native template selection, numeric/ETA formatting, all five display modes, top/bottom/custom placement, stable bar centre/vertical coordinates and growing header width, narrow/short windows, corners, scale extremes, reduced safe viewport, and cropped fractional end caps.
 - 52 rolling-rate assertions: reviewed steady/step/idle/quest scenarios, partial-minute expiry, first-minute warmup, reload/grace history, legacy history migration, dungeon-kill weighting without category overlap, delayed source corrections and the fixed 61-slot ring over 10,000 minutes.
 - 6,644 motion/menu/timer assertions: native dropdown selections, profile defaults, hover/drag/settings suspension, 10/15-second deadlines, combat entry and no reopen, interrupted expansion/contraction, label remeasurement, grid centring, clipping/alpha, stable layering, cap cancellation, and 2,000 interrupted interaction cycles. The timer double advances callbacks chronologically and steps active animations.
+- 103 loading/recovery assertions: online loading duration, blocked-renderer elapsed time, unavailable unit values, loading/entry event orders, source boundaries, delayed rollover/cap, genuine corrections and preserved-counter migration from 0.3/0.4. See [recovery review](RECOVERY-041.md).
 - 706 screenshot regression assertions: exact bar hovers, once-per-account hint, profile/reset/reload normalization, empty/warmup/normal/expired/incomplete ETA, symbol fallback, all five dropdowns with long names, and measured drawer margins across fonts/scales. The mock now reproduces the actual Classic TOP anchors before the fix.
 - 983 animation work assertions: 30/60/120 Hz, jitter, long-frame completion, reversal, model updates during motion, synchronized fade/shape, no per-frame static font/color/measurement/allocation work, and idle text caches. Native call counts are not FPS measurements.
 - Ten release tests: stable/alpha/beta/RC classification, exact TOC/flavor/version, actual Git annotated/lightweight tag and merged/unmerged ancestry, unchanged multipart ZIP bytes, duplicate receipt guards, ambiguous upload timeouts, absent token and hash mismatch.
@@ -37,7 +39,7 @@ An optional source integration test executes Blizzard's actual tracking selectio
 luajit tests/stock_tracking_test.lua /path/to/Blizzard_StatusTrackingBar/
 ```
 
-Its eight assertions check XP-only suppression, reputation preservation, reversal, and restoration through a later addon owner's wrapper. This does not establish live taint safety. The eight Lua assertion suites plus pinned source integration total 46,367 checks, in addition to stress and package checks.
+Its eight assertions check XP-only suppression, reputation preservation, reversal, and restoration through a later addon owner's wrapper. This does not establish live taint safety. The nine Lua assertion suites plus pinned source integration total 46,470 checks, in addition to stress and package checks.
 
 The runtime, revision and motion tests emit fourteen SVG layout fixtures in `dist/`. `tests/render_previews.py` renders them with a local macOS Chrome installation. These are explicitly marked offline fixtures, not in-game screenshots: substitute fonts and native-control outlines cannot validate WoW's actual artwork or text rasterization. Screenshot findings and the final self-review are recorded in [0.4 design review](DESIGN-REVIEW-04.md).
 

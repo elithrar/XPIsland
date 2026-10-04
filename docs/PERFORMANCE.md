@@ -51,3 +51,7 @@ A before/after expansion at 10% XP, with identical instrumented mock APIs:
 The baseline uses commit `8c612ad` UI code with the same instrumentation and initial 10%-XP state; its raw results remain in the local `dist/frame-work-before.txt`. These counters measure requested API operations, not native invalidation cost, render throughput or in-game FPS. The duration remains 220 ms. Native profiling is still needed if perceived lag persists.
 
 With the corrected native-arrow mock and one new infinity texture, the stress run now retains 217 mock UI objects rather than 211; five of those six are mock representations of already-existing Blizzard arrows, not new addon objects. Counts remain constant across 6,000 cycles, 43 font registrations, 21 events and one clock. The second post-warmup memory window remained 0.00 KiB. Idle segments still produce zero redraws over 600 seconds.
+
+## 0.4.1 loading ownership
+
+Loading now keeps the existing session clock active. XP reads are gated independently, and the same ticker retries a settling XP/level sample only while one is pending. No recurring timer or UI object was added. Three event registrations cover loading start/end and player connection changes. The stress fixture drains the coalesced zero-delay entry read before counting quiescent timers. The final run retains 217 objects, 43 font registrations, 24 events and one clock across 6,000 cycles; its second memory window remains 0.00 KiB.

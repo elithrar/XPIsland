@@ -1,6 +1,6 @@
 # XPIsland
 
-A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.4.0 targets interface 16001 and was checked against Blizzard UI source for 1.60.1.70205. Retail, Classic Era, and other clients are not supported.
+A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.4.1 targets interface 16001 and was checked against Blizzard UI source for 1.60.1.70205. Retail, Classic Era, and other clients are not supported.
 
 ## Install
 
@@ -45,7 +45,7 @@ The island uses HIGH strata at level 100, above ordinary action bars/panels. Its
 
 ## XP accounting
 
-The first row shows remaining/total level XP, rolling XP/hour, estimated time to the next level, and rested XP. XP/hour uses the rolling model below. ETA is remaining XP divided by its unrounded effective rate. ETA remains unavailable for the first minute, at zero rate, at the cap, or after an unrecoverable accounting gap; zero XP/hour is shown as 0. Time displays use minutes (26m, 1h 42m), not a second countdown. The ETA stat tooltip adds expanded duration, rate and exact remaining XP when available. The collapsed ETA label uses an infinity mark only for a session with no XP activity or an expired rolling rate. This means no estimable current rate, not a promise of infinite leveling time. It uses a bundled symbol so custom font glyph coverage cannot break it; texture-load failure falls back to `n/a`. Warmup or an incomplete session keeps a dash. Hover distinguishes no session activity, first-minute history collection, prior XP outside the rate window, and an accounting gap, followed by exact current/total level XP (%).
+The first row shows remaining/total level XP, rolling XP/hour, estimated time to the next level, and rested XP. XP/hour uses the rolling model below. ETA is remaining XP divided by its unrounded effective rate. ETA remains unavailable for the first minute, at zero rate, at the cap, or while rebuilding pace after an uncountable change; zero XP/hour is shown as 0. Time displays use minutes (26m, 1h 42m), not a second countdown. The ETA stat tooltip adds expanded duration, rate and exact remaining XP when available. The collapsed ETA label uses an infinity mark only for a session with no XP activity or an expired rolling rate. This means no estimable current rate, not a promise of infinite leveling time. It uses a bundled symbol so custom font glyph coverage cannot break it; texture-load failure falls back to `n/a`. Warmup or pace recovery keeps a dash. Hover distinguishes no session activity, first-minute history collection, prior XP outside the rate window, and temporary pace recovery, followed by exact current/total level XP (%).
 
 The second row consists of mutually exclusive session XP totals, in this order:
 
@@ -56,11 +56,11 @@ The second row consists of mutually exclusive session XP totals, in this order:
 
 `UnitXP`/`UnitXPMax` deltas determine the total. Quest and localized kill-message events only classify XP already observed; they never independently increase it. A bounded two-second reconciliation queue tolerates notification order and combined updates. Dungeon context takes precedence. Chat line IDs prevent duplicate kill messages from being reused. Unnamed, unreadable, expired, and mismatched source hints remain Other. Attribution is best effort because the client does not provide a universal transaction ID linking every XP update to its source.
 
-A normal level rollover adds the old level's remaining XP plus the new level's XP. If multiple levels are skipped without observable thresholds, or XP is corrected backwards, the session is marked incomplete instead of estimating missing gains. Its tooltip explains why rate/ETA are unavailable. Profile changes do not reset accounting.
+A normal level rollover adds the old level's remaining XP plus the new level's XP. Unit reads wait through loading and inconsistent level/cap values briefly settle before being accepted. If multiple levels are skipped without observable thresholds, or a backward correction is confirmed, recorded totals remain and only rolling history restarts instead of estimating missing gains. The temporary ETA tooltip says “Recalculating your leveling pace”; estimates resume after the normal minute of fresh history with XP. Source-total tooltips identify recorded-only totals when needed. Profile changes do not reset accounting.
 
 ## Rolling XP rate
 
-Displayed source totals remain session totals. The rate uses online session age A, including online idle and excluding loading/reload/disconnected gaps. K20 and K60 are confirmed kill XP over the last 20 and 60 online minutes; N60 is all non-kill XP over the last hour. The effective rate in XP/second is:
+Displayed source totals remain session totals. The rate uses online session age A, including online idle, running, travel and loading screens, and excluding reload/disconnected time. K20 and K60 are confirmed kill XP over the last 20 and 60 online minutes; N60 is all non-kill XP over the last hour. The effective rate in XP/second is:
 
 ```
 T20 = min(1200, max(A, 60))
@@ -78,9 +78,9 @@ History survives valid reload/grace restoration and resets with the session. A p
 
 ## Session lifetime
 
-Sessions belong to a character, independently of settings profiles. Connected in-world time, including idle time, counts. Loading/reload and detected disconnected intervals do not.
+Sessions belong to a character, independently of settings profiles. Connected session time includes idle, running, Hearthstones, zoning and dungeon loading screens. Loading is gameplay downtime and never starts a new session or invalidates an estimate. XP reads wait while unit data is unavailable, while elapsed time continues. Reload and actual detected disconnected intervals remain excluded.
 
-- `/reload` resumes the session without counting reload downtime.
+- `/reload` resumes the session without counting reload downtime. Old 0.3/0.4 sessions carrying the permanent incomplete flag preserve recorded counters, clear that veto and rebuild only the rolling pace history once.
 - An unintentional departure with a valid saved snapshot resumes on the same character within 300 seconds. A longer absence starts fresh.
 - Observed deliberate logout/quit ends the session. Cancelling logout preserves it. `PLAYER_LOGOUT` alone is not treated as proof of deliberate logout.
 - Server time checks reconnect eligibility. Accumulated monotonic time determines XP/hour; offline wall-clock duration is never added.

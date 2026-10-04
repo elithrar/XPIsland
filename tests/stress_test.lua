@@ -17,7 +17,7 @@ local function cycle(i)
  O:Toggle(X);W.click(O.format);O:CloseMenu();O:Page(i%2==0);O:Switch(i%2==0 and 'Shared' or 'Stress');O.frame:Hide()
  UI:SetExpanded(i%2==0)
  X:LevelUp();X:CancelAutoCollapse();W.advance(.01)
- W.event('PLAYER_ENTERING_WORLD',false,false)
+ W.event('PLAYER_ENTERING_WORLD',false,false);W.advance(0) -- drain the coalesced entry read
 end
 for i=1,100 do cycle(i) end
 collectgarbage('collect');local before=collectgarbage('count')

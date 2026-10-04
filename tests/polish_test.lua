@@ -41,8 +41,8 @@ X.session.seconds=60;UI:Update();eq(UI.infinity:IsShown(),false);eq(UI.label:Get
 eq(hover()[1][1],'13 hours, 47 minutes at your current rate')
 X.session.seconds=3660;UI:Update();eq(UI.infinity:IsShown(),true);eq(X.session.total,100)
 eq(hover()[1][1],M.ETAMessages.idle)
-X.session.incomplete=true;UI:Update();eq(UI.infinity:IsShown(),false);eq(UI.label:GetText(),'—')
-eq(hover()[1][1],M.ETAMessages.unavailable)
+M.RestartRate(X.session);UI:Update();eq(UI.infinity:IsShown(),false);eq(UI.label:GetText(),'—')
+eq(hover()[1][1],M.ETAMessages.recovering)
 -- Legacy rate history warmup is distinct even after many session hours.
 fresh();X.session.total=100;X.session.seconds=7200;X.session.rate=nil;UI:Update()
 eq(hover()[1][1],M.ETAMessages.warming)

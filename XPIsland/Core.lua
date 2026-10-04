@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.4.0", formats={}}
+local X = {version="0.4.1", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -75,11 +75,19 @@ end
 function X:Clock()
     if not self.session then return end
     local now=GetTime()
-    local connected=UnitIsConnected("player")
-    if self.online and self.clockAt and safe(connected) and connected then
+    local connected=self.connected
+    -- Loading/travel is online play time. Unit APIs may be unavailable there,
+    -- so keep the known connection state until the world is readable again.
+    if self.inWorld and not self.loading and (not self.transition or self.connected==false) then
+        local current=UnitIsConnected("player")
+        if safe(current) and type(current)=="boolean" then connected=current end
+    end
+    if self.online and self.clockAt and self.connected~=false and connected~=false then
         local elapsed=now-self.clockAt
         if elapsed>=0 then self.session.seconds=self.session.seconds+elapsed end
     end
+    if connected==false then self.transition=true end
+    self.connected=connected
     self.clockAt=now
 end
 
@@ -92,22 +100,29 @@ function X:Snapshot(reason)
 end
 
 function X:Sample(overrideContext)
-    if not self.tracker then return end
+    if not self.tracker or not self.online or not self.inWorld or self.loading or self.connected==false then return end
     self:Clock()
+    if self.connected==false then return end
     local level,xp,cap=UnitLevel("player"),UnitXP("player"),UnitXPMax("player")
     local t=self.tracker
     if not M.Number(level) or not M.Number(xp) or not M.Number(cap) then return end
     -- XP and level notifications can precede each other's visible values.
-    if self.levelPending and level<self.levelPending then return end
-    self.levelPending=nil
-    t:Sample(level,xp,cap,overrideContext or context(),GetTime())
+    if self.levelPending and level<self.levelPending and GetTime()-(self.levelPendingAt or 0)<1 then return end
+    self.levelPending,self.levelPendingAt=nil,nil
+    local capped=self:IsCapped()
+    if capped and cap==0 and level==t.level then
+        t.pending=nil;self.transition=nil;UI:Update();return
+    end
+    local _,accepted=t:Sample(level,xp,cap,overrideContext or (self.transition and "unknown") or context(),GetTime(),capped)
+    if accepted then self.transition=nil end
     local rested=GetXPExhaustion()
     self.rested=M.Number(rested) and math.max(0,rested) or 0
     UI:Update()
 end
 
 function X:DeferSample()
-    local location=context()
+    if not self.online or not self.inWorld or self.loading or self.connected==false then return end
+    local location=self.transition and "unknown" or context()
     if self.samplePending then
         if self.sampleContext~=location then self.sampleContext="unknown" end
         return
@@ -185,8 +200,7 @@ function X:Initialize(reloading)
     self.profile=M.SelectProfile(db,self.character,self.profileName)
     self.session,self.resumed=M.Resume(XPIslandSession,self.character,GetServerTime(),reloading)
     self.tracker=M.NewTracker(self.session)
-    self.tracker:Baseline(UnitLevel("player"),UnitXP("player"),UnitXPMax("player"))
-    self.online=true;self.clockAt=GetTime()
+    self.inWorld=true;self.online=true;self.connected=true;self.clockAt=GetTime();self.transition=true
     -- Never use a stale reload checkpoint as proof of a later crash's departure.
     XPIslandSession=M.Copy(self.session)
     for name,value in pairs(_G) do
@@ -200,6 +214,7 @@ function X:Initialize(reloading)
     UI:Create(self);self:Sample();self:Integration()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
+        if self.online and (self.transition or self.tracker.pending or self.levelPending) then self:Sample() end
         self:InteractionChanged()
         if UI.expanded or self.profile.format=="eta" then UI:Update() end
     end)
@@ -212,39 +227,56 @@ events:SetScript("OnEvent",function(_,event,...)
         elseif X.session then X:Integration() end
         return
     end
+    if event=="LOADING_SCREEN_ENABLED" or event=="PLAYER_LEAVING_WORLD" then
+        if event=="LOADING_SCREEN_ENABLED" then X.loading=true else X.inWorld=false end
+        X:Clock();X.transition=true
+        if X.tracker then X.tracker.pending=nil;X.tracker.awards={};X.tracker.hints={} end
+        -- Do not sample here: unit values can already be unloading/reset.
+        return
+    elseif event=="LOADING_SCREEN_DISABLED" then
+        X:Clock();X.loading=false
+        if X.session and X.inWorld then X:DeferSample() end
+        return
+    end
     if event=="PLAYER_ENTERING_WORLD" then
         local initial,reloading=...
         if not X.session then X:Initialize(reloading)
         else
-            X.online=true;X.clockAt=GetTime()
-            -- Gains during a loading/transition gap have no reliable location.
-            X:Sample("unknown")
-            X:Integration()
+            X:Clock();X.inWorld=true;X.online=true;X.transition=true
+            -- Wait through loading and coalesce entry-frame XP notifications.
+            -- Any observed transition gain has no reliable source location.
+            X:DeferSample();X:Integration()
         end
         return
     end
     if not X.session then return end
-    if event=="PLAYER_XP_UPDATE" then
+    if event=="UNIT_CONNECTION" then
+        local unit,connected=...
+        if safe(unit) and unit=="player" and safe(connected) and type(connected)=="boolean" then
+            X:Clock();X.connected=connected;X.clockAt=GetTime()
+            if connected then X:DeferSample() else X.transition=true end
+        end
+    elseif event=="PLAYER_XP_UPDATE" then
         local unit=...
         if safe(unit) and unit=="player" then X:DeferSample() end
     elseif event=="PLAYER_LEVEL_UP" then
         local level=...
-        if M.Number(level) then X.levelPending=level end
+        if M.Number(level) then X.levelPending=level;X.levelPendingAt=GetTime() end
         X:DeferSample();X:LevelUp()
     elseif event=="QUEST_TURNED_IN" then
+        if not X.online or not X.inWorld or X.loading or X.connected==false then return end
         local id,amount=...
         local key=safe(id) and M.Number(amount) and ("quest:"..tostring(id)..":"..tostring(amount)..":"..GetTime()) or nil
         X.tracker:Hint("quests",amount,context(),GetTime(),key)
         X:DeferSample()
     elseif event=="CHAT_MSG_COMBAT_XP_GAIN" then
+        if not X.online or not X.inWorld or X.loading or X.connected==false then return end
         local text=...
         local lineID=select(11,...)
         local amount=M.ParseXP(text,X.formats)
         local id=M.Number(lineID) and lineID>0 and "chat:"..lineID or nil
         X.tracker:Hint("kills",amount,context(),GetTime(),id)
         X:DeferSample()
-    elseif event=="PLAYER_LEAVING_WORLD" then
-        X:Sample();X:Clock();X.online=false
     elseif event=="PLAYER_LOGOUT" then
         X:Snapshot(X.reloadIntent and "reload" or X.cleanIntent and "clean" or "departed")
         X.online=false
@@ -259,8 +291,8 @@ events:SetScript("OnEvent",function(_,event,...)
     else X:Sample() end
 end)
 
-for _,event in ipairs({"ADDON_LOADED","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
-    "CHAT_MSG_COMBAT_XP_GAIN","PLAYER_LEAVING_WORLD","PLAYER_LOGOUT","PLAYER_CAMPING","PLAYER_QUITING","LOGOUT_CANCEL",
+for _,event in ipairs({"ADDON_LOADED","UNIT_CONNECTION","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
+    "CHAT_MSG_COMBAT_XP_GAIN","LOADING_SCREEN_ENABLED","LOADING_SCREEN_DISABLED","PLAYER_LEAVING_WORLD","PLAYER_LOGOUT","PLAYER_CAMPING","PLAYER_QUITING","LOGOUT_CANCEL",
     "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
     "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN"}) do events:RegisterEvent(event) end
 

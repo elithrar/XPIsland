@@ -170,7 +170,7 @@ function GetXPExhaustion() return W.rested end
 function UnitGUID() return "Player-1" end
 function UnitName() return "Test" end
 function GetRealmName() return "Realm" end
-function UnitIsConnected() return true end
+function UnitIsConnected() return W.connected~=false end
 function IsInInstance() return W.instance~="none",W.instance end
 function IsXPUserDisabled() return false end
 function GetMaxPlayerLevel() return 60 end

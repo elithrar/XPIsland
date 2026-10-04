@@ -197,7 +197,7 @@ function UI:Create(owner)
             elseif i == 1 and owner.tracker and owner.tracker.cap then
                 GameTooltip:AddLine(string.format("%d / %d XP remaining", math.max(0,owner.tracker.cap-owner.tracker.xp), owner.tracker.cap), .8,.65,1)
             end
-            if i~=3 and s and s.incomplete then GameTooltip:AddLine("Session contains a gap; rate and ETA are unavailable.",1,.65,.25,true) end
+            if i>=5 and s and s.partial then GameTooltip:AddLine("Totals include recorded XP only.",.75,.77,.82,true) end
             GameTooltip:Show()
         end)
         cell:SetScript("OnLeave", function() GameTooltip:Hide();owner:InteractionChanged() end)

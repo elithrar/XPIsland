@@ -41,13 +41,13 @@ X.profile.font='Game tooltip';X.profile.fontSize=14
 W.click(O.format);eq(#O.format.menuDescription.entries,5);eq(O.format.menuDescription.entries[2].label,'Current / Total XP');eq(O.format.menuDescription.entries[5].label,'Time to Next Level')
 W.choose(O.format,'eta');eq(UI.infinity:IsShown(),true,'no-activity infinity symbol')
 X.session.total=6000;X.session.buckets.other=6000;X.session.seconds=3600
-W.xp=60800;W.cap=95000;X:Sample();X.session.total=6000;X.session.buckets={kills=0,quests=0,dungeons=0,other=6000};X.session.rate={version=1,startedAt=0,buckets={}};M.RateAward(X.session,6000);UI:Update()
+W.xp=60800;W.cap=95000;X:Sample();W.advance(2.1);X.session.total=6000;X.session.buckets={kills=0,quests=0,dungeons=0,other=6000};X.session.rate={version=1,startedAt=0,buckets={}};M.RateAward(X.session,6000);UI:Update()
 eq(UI.label:GetText(),UI.cells[3].value:GetText(),'same ETA in bar and cell')
 UI.cells[3].scripts.OnEnter();eq(#W.tooltip.lines,4,'ETA context added without styling change')
 eq(W.tooltip.lines[4][1],'6K XP/hour · 34200 XP remaining')
 local previous=UI.label:GetText();W.event('PLAYER_LEAVING_WORLD');W.advance(120);eq(UI.label:GetText(),previous,'no offline ETA drift')
 W.event('PLAYER_ENTERING_WORLD',false,false)
-W.level=11;W.xp=10;W.cap=120000;X:Sample();UI:Update()
+W.level=11;W.xp=10;W.cap=120000;X:Sample();W.advance(2.1);UI:Update()
 eq(UI.label:GetText(),M.Duration(select(2,M.Estimate(X.session,10,120000,false))),'rollover estimate uses new level')
 O.frame:Hide()
 -- Full rectangle containment and stable bar across every supported layout tier.

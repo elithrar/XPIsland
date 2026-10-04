@@ -157,7 +157,7 @@ function M.RateKill(session,index,amount)
 end
 
 function M.Estimate(session, xp, cap, capped)
-    if capped or not cap or cap<=0 or not session or session.incomplete then return end
+    if capped or not cap or cap<=0 or not session then return end
     local history=M.RateHistory(session)
     local age=max(0,session.seconds-history.startedAt)
     local k20,k60,n60=0,0,0
@@ -184,7 +184,8 @@ end
 -- A missing estimate has several distinct causes. Never infer session activity
 -- from the rolling rate: earned XP remains earned after its rate window expires.
 function M.ETAState(session, rate, duration)
-    if not session or session.incomplete then return "unavailable" end
+    if not session then return "unavailable" end
+    if session.rate and session.rate.recovery and session.seconds-session.rate.startedAt<60 then return "recovering" end
     if session.total == 0 then return "empty" end
     if duration then return "ready" end
     if session.rate and session.seconds-session.rate.startedAt < 60 then return "warming" end
@@ -195,8 +196,9 @@ end
 M.ETAMessages = {
     empty = "No XP activity in this session yet.",
     warming = "Collecting a full minute of XP history for an estimate.",
-    idle = "Earlier XP has left the rate window; earn XP for a new estimate.",
-    unavailable = "Session contains a gap; time to level is unavailable.",
+    idle = "No recent XP to estimate from. Earn XP to update your pace.",
+    unavailable = "Waiting for XP information.",
+    recovering = "Recalculating your leveling pace.",
 }
 
 function M.ExactXP(xp, cap)
@@ -278,13 +280,23 @@ function M.Resume(saved, character, wall, reloading)
             local s = M.Copy(saved)
             s.reason, s.savedAt = "active", wall
             M.RateHistory(s)
+            if s.incomplete then M.RestartRate(s) end
             return s, true
         end
     end
     return M.NewSession(character, wall), false
 end
 
+-- Preserve recorded counters; never guess XP across an unknown threshold or
+-- correction. Only the rolling baseline needs to recover, once, not forever.
+function M.RestartRate(session)
+    session.rate={version=1,startedAt=session.seconds,buckets={},recovery=true}
+    session.incomplete=false -- migrate the pre-0.4.1 permanent estimate veto
+    session.partial=true
+end
+
 function M.NewTracker(session)
+    if session.incomplete then M.RestartRate(session) end
     return setmetatable({session = session, awards = {}, hints = {}, seen = {}}, {__index = M})
 end
 
@@ -292,21 +304,38 @@ function M:Baseline(level, xp, cap)
     self.level, self.xp, self.cap = level, xp, cap
 end
 
-function M:Sample(level, xp, cap, context, now)
-    if not M.Number(level) or not M.Number(xp) or not M.Number(cap) or level < 1 or xp < 0 or cap < 0 then return end
-    if not self.level then self:Baseline(level, xp, cap); return end
-    local gain
-    if level == self.level then
-        gain = xp - self.xp
-    elseif level == self.level + 1 and self.cap > 0 then
-        gain = self.cap - self.xp + xp
-    else
-        self.session.incomplete = true
+function M:Sample(level, xp, cap, context, now, capped)
+    if not M.Number(level) or not M.Number(xp) or not M.Number(cap)
+        or level<1 or xp<0 or cap<0 or (cap==0 and not capped) or xp>cap then return nil,false end
+    if not self.level then self:Baseline(level,xp,cap);return 0,true end
+    local ordinary=level==self.level and cap==self.cap and xp>=self.xp
+    if not ordinary then
+        -- UnitLevel, UnitXP and UnitXPMax can change in different notifications.
+        -- Keep the last valid baseline while a new level/cap or backward value
+        -- settles. The owner's existing ticker retries; there is no new timer.
+        local pending=self.pending
+        if not pending or pending.level~=level or pending.cap~=cap then
+            self.pending={level=level,cap=cap,since=now,context=context}
+            return nil,false
+        end
+        if context~=pending.context then pending.context="unknown" end
+        if now-pending.since<1 then return nil,false end
+        context=pending.context
+    elseif self.pending then
+        -- A transient backward reading recovered: use the untouched baseline.
+        if context~=self.pending.context then context="unknown" end
     end
-    if gain and gain < 0 then self.session.incomplete = true; gain = nil end
-    self:Baseline(level, xp, cap)
-    if gain and gain > 0 then self:Award(gain, context, now) end
-    return gain
+    self.pending=nil
+    local gain
+    if level==self.level and xp>=self.xp then gain=xp-self.xp
+    elseif level==self.level+1 and self.cap>0 then gain=self.cap-self.xp+xp
+    else
+        M.RestartRate(self.session)
+        self.awards,self.hints={},{} -- old hints cannot classify a new baseline
+    end
+    self:Baseline(level,xp,cap)
+    if gain and gain>0 then self:Award(gain,context,now) end
+    return gain,true
 end
 
 function M:Award(amount, context, now)
