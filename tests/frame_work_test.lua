@@ -7,6 +7,8 @@ W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 X.profile.autoCollapse=false
 local scans=0;local estimate=M.Estimate;M.Estimate=function(...) scans=scans+1;return estimate(...) end
 local out=assert(io.open('dist/frame-work-results.txt','w'))
+for _,rested in ipairs({0,250,2000}) do
+ X.rested=rested
 for _,fraction in ipairs({0,.001,.1,.475,1}) do
  X.tracker.xp=X.tracker.cap*fraction;UI:Update()
  for _,hz in ipairs({30,60,120}) do
@@ -30,8 +32,9 @@ for _,fraction in ipairs({0,.001,.1,.475,1}) do
   check(UI.progress==1 and not UI.frame.scripts.OnUpdate,'one exact endpoint, callback removed')
   check(frames==math.ceil(.22*hz),'duration follows elapsed time, not a fixed frame count')
   local t=.1/.22;near(midpoint,(1-(1+7*t)*math.exp(-7*t))/(1-8*math.exp(-7)),'same progress after 100ms at each cadence')
-  out:write(string.format('%3d Hz | XP %5.1f%% | %2d frames | %4d UI calls | %.1f/frame | %d rate scans\n',hz,fraction*100,frames,total,total/frames,scans))
+  out:write(string.format('%3d Hz | XP %5.1f%% | rested %4d | %2d frames | %4d UI calls | %.1f/frame | %d rate scans\n',hz,fraction*100,rested,frames,total,total/frames,scans))
  end
+end
 end
 -- Jitter, low FPS and a large missed-frame jump complete without replaying work.
 for _,sequence in ipairs({{.006,.048,.004,.08,.01,.15},{.001,.5},{.1,.1,.1}}) do

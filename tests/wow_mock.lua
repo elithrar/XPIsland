@@ -113,9 +113,15 @@ function methods:SetFont(path,size,flags) self.fontPath,self.fontSize,self.fontF
 function methods:SetText(text) self.text=tostring(text);if self.fontString then self.fontString:SetText(text) end end
 function methods:GetText() return self.text or "" end
 function methods:SetTextColor(r,g,b,a) self.color={r,g,b,a or 1} end
-function methods:GetStringWidth() return #(self.text or "")*(self.fontSize or 12)*.52 end
+function methods:GetStringWidth()
+    local longest=0;for line in ((self.text or "").."\n"):gmatch("([^\n]*)\n") do longest=math.max(longest,#line) end
+    return longest*(self.fontSize or 12)*.52
+end
 methods.GetUnboundedStringWidth=methods.GetStringWidth
-function methods:GetStringHeight() return (self.fontSize or 12)*1.25 end
+function methods:GetStringHeight()
+    local _,breaks=(self.text or ""):gsub("\n","")
+    return (breaks+1)*(self.fontSize or 12)*1.25
+end
 function methods:SetJustifyV(v) self.justifyV=v end
 function methods:GetFont() return self.fontPath,self.fontSize,self.fontFlags end
 function methods:SetShadowColor() end
@@ -317,7 +323,8 @@ function W.svg(path,root)
             if o.kind=="EditBox" then x=x+8;y=y+(h-s)/2 end
             local anchor=o.justify=="RIGHT" and "end" or o.justify=="CENTER" and "middle" or "start"
             if o.justifyV=="MIDDLE" then y=y+(h-s*1.25)/2 end
-            local lines={o.text or ""}
+            local lines={}
+            for line in ((o.text or "").."\n"):gmatch("([^\n]*)\n") do lines[#lines+1]=line end
             if o.wrap and w>0 then
                 lines={};local line=""
                 for word in (o.text or ""):gmatch("%S+") do

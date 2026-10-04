@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.4.3", formats={}}
+local X = {version="0.5.0", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -65,10 +65,53 @@ function X:Toggle()
     if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(15) end
 end
 
-function X:LevelUp()
+function X:ClearLevelNotice()
+    if self.levelNoticeTimer then self.levelNoticeTimer:Cancel();self.levelNoticeTimer=nil end
+    self.levelNotice=nil
+end
+
+-- Independent from session XP/rate counters. Only a whole, continuously observed
+-- level is reportable; the chat-producing /played API is deliberately not called.
+function X:ObserveLevel(level)
+    if not M.Number(level) or level<1 or level~=math.floor(level) then return false end
+    self:Clock()
+    local previous=self.levelTiming
+    if self.lastLevelEvent and level<=self.lastLevelEvent then return false end
+    if previous and level<previous.level then return false end
+    self:ClearLevelNotice()
+    local adjacent=previous and level==previous.level+1 and level==(self.lastLevelEvent or previous.level)+1
+    self.lastLevelEvent=level
+    local duration=adjacent and previous.complete and previous.seconds>0 and previous.seconds or nil
+    self.levelTiming={level=level,seconds=0,complete=not not (adjacent and self.online and self.connected~=false)}
+    return true,duration
+end
+
+function X:ObserveLevelSample(level)
+    if not self.lastLevelEvent then self.lastLevelEvent=level end
+    local timing=self.levelTiming
+    if not timing or timing.level~=level then
+        -- A level changed without its event (or values contradicted an event).
+        -- Never turn a partial observation into a completed-level duration.
+        self.levelTiming={level=level,seconds=0,complete=false}
+        self:ClearLevelNotice()
+    end
+end
+
+function X:LevelUp(duration)
+    self:ClearLevelNotice()
     if not self.profile.levelUp or self:IsCapped() or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:CancelAutoCollapse()
     UI:SetExpanded(true)
+    if M.Number(duration) and duration>0 then
+        local notice={seconds=duration,level=self.levelTiming.level-1}
+        self.levelNotice=notice
+        self.levelNoticeTimer=C_Timer.NewTimer(10,function()
+            if self.levelNotice~=notice then return end
+            self.levelNoticeTimer=nil;self.levelNotice=nil
+            UI:Update()
+        end)
+        UI:Update()
+    end
     self:ArmCollapse(10)
 end
 
@@ -84,9 +127,15 @@ function X:Clock()
     end
     if self.online and self.clockAt and self.connected~=false and connected~=false then
         local elapsed=now-self.clockAt
-        if elapsed>=0 then self.session.seconds=self.session.seconds+elapsed end
+        if elapsed>=0 then
+            self.session.seconds=self.session.seconds+elapsed
+            if self.levelTiming and self.levelTiming.complete then self.levelTiming.seconds=self.levelTiming.seconds+elapsed end
+        elseif self.levelTiming then self.levelTiming.complete=false end
     end
-    if connected==false then self.transition=true end
+    if connected==false then
+        self.transition=true
+        if self.levelTiming then self.levelTiming.complete=false end
+    end
     self.connected=connected
     self.clockAt=now
 end
@@ -113,11 +162,20 @@ function X:Sample(overrideContext)
     if capped and cap==0 and level==t.level then
         t.pending=nil;self.transition=nil;UI:Update();return
     end
-    local _,accepted=t:Sample(level,xp,cap,overrideContext or (self.transition and "unknown") or context(),GetTime(),capped)
-    if accepted then self.transition=nil end
+    local oldLevel,oldXP,oldCap=t.level,t.xp,t.cap
+    local wasTransition=self.transition
+    local gain,accepted=t:Sample(level,xp,cap,overrideContext or (self.transition and "unknown") or context(),GetTime(),capped)
+    if accepted then
+        self.transition=nil
+        self:ObserveLevelSample(level)
+    end
     local rested=GetXPExhaustion()
     self.rested=M.Number(rested) and math.max(0,rested) or 0
     UI:Update()
+    if accepted and oldLevel~=nil then
+        if oldLevel~=level or oldCap~=cap or xp<oldXP then UI:ClearHighlights()
+        elseif gain and gain>0 and not wasTransition then UI:HighlightSegments(oldXP,xp,cap) end
+    end
 end
 
 function X:DeferSample()
@@ -230,6 +288,7 @@ events:SetScript("OnEvent",function(_,event,...)
     if event=="LOADING_SCREEN_ENABLED" or event=="PLAYER_LEAVING_WORLD" then
         if event=="LOADING_SCREEN_ENABLED" then X.loading=true else X.inWorld=false end
         X:Clock();X.transition=true
+        if UI.frame then UI:ClearHighlights() end
         if X.tracker then X.tracker.pending=nil;X.tracker.awards={};X.tracker.hints={} end
         -- Do not sample here: unit values can already be unloading/reset.
         return
@@ -254,6 +313,7 @@ events:SetScript("OnEvent",function(_,event,...)
         local unit,connected=...
         if safe(unit) and unit=="player" and safe(connected) and type(connected)=="boolean" then
             X:Clock();X.connected=connected;X.clockAt=GetTime()
+            if not connected and X.levelTiming then X.levelTiming.complete=false end
             if connected then X:DeferSample() else X.transition=true end
         end
     elseif event=="PLAYER_XP_UPDATE" then
@@ -261,8 +321,12 @@ events:SetScript("OnEvent",function(_,event,...)
         if safe(unit) and unit=="player" then X:DeferSample() end
     elseif event=="PLAYER_LEVEL_UP" then
         local level=...
-        if M.Number(level) then X.levelPending=level;X.levelPendingAt=GetTime() end
-        X:DeferSample();X:LevelUp()
+        local changed,duration=X:ObserveLevel(level)
+        if M.Number(level) and level>(X.tracker.level or 0) and X.levelPending~=level then
+            X.levelPending=level;X.levelPendingAt=GetTime()
+        end
+        X:DeferSample()
+        if changed then UI:ClearHighlights();X:LevelUp(duration) end
     elseif event=="QUEST_TURNED_IN" then
         if not X.online or not X.inWorld or X.loading or X.connected==false then return end
         local id,amount=...
@@ -306,6 +370,8 @@ SLASH_XPISLAND1="/xpisland"
 SlashCmdList.XPISLAND=function(message)
     if not X.session then say("XPIsland is waiting for your character to enter the world.");return end
     if message:lower():match("^%s*reset%s*$") then
+        X:Clock()
+        UI:ClearHighlights()
         X.session=M.NewSession(X.character,GetServerTime())
         X.tracker=M.NewTracker(X.session);X.clockAt=GetTime();X:Sample()
         say("Session reset.")

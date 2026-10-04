@@ -73,7 +73,7 @@ for _,size in ipairs({10,12,14,18}) do
   for _,scale in ipairs({.5,1,1.5}) do
    X.profile.fontSize=size;X.profile.scale=scale;X.profile.placement=placement;UI:SetExpanded(true,true)
    local _,fy,_,fh=UI.frame:Rect();local _,hy,_,hh=UI.header:Rect()
-   local _,ty,_,th=UI.cells[1].title:Rect();local _,vy=UI.cells[5].value:Rect()
+   local _,ty,_,th=UI.cells[1].title:Rect();local _,vy=UI.cells[5].shareTrack:Rect()
    local drawerTop=placement=='bottom' and fy+fh or hy
    local drawerBottom=placement=='bottom' and hy+hh or fy
    near(drawerTop-(ty+th),vy-drawerBottom,'equal visual top and bottom padding')

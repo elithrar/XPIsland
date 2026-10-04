@@ -29,11 +29,11 @@ The default is bounded, not a percentage of an ultrawide screen. The following a
 
 | Usable UIParent width | Collapsed | Expanded |
 | --- | ---: | ---: |
-| Below 1400 | 360 × 34 | 460 × ≥136 |
-| 1400–1999 | 400 × 34 | 520 × ≥136 |
-| 2000 and above | 440 × 34 | 560 × ≥136 |
+| Below 1400 | 360 × 34 | 460 × ≥141 |
+| 1400–1999 | 400 × 34 | 520 × ≥141 |
+| 2000 and above | 440 × 34 | 560 × ≥141 |
 
-Expanded height starts at 136 units and grows when the selected font needs more room. The drawer measures the text block, centers each row, and uses equal 12-unit top/bottom insets with a 6-unit row gap.
+Expanded height starts at 141 units and grows when the selected font needs more room. The drawer measures the text block, centers each row, and uses equal 12-unit top/bottom insets with a 6-unit row gap. The source row includes five units for a three-unit gap and a two-unit share fill beneath each value.
 
 The independent island scale defaults to 100%. Its slider and numeric field both accept 50–150%. These multiply WoW's effective UI scale; maximum unscaled widths remain 440/560 even on larger screens. A final fit-to-screen limit keeps the expanded panel inside the available viewport. The collapsed width may grow within its 440-unit maximum for a wide custom font. Labels use unbounded text measurements and compact K/M numbers. A useful bar width is preserved without shrinking the selected text size. The header keeps its vertical position and horizontal centre while its width grows with the island. Segments fill the available header width and the measured label stays 14 units from its right edge. The two rows of four stat cells have centred labels/values and equal 20-unit outer margins. Custom anchors reserve the complete expanded footprint even while collapsed. Global WoW UI scale and graphics settings are never changed.
 
@@ -114,3 +114,16 @@ See [validation coverage](VALIDATION.md) for exact checks. LuaJIT model and mock
 XPIsland's code and rounded textures are original. No Ellesmere/Danders code, fonts, or artwork is bundled.
 
 Expanded stat tooltips require 750 milliseconds over the same cell. Leaving, switching cells, collapsing, hiding or dragging cancels that hover; the next cell starts a fresh delay. The collapsed bar keeps its immediate tooltip.
+
+
+## Progress details in 0.5
+
+Newly completed 5% segments receive one subtle white highlight fading out over 250 ms. Multiple segments completed by the same gain highlight together. Only accepted positive XP gains within the same level trigger it; login, loading restoration, repainting, profile changes, rested changes and rollover do not. The highlight has a temporary animation callback and stops on completion, hiding, dragging, loading, reset or profile relayout.
+
+The solid earned bar remains blue while rested XP is available and purple otherwise, using the configured colors. A muted version of the rested color previews progress from current XP to current XP plus remaining rested XP, capped at the current level. It preserves segment gaps and rounded end caps. The Rested XP number still includes overflow into later levels. The preview is a rested allowance, not XP already earned or a prediction about future rewards.
+
+The four source values have thin proportional fills. Each uses its category divided by total recorded session XP, so dungeon XP remains mutually exclusive with outdoor kills and quests. Late attribution corrections move the appropriate shares without changing total XP. A zero-XP session has neutral empty tracks, not invented percentages. No new numbers, rows or settings are added.
+
+During the existing level-up expansion, “Last level took” temporarily replaces Time to Level when a complete duration is known. It returns to ETA after ten seconds even if hovering keeps the drawer open. The collapsed label and header XP bar retain their usual behavior. Collapse, combat dismissal and hiding cancel the transient notice; cap and level-up preference rules still apply.
+
+Previous-level duration uses a separate continuously observed play-time counter from one adjacent level-up event to the next. Idle, travel and loading count. Session resets and profile changes do not reset it. The initial partial level, reloads, actual disconnections, skipped levels, missing boundaries and ambiguous event ordering make the affected duration unknown, so the notice is omitted. A later fully observed level can be shown. No time history is written to SavedVariables, no automatic /played request is made, and chat handlers are not altered. This intentionally does not reconstruct levels played before observation or through a reload/disconnection.

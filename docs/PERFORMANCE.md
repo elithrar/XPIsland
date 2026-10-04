@@ -55,3 +55,9 @@ With the corrected native-arrow mock and one new infinity texture, the stress ru
 ## 0.4.1 loading ownership
 
 Loading now keeps the existing session clock active. XP reads are gated independently, and the same ticker retries a settling XP/level sample only while one is pending. No recurring timer or UI object was added. Three event registrations cover loading start/end and player connection changes. The stress fixture drains the coalesced zero-delay entry read before counting quiescent timers. The final run retains 217 objects, 43 font registrations, 24 events and one clock across 6,000 cycles; its second memory window remains 0.00 KiB.
+
+## 0.5 progress details
+
+The preview and highlight layers add 93 fixed mock objects (310 total), including one temporary highlight driver and eight source textures. They are constructed once. Fully earned segments suppress their covered preview layers. With zero, partial and overflowing rested XP, the animation suite measured 108.1–153.1 requested native calls per delivered frame across its tested fractions and cadences. The existing 170-call budget still passes, with no per-frame font/text/measurement/color/allocation work or rate scans. These are workload proxies, not native FPS measurements.
+
+The 250 ms highlight driver changes alpha only and removes its OnUpdate when empty. The ten-second “Last level took” notice owns one cancellable one-shot timer. Per-level observation shares the existing clock and is independent of session resets. No permanent polling, event registration or persisted history was added. After 6,000 UI/profile cycles, 310 objects, 43 fonts, 24 events and one clock remain; final retained Lua memory deltas were 0.20/0.00 KiB across the two measured windows. The 1,000-cycle highlight test also leaves no active callback or new objects. Idle segments still produce zero redraws over 600 seconds.

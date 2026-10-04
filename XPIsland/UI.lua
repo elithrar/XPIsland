@@ -3,6 +3,8 @@ local M = ns.Model
 local UI = {}
 ns.UI = UI
 local TRACK_COLOR={.14,.14,.18}
+local FLASH_COLOR={1,1,1}
+local SOURCE_KEYS={"kills","quests","dungeons","other"}
 local MEDIA = "Interface\\AddOns\\XPIsland\\media\\rounded.tga"
 
 function UI.Text(parent, size, r, g, b)
@@ -161,12 +163,19 @@ end
 
 function UI:ShowStatTooltip(cell,i)
     local owner=self.owner
+    if i==3 and owner.levelNotice then
+        GameTooltip:SetOwner(cell,"ANCHOR_BOTTOM")
+        GameTooltip:AddLine("Last level",1,1,1)
+        GameTooltip:AddLine(string.format("Level %d took %s of observed play time.",owner.levelNotice.level,M.Duration(owner.levelNotice.seconds,true)),.75,.77,.82,true)
+        GameTooltip:AddLine("Includes idle, travel and loading. Shown only when the whole level was observed without a reload or disconnection.",.75,.77,.82,true)
+        GameTooltip:Show();return
+    end
     GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
     GameTooltip:AddLine(tooltipLabels[i], 1,1,1)
     if i~=3 then GameTooltip:AddLine(explanations[i], .75,.77,.82, true) end
     local s = owner.session
     if i >= 5 and s then
-        local key = ({"kills","quests","dungeons","other"})[i-4]
+        local key = SOURCE_KEYS[i-4]
         local amount = s.buckets[key]
         GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
     elseif i == 3 and owner.tracker then
@@ -201,6 +210,10 @@ function UI:Create(owner)
     local content = CreateFrame("Frame", nil, f)
     self.content = content; content:SetAllPoints(); content:SetFrameLevel(f:GetFrameLevel()+2)
     self.header=CreateFrame("Frame",nil,content)
+    self.flashDriver=CreateFrame("Frame",nil,self.header)
+    self.flashStep=function(_,elapsed) self:AnimateHighlights(elapsed) end
+    self.flashes={}
+    self.restedColor={}
     self.label = UI.Text(self.header, 14)
     self.label:SetJustifyH("RIGHT")
     -- A bundled symbol avoids guessing arbitrary SharedMedia font coverage.
@@ -213,10 +226,13 @@ function UI:Create(owner)
     for i=1,20 do
         local edge=i==1 and "left" or i==20 and "right" or nil
         local track = UI.BarPiece(self.header, "ARTWORK", edge)
+        local preview=UI.BarPiece(self.header,"ARTWORK",edge)
+        preview:SetFrameLevel(track:GetFrameLevel()+1);preview:SetPoint("LEFT",track,"LEFT")
         local fill = UI.BarPiece(self.header, "OVERLAY", edge)
-        fill:SetFrameLevel(track:GetFrameLevel()+1)
-        fill:SetPoint("LEFT", track, "LEFT")
-        self.segments[i] = {track=track, fill=fill}
+        fill:SetFrameLevel(track:GetFrameLevel()+2);fill:SetPoint("LEFT",track,"LEFT")
+        local flash=UI.BarPiece(self.header,"OVERLAY",edge)
+        flash:SetFrameLevel(track:GetFrameLevel()+3);flash:SetPoint("LEFT",track,"LEFT");flash:Hide()
+        self.segments[i] = {track=track,preview=preview,fill=fill,flash=flash}
     end
     self.divider = UI.Solid(content, "ARTWORK", .18,.18,.22)
     self.details=CreateFrame("Frame",nil,content)
@@ -230,6 +246,12 @@ function UI:Create(owner)
         cell.title:SetPoint("TOP"); cell.value:SetPoint("TOP",0,-18);cell.value:SetText("0")
         cell.title:SetJustifyH("CENTER");cell.value:SetJustifyH("CENTER")
         cell.title:SetText(labels[i])
+        if i>=5 then
+            cell.shareTrack=UI.Solid(cell,"ARTWORK",unpack(TRACK_COLOR))
+            cell.shareTrack:SetPoint("TOP",cell.value,"BOTTOM",0,-3)
+            cell.shareFill=UI.Solid(cell,"OVERLAY",.46,.41,.58)
+            cell.shareFill:SetPoint("LEFT",cell.shareTrack,"LEFT");cell.shareFill:Hide()
+        end
         cell:SetScript("OnEnter", function()
             owner:InteractionChanged()
             self:BeginStatTooltip(cell,i)
@@ -245,7 +267,7 @@ function UI:Create(owner)
     end)
     f:SetScript("OnDragStart", function()
         if owner.profile.locked then return end
-        self:CancelStatTooltip()
+        self:CancelStatTooltip();self:ClearHighlights()
         self.dragged = true; self.dragging = true
         owner:InteractionChanged(); self:StopAnimation(); self:RenderGeometry(self.expanded and 1 or 0); f:StartMoving()
     end)
@@ -279,7 +301,8 @@ function UI:Create(owner)
     end)
     f:SetScript("OnLeave", function() GameTooltip:Hide();owner:InteractionChanged() end)
     f:SetScript("OnHide",function()
-        self:CancelStatTooltip()
+        self:CancelStatTooltip();self:ClearHighlights()
+        owner:ClearLevelNotice()
         self:StopAnimation();owner:CancelAutoCollapse()
         self.expanded=false
         if self.layout then self:RenderGeometry(0) end
@@ -318,14 +341,26 @@ end
 
 function UI:Layout(preserveMotion)
     if not self.frame or self.dragging then return end
-    if not preserveMotion then self:CancelStatTooltip() end
+    if not preserveMotion then self:CancelStatTooltip();self:ClearHighlights() end
     local p,f=self.owner.profile,self.frame
     self.font=UI.Font(p)
     self.label:SetFont(self.font,p.fontSize,"")
     self.infinity:SetSize(p.fontSize*1.4,p.fontSize*.8)
     local titleHeight,valueHeight=0,0
-    for _,c in ipairs(self.cells) do
+    local _,expandedWidth=M.Layout(UIParent:GetWidth(),p.scale)
+    local titleWidth=(expandedWidth-76)/4
+    local showing=self.owner.levelNotice~=nil
+    if self.noticeShowing~=showing then self:CancelStatTooltip(self.cells[3]) end
+    self.noticeShowing=showing
+    for i,c in ipairs(self.cells) do
         c.title:SetFont(self.font,math.max(12,math.min(14,p.fontSize-2)),"")
+        if i==3 then
+            c.title:SetText(self.noticeShowing and "Last level took" or labels[3])
+            if self.noticeShowing and c.title:GetUnboundedStringWidth()>titleWidth then
+                c.title:SetText("Last level\ntook")
+                if c.title:GetUnboundedStringWidth()>titleWidth then c.title:SetText("Last\nlevel\ntook") end
+            end
+        end
         c.value:SetFont(self.font,p.fontSize,"")
         titleHeight=math.max(titleHeight,c.title:GetStringHeight())
         valueHeight=math.max(valueHeight,c.value:GetStringHeight())
@@ -334,7 +369,7 @@ function UI:Layout(preserveMotion)
     local tracker=self.owner.tracker
     local rate,duration=M.Estimate(self.owner.session,tracker and tracker.xp,tracker and tracker.cap,self.owner:IsCapped())
     local _,labelWidth=self:BarLabel(rate,duration)
-    local layout=M.Placement(UIParent:GetWidth(),UIParent:GetHeight(),p,labelWidth+180,24+cellHeight*2+6)
+    local layout=M.Placement(UIParent:GetWidth(),UIParent:GetHeight(),p,labelWidth+180,24+cellHeight*2+6+5)
     layout.labelWidth=labelWidth;layout.font=self.font;layout.cellHeight=cellHeight
     self.layout=layout
     if not preserveMotion then self:StopAnimation();self.progress=self.expanded and 1 or 0 end
@@ -356,7 +391,7 @@ function UI:Layout(preserveMotion)
         -- stay 12px; larger fonts get more height rather than a clipped last row.
         local inset=(cellHeight-titleHeight-3-valueHeight)/2
         c.title:SetPoint("TOP",0,-inset);c.value:SetPoint("TOP",0,-inset-titleHeight-3)
-        c:SetHeight(cellHeight)
+        c:SetHeight(cellHeight+(i>=5 and 5 or 0))
     end
     self.geometryWidth=nil -- invalidate dimensions only when layout changes
     self:RenderGeometry(self.progress)
@@ -389,6 +424,11 @@ function UI:RenderGeometry(progress)
         for i,c in ipairs(self.cells) do
             c:SetPoint("TOPLEFT",20+(i-1)%4*(cellWidth+12),-math.floor((i-1)/4)*(layout.cellHeight+6))
             c:SetWidth(cellWidth);c.title:SetWidth(cellWidth);c.value:SetWidth(cellWidth)
+            if c.shareTrack then
+                c.shareWidth=math.min(64,cellWidth*.65)
+                c.shareTrack:SetSize(c.shareWidth,2)
+                c.shareFill:SetSize(math.max(.001,c.shareWidth*(c.shareFraction or 0)),2)
+            end
         end
     end
     local opacity=math.max(0,math.min(1,(progress-.35)/.65))
@@ -426,9 +466,11 @@ end
 function UI:SetExpanded(expanded, instant)
     self:CancelStatTooltip()
     expanded=not not expanded
+    if not expanded then self.owner:ClearLevelNotice() end
     GameTooltip:Hide()
     if self.expanded==expanded and self.animation and not instant then return end
     self.expanded=expanded
+    self:Update()
     if instant or not self.layout or not self.frame:IsShown() then self:Layout();return end
     self:StopAnimation()
     local target=expanded and 1 or 0
@@ -438,12 +480,56 @@ function UI:SetExpanded(expanded, instant)
     self.frame:SetScript("OnUpdate",self.animateStep)
 end
 
+function UI:ClearHighlights()
+    for i in pairs(self.flashes or {}) do
+        self.segments[i].flash:Hide();self.flashes[i]=nil
+    end
+    if self.flashDriver then self.flashDriver:SetScript("OnUpdate",nil) end
+end
+
+function UI:HighlightSegments(before,after,cap)
+    if not self.frame:IsVisible() or self.dragging or cap<=0 or after<=before then return end
+    local first=math.floor(before*20/cap)+1
+    local last=math.min(20,math.floor(after*20/cap))
+    if last<first then return end
+    for i=first,last do
+        local s=self.segments[i]
+        self.flashes[i]=0;s.flash:Draw(s.width,10,1,FLASH_COLOR)
+        s.flash:SetAlpha(.18);s.flash:Show()
+    end
+    self.flashDriver:SetScript("OnUpdate",self.flashStep)
+end
+
+function UI:AnimateHighlights(elapsed)
+    for i,age in pairs(self.flashes) do
+        age=age+elapsed
+        if age>=.25 then self.segments[i].flash:Hide();self.flashes[i]=nil
+        else self.flashes[i]=age;self.segments[i].flash:SetAlpha(.18*(1-age/.25)^2) end
+    end
+    if not next(self.flashes) then self.flashDriver:SetScript("OnUpdate",nil) end
+end
+
 function UI:PaintBar(geometryChanged)
     local o,p=self.owner,self.owner.profile
     local t=o.tracker
     if not t or not t.cap then return end
     local fraction=t.cap>0 and math.min(1,math.max(0,t.xp/t.cap)) or 0
     local color=(o.rested or 0)>0 and p.rested or p.normal
+    local preview=t.cap>0 and math.min(1,(t.xp+math.max(0,o.rested or 0))/t.cap) or 0
+    if preview<=fraction then preview=0 end
+    local previewColor=self.restedColor
+    for i=1,3 do previewColor[i]=TRACK_COLOR[i]+(p.rested[i]-TRACK_COLOR[i])*.28 end
+    if geometryChanged or fraction~=self.barFraction or preview~=self.restedFraction or previewColor[1]~=self.previewR
+        or previewColor[2]~=self.previewG or previewColor[3]~=self.previewB then
+        for i,s in ipairs(self.segments) do
+            local amount=fraction*20>=i and 0 or math.min(1,math.max(0,preview*20-(i-1)))
+            s.preview:Draw(s.width,10,amount,previewColor)
+        end
+        self.restedFraction,self.previewR,self.previewG,self.previewB=preview,unpack(previewColor)
+    end
+    if geometryChanged then
+        for i in pairs(self.flashes) do self.segments[i].flash:Draw(self.segments[i].width,10,1,FLASH_COLOR) end
+    end
     if geometryChanged or fraction~=self.barFraction or color[1]~=self.barR or color[2]~=self.barG or color[3]~=self.barB then
         for i,s in ipairs(self.segments) do
             local fill=math.min(1,math.max(0,fraction*20-(i-1)))
@@ -464,13 +550,22 @@ function UI:Update()
     if labelWidth~=self.layout.labelWidth or UI.Font(p)~=self.layout.font then self:Layout(true);return end
     self:PaintBar()
     local s=o.session
+    local notice=o.levelNotice
+    if self.noticeShowing~=(notice~=nil) then self:Layout(true);return end
     local left=math.max(0,cap-xp)
     local values = {
         M.Compact(left).." / "..M.Compact(cap), rate and M.Compact(rate) or "—",
-        M.Duration(duration), rested>0 and M.Compact(rested) or "—",
+        M.Duration(notice and notice.seconds or duration), rested>0 and M.Compact(rested) or "—",
         M.Compact(s.buckets.kills), M.Compact(s.buckets.quests), M.Compact(s.buckets.dungeons), M.Compact(s.buckets.other),
     }
     for i,c in ipairs(self.cells) do
+        if i>=5 then
+            local share=s.total>0 and s.buckets[SOURCE_KEYS[i-4]]/s.total or 0
+            share=math.max(0,math.min(1,share))
+            if c.shareFraction~=share then
+                c.shareFraction=share;c.shareFill:SetWidth(math.max(.001,c.shareWidth*share));c.shareFill:SetShown(share>0)
+            end
+        end
         if c.sourceValue~=values[i] or c.measuredFont~=self.font or c.measuredSize~=p.fontSize or (i==1 and c.measuredWidth~=c:GetWidth()) then
             c.sourceValue,c.measuredFont,c.measuredSize,c.measuredWidth=values[i],self.font,p.fontSize,c:GetWidth()
             c.value:SetText(values[i])

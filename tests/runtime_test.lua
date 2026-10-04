@@ -34,7 +34,7 @@ W.level=11;W.xp=25;W.cap=1200;W.event("PLAYER_LEVEL_UP",11);W.advance(2.1)
 eq(X.session.total,925,"runtime level rollover")
 eq(UI.expanded,true,"level expansion")
 W.advance(10);eq(UI.expanded,false,"ten-second collapse")
-W.event("PLAYER_LEVEL_UP",11);W.click(UI.frame);local manual=UI.expanded
+X:LevelUp();W.click(UI.frame);local manual=UI.expanded
 W.advance(20);eq(UI.expanded,manual,"manual interaction cancels timer")
 X:LevelUp();W.advance(5);X:LevelUp();W.advance(5)
 eq(UI.expanded,true,"replacement level-up timer restarts its full duration")

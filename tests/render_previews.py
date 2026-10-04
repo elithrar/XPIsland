@@ -32,4 +32,4 @@ def render(name):
     print(f"Rendered offline {name} fixture")
 
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-    list(pool.map(render, ["collapsed", "expanded", "options", "profiles", "bottom", "readable", "transition", "centered", "settings-03", "profiles-03", "padding-04", "infinity-04", "settings-04", "profiles-04"]))
+    list(pool.map(render, ["collapsed", "expanded", "options", "profiles", "bottom", "readable", "transition", "centered", "settings-03", "profiles-03", "padding-04", "infinity-04", "settings-04", "profiles-04", "rested-05", "sources-05", "level-05", "highlight-05", "level-wrap-05"]))
