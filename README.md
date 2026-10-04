@@ -20,7 +20,7 @@ Type `/xpisland` for settings. Click the island to expand it, or assign “Expan
 
 Collapsed:
 
-![Uploading xp-island-collapsed.png…]()
+<img width="556" height="299" alt="xp-island-collapsed" src="https://github.com/user-attachments/assets/b241fb90-beaf-42a0-8e35-8fb6bc308707" />
 
 Expanded:
 
