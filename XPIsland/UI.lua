@@ -147,7 +147,7 @@ function UI:BeginStatTooltip(cell,index)
     if not self.expanded or self.progress~=1 or not cell:IsVisible() or self.dragging then return end
     self.tooltipCell=cell
     local generation=self.tooltipGeneration
-    self.tooltipTimer=C_Timer.NewTimer(2,function()
+    self.tooltipTimer=C_Timer.NewTimer(.75,function()
         if self.tooltipGeneration~=generation or self.tooltipCell~=cell then return end
         self.tooltipTimer=nil
         if not self.expanded or self.progress~=1 or self.dragging

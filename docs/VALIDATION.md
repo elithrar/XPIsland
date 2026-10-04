@@ -1,6 +1,6 @@
 # Validation
 
-XPIsland 0.4.2 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
+XPIsland 0.4.3 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
 
 ## Automated checks
 
@@ -30,7 +30,7 @@ python3 tests/package.py
 - 103 loading/recovery assertions: online loading duration, blocked-renderer elapsed time, unavailable unit values, loading/entry event orders, source boundaries, delayed rollover/cap, genuine corrections and preserved-counter migration from 0.3/0.4. See [recovery review](RECOVERY-041.md).
 - 706 screenshot regression assertions: exact bar hovers, once-per-account hint, profile/reset/reload normalization, empty/warmup/normal/expired/incomplete ETA, symbol fallback, all five dropdowns with long names, and measured drawer margins across fonts/scales. The mock now reproduces the actual Classic TOP anchors before the fix.
 - 983 animation work assertions: 30/60/120 Hz, jitter, long-frame completion, reversal, model updates during motion, synchronized fade/shape, no per-frame static font/color/measurement/allocation work, and idle text caches. Native call counts are not FPS measurements.
-- 155 stat-hover assertions: two-second dwell in all eight cells, switch/leave cancellation, same-cell re-entry, already-dispatched callbacks, tooltip ownership, collapse/combat/hide/drag/layout dismissal, missing leave events and 1,000 rapid transitions without retained UI objects or polling.
+- 155 stat-hover assertions: 750 ms dwell in all eight cells, switch/leave cancellation, same-cell re-entry, already-dispatched callbacks, tooltip ownership, collapse/combat/hide/drag/layout dismissal, missing leave events and 1,000 rapid transitions without retained UI objects or polling.
 - Ten release tests: stable/alpha/beta/RC classification, exact TOC/flavor/version, actual Git annotated/lightweight tag and merged/unmerged ancestry, unchanged multipart ZIP bytes, duplicate receipt guards, ambiguous upload timeouts, absent token and hash mismatch.
 - Resource stress: 6,000 repeated UI/profile/timer cycles, 100,000 XP awards with hints, stable retained UI/event/timer counts, expiry, conservation and idle redraw elimination. See [resource audit](PERFORMANCE.md) for measurement caveats.
 - Package checks: Lua syntax, TOC load order, bindings XML, all three original TGA assets, ZIP paths and integrity.
@@ -50,7 +50,7 @@ The runtime, revision and motion tests emit fourteen SVG layout fixtures in `dis
 These cases remain to be verified after loading the revision on the running client:
 
 - Native font/texture/control rendering, interactions, custom font extremes, native dropdown pooling/skins, physical Mac notch and external display transitions.
-- Two-second stat hover delay, immediate disappearance when leaving/switching cells, and cancellation through combat, hiding and rapid re-entry.
+- 750 ms stat hover delay, immediate disappearance when leaving/switching cells, and cancellation through combat, hiding and rapid re-entry.
 - Perceived animation smoothness and clipping at the real frame rate; island versus action bars, system dialogs and tooltip strata; hover-to-child transitions, dragging and combat collapse in-game.
 - Real outdoor/rested kills, quests, dungeon gains and delayed event ordering; inspect that XP/hour and ETA follow the intended rolling pace during idle and changing activities.
 - Reload, reconnect inside/outside five minutes, cancelled logout, deliberate logout and engine-controlled crash recovery.

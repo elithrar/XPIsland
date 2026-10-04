@@ -113,4 +113,4 @@ See [validation coverage](VALIDATION.md) for exact checks. LuaJIT model and mock
 
 XPIsland's code and rounded textures are original. No Ellesmere/Danders code, fonts, or artwork is bundled.
 
-Expanded stat tooltips require two seconds over the same cell. Leaving, switching cells, collapsing, hiding or dragging cancels that hover; the next cell starts a fresh delay. The collapsed bar keeps its immediate tooltip.
+Expanded stat tooltips require 750 milliseconds over the same cell. Leaving, switching cells, collapsing, hiding or dragging cancels that hover; the next cell starts a fresh delay. The collapsed bar keeps its immediate tooltip.

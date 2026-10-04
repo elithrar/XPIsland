@@ -13,22 +13,22 @@ open()
 local titles={'XP remaining','Session XP/hour','Next level','Rested XP','Outdoor kills','Outdoor quests','Dungeons','Other'}
 for i=1,8 do
  enter(i);shown(false,'every cell starts hidden')
- W.advance(1.99);shown(false,'full two-second dwell required')
- W.advance(.011);shown(true);eq(W.tooltip.owner,UI.cells[i]);eq(W.tooltip.anchor,'ANCHOR_BOTTOM')
+ W.advance(.749);shown(false,'full 750 ms dwell required')
+ W.advance(.002);shown(true);eq(W.tooltip.owner,UI.cells[i]);eq(W.tooltip.anchor,'ANCHOR_BOTTOM')
  eq(W.tooltip.lines[1][1],titles[i],'existing title');eq(W.tooltip.lines[1][2],1,'existing styling')
  eq(UI.tooltipTimer,nil,'one-shot handle released')
  leave(i);shown(false,'leave hides visible tooltip');eq(UI.tooltipCell,nil)
 end
 -- Switch before either deadline; a delayed leave from A must not cancel B.
-enter(1);local stale=UI.tooltipTimer;W.advance(1.5)
+enter(1);local stale=UI.tooltipTimer;W.advance(.5)
 enter(2);local current=UI.tooltipTimer;eq(stale.cancelled,true)
 UI.cells[1].scripts.OnLeave();eq(UI.tooltipTimer,current,'late leave belongs to previous cell')
 stale.callback();shown(false,'dispatched stale callback cannot show')
-W.advance(1.99);shown(false);W.advance(.011);shown(true);eq(W.tooltip.owner,UI.cells[2])
-enter(3);shown(false,'visible tooltip immediately hidden on switch');W.advance(2);shown(true)
--- Leave/re-enter same cell must use a new generation and a fresh two seconds.
-leave(3);enter(3);stale=UI.tooltipTimer;W.advance(1.8);leave(3);eq(stale.cancelled,true)
-enter(3);stale.callback();shown(false);W.advance(1.99);shown(false);W.advance(.011);shown(true)
+W.advance(.749);shown(false);W.advance(.002);shown(true);eq(W.tooltip.owner,UI.cells[2])
+enter(3);shown(false,'visible tooltip immediately hidden on switch');W.advance(.751);shown(true)
+-- Leave/re-enter same cell must use a new generation and a fresh 750 milliseconds.
+leave(3);enter(3);stale=UI.tooltipTimer;W.advance(.7);leave(3);eq(stale.cancelled,true)
+enter(3);stale.callback();shown(false);W.advance(.749);shown(false);W.advance(.002);shown(true)
 -- Leaving the stat must not hide another system's subsequently claimed tooltip.
 GameTooltip:SetOwner(UI.frame,'ANCHOR_BOTTOM');GameTooltip:AddLine('Other owner');GameTooltip:Show()
 leave(3);shown(true,'only hide a tooltip owned by this stat');GameTooltip:Hide()
@@ -43,14 +43,14 @@ local actions={
 for _,case in ipairs(actions) do
  for _,visible in ipairs({false,true}) do
   W.combat=false;open();UI.cells[4]:Show();enter(4);stale=UI.tooltipTimer
-  W.advance(visible and 2 or 1);shown(visible)
+  W.advance(visible and .751 or .5);shown(visible)
   case[2]();shown(false,case[1]..' hides tooltip');eq(UI.tooltipTimer,nil,case[1]..' cancels pending handle')
   stale.callback();W.advance(3);shown(false,case[1]..' rejects stale callback')
   if UI.dragging then UI.frame.scripts.OnDragStop() end
  end
 end
 open();enter(5);W.hover=nil -- defensive check when a leave event is missed
-W.advance(2);shown(false);eq(UI.tooltipCell,nil)
+W.advance(.751);shown(false);eq(UI.tooltipCell,nil)
 -- Entry during expansion is ignored; no tooltip appears later by itself.
 UI:SetExpanded(false,true);UI:SetExpanded(true);enter(1)
 eq(UI.tooltipTimer,nil);W.advance(3);shown(false)
@@ -65,4 +65,4 @@ leave(8);W.advance(3);shown(false);eq(#W.objects,objects)
 eq(UI.tooltipTimer,nil);eq(UI.tooltipCell,nil);eq(UI.frame.scripts.OnUpdate,nil)
 local live=0;for _,t in ipairs(W.timers) do if not t.cancelled then live=live+1 end end
 eq(live,1,'only existing shared clock remains')
-print('PASS: '..n..' stat tooltip assertions (two-second dwell, all cells, switch/re-entry, stale callbacks, collapse/combat/hide/drag, bounded resources)')
+print('PASS: '..n..' stat tooltip assertions (750 ms dwell, all cells, switch/re-entry, stale callbacks, collapse/combat/hide/drag, bounded resources)')
