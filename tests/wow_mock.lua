@@ -18,6 +18,8 @@ function CreateFrame(kind,name,parent,template)
         o.CloseButton=CreateFrame("Button",nil,o,"UIPanelButtonTemplate")
         o.CloseButton:SetSize(24,24);o.CloseButton:SetPoint("TOPRIGHT",0,0);o.CloseButton:SetText("×")
         o.CloseButton:SetScript("OnClick",function() o:Hide() end)
+    elseif template=="WowStyle1DropdownTemplate" then
+        o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetPoint("LEFT",9,0);o.Text:SetFont("Fonts\\FRIZQT__.TTF",12,"")
     elseif template=="UICheckButtonTemplate" then
         o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetPoint("LEFT",o,"RIGHT",-2,0)
     elseif template=="UISliderTemplate" then o:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal") end
@@ -70,6 +72,24 @@ function methods:GetTop() local _,y,_,h=self:Rect();return (y+h)/self:GetEffecti
 function methods:SetFrameLevel(n) self.frameLevel=n end
 function methods:GetFrameLevel() return self.frameLevel end
 function methods:SetFrameStrata(s) self.strata=s end
+function methods:GetFrameStrata() return self.strata or (self.parent and self.parent:GetFrameStrata()) or "MEDIUM" end
+function methods:SetAlpha(v) self.alpha=v end
+function methods:SetClipsChildren(v) self.clipsChildren=v end
+function methods:IsMouseOver() return W.hover==self or false end
+function methods:SetDefaultText(text) self.defaultText=text end
+function methods:SetupMenu(generator) self.generator=generator;self:GenerateMenu() end
+function methods:GenerateMenu()
+    local root={entries={},SetScrollMode=function(self,height) self.scrollHeight=height end}
+    function root:CreateRadio(text,isSelected,select,value)
+        local entry={label=text,value=value,isSelected=isSelected,select=select,AddInitializer=function(self,f) self.initializer=f end}
+        self.entries[#self.entries+1]=entry;return entry
+    end
+    self.generator(self,root);self.menuDescription=root
+    local text=self.defaultText
+    for _,entry in ipairs(root.entries) do if entry.isSelected(entry.value) then text=entry.label end end
+    self.Text:SetText(text)
+end
+function methods:CloseMenu() self.menuOpen=false end
 function methods:SetScript(event,f) self.scripts[event]=f end
 function methods:RegisterEvent(e) self.events=self.events or {};self.events[e]=true end
 function methods:RegisterUnitEvent(e) self:RegisterEvent(e) end
@@ -109,9 +129,9 @@ function methods:SetAutoFocus(v) self.autoFocus=v end
 function methods:SetMaxLetters(v) self.maxLetters=v end
 function methods:SetTextInsets() end
 function methods:ClearFocus() end
-function methods:SetBackdrop() end
-function methods:SetBackdropColor() end
-function methods:SetBackdropBorderColor() end
+function methods:SetBackdrop(v) self.backdrop=v end
+function methods:SetBackdropColor(...) self.backdropColor={...} end
+function methods:SetBackdropBorderColor(...) self.backdropBorder={...} end
 function methods:SetOrientation() end
 function methods:SetMinMaxValues(a,b) self.minimum,self.maximum=a,b end
 function methods:SetValueStep(v) self.step=v end
@@ -167,21 +187,45 @@ local function timer(delay,callback,repeatEvery)
 end
 C_Timer={After=function(delay,f) return timer(delay,f) end,NewTimer=function(delay,f) return timer(delay,f) end,NewTicker=function(delay,f) return timer(delay,f,delay) end}
 function W.advance(seconds)
-    W.time=W.time+seconds;W.wall=W.wall+seconds
-    local timers=W.timers;W.timers={}
-    for _,t in ipairs(timers) do
-        if not t.cancelled then
-            if t.at<=W.time then t.callback();if t.repeatEvery then t.at=W.time+t.repeatEvery;W.timers[#W.timers+1]=t end
-            else W.timers[#W.timers+1]=t end
+    local deadline=W.time+seconds
+    local iterations=0
+    repeat
+        iterations=iterations+1;assert(iterations<100000,"Timer loop")
+        local at=deadline
+        for _,t in ipairs(W.timers) do if not t.cancelled then at=math.min(at,math.max(W.time,t.at)) end end
+        local elapsed=at-W.time;W.time=at;W.wall=W.wall+elapsed
+        for _,o in ipairs(W.objects) do
+            if elapsed>0 and o:IsVisible() and o.scripts.OnUpdate then o.scripts.OnUpdate(o,elapsed) end
         end
-    end
+        local timers=W.timers;W.timers={}
+        for _,t in ipairs(timers) do
+            if not t.cancelled then
+                if t.at<=W.time then
+                    t.callback()
+                    if t.repeatEvery and not t.cancelled then t.at=W.time+t.repeatEvery;W.timers[#W.timers+1]=t end
+                else W.timers[#W.timers+1]=t end
+            end
+        end
+    until W.time>=deadline
 end
+
 function W.event(event,...)
     for _,o in ipairs(W.objects) do
         if o.events and o.events[event] and o.scripts.OnEvent then o.scripts.OnEvent(o,event,...) end
     end
 end
-function W.click(button) if button.kind=="CheckButton" then button.checked=not button.checked end;button.scripts.OnClick(button,"LeftButton") end
+function W.click(button)
+    if button.kind=="DropdownButton" then button:GenerateMenu();button.menuOpen=true;return end
+    if button.kind=="CheckButton" then button.checked=not button.checked end
+    button.scripts.OnClick(button,"LeftButton")
+end
+function W.choose(dropdown,value)
+    dropdown:GenerateMenu()
+    for _,e in ipairs(dropdown.menuDescription.entries) do
+        if e.value==value then e.select(value);dropdown:CloseMenu();return end
+    end
+    error("No dropdown entry: "..tostring(value))
+end
 StatusTrackingBarInfo={BarsEnum={Experience=1,Reputation=2,Honor=3}}
 StatusTrackingBarManager={CanShowBar=function() return true end,UpdateBarsShown=function() W.barUpdates=(W.barUpdates or 0)+1 end}
 COMBATLOG_XPGAIN_FIRSTPERSON="%s dies, you gain %d experience."
@@ -215,11 +259,28 @@ function W.svg(path,root)
     for i,o in ipairs(ordered) do
         local x,y,w,h=o:Rect();y=rh-y-h
         local c=o.color or o.tint or {1,1,1,1}
+        local alpha=1;local parent=o;local cx,cy,cw,ch=0,0,rw,rh
+        while parent do
+            alpha=alpha*(parent.alpha or 1)
+            if parent.clipsChildren then
+                local px,py,pw,ph=parent:Rect();py=rh-py-ph
+                local right,bottom=math.min(cx+cw,px+pw),math.min(cy+ch,py+ph)
+                cx,cy=math.max(cx,px),math.max(cy,py);cw,ch=math.max(0,right-cx),math.max(0,bottom-cy)
+            end
+            parent=parent.parent
+        end
+        f:write(string.format('<defs><clipPath id="object%d"><rect x="%f" y="%f" width="%f" height="%f"/></clipPath></defs><g opacity="%f" clip-path="url(#object%d)">',i,cx,cy,cw,ch,alpha,i))
         if o.template and o.kind~="EditBox" then
             -- Layout-only stand-ins: Blizzard's native art is not bundled here.
-            local fill=o.template=="UIPanelButtonTemplate" and "#681a16" or "#211e19"
-            local stroke=o.template=="UIPanelButtonTemplate" and "#9c8258" or "#756753"
-            f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="3" fill="%s" stroke="%s" stroke-width="2"/>',x,y,w,h,fill,stroke))
+            local fill=o.backdropColor and color(o.backdropColor) or o.template=="UIPanelButtonTemplate" and "#681a16" or "#151515"
+            local stroke=o.backdropBorder and color(o.backdropBorder) or "#66605a"
+            f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="3" fill="%s" stroke="%s" stroke-width="1"/>',x,y,w,h,fill,stroke))
+            if o.kind=="DropdownButton" then
+                f:write(string.format('<path d="M %f %f l 8 0 l -4 5 Z" fill="#d5b74c"/>',x+w-17,y+h/2-2))
+            end
+            if o.template=="UIPanelCloseButton" then
+                f:write(string.format('<text x="%f" y="%f" fill="#ddd" font-size="18">×</text>',x+4,y+18))
+            end
             if o.kind=="CheckButton" and o.checked then
                 f:write(string.format('<text x="%.2f" y="%.2f" fill="#ffd100" font-size="22">✓</text>',x+4,y+22))
             end
@@ -227,7 +288,7 @@ function W.svg(path,root)
             if o.kind=="EditBox" then f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" fill="#10100f" stroke="#817457"/>',x,y,w,h)) end
             local s=o.fontSize*o:GetEffectiveScale()
             if o.kind=="EditBox" then x=x+8;y=y+(h-s)/2 end
-            local anchor=o.justify=="RIGHT" and "end" or "start"
+            local anchor=o.justify=="RIGHT" and "end" or o.justify=="CENTER" and "middle" or "start"
             local lines={o.text or ""}
             if o.wrap and w>0 then
                 lines={};local line=""
@@ -238,7 +299,7 @@ function W.svg(path,root)
                 lines[#lines+1]=line
             end
             for li,line in ipairs(lines) do
-                f:write(string.format('<text x="%.2f" y="%.2f" font-family="Georgia" font-size="%.2f" fill="%s" text-anchor="%s">%s</text>',o.justify=="RIGHT" and x+w or x,y+s+(li-1)*s*1.2,s,color(c),anchor,xml(line)))
+                f:write(string.format('<text x="%.2f" y="%.2f" font-family="Georgia" font-size="%.2f" fill="%s" text-anchor="%s">%s</text>',o.justify=="RIGHT" and x+w or o.justify=="CENTER" and x+w/2 or x,y+s+(li-1)*s*1.2,s,color(c),anchor,xml(line)))
             end
         elseif o.texture and o.texture:find("cap.tga",1,true) then
             local co=o.coords
@@ -253,6 +314,7 @@ function W.svg(path,root)
             else d=string.format("M %f %f Q %f %f %f %f L %f %f Z",x+w,y,x+w,y+h,x,y+h,x,y) end
             f:write(string.format('<path d="%s" fill="%s" opacity="%f"/>',d,color(c),c[4]))
         else f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" fill="%s" opacity="%.2f"/>',x,y,w,h,color(c),c[4])) end
+        f:write("</g>")
     end
     f:write('<text x="24" y="1056" font-family="Arial" font-size="14" fill="#aaa">OFFLINE LAYOUT FIXTURE — substitute font and native-control outlines; not an in-game screenshot</text></svg>');f:close()
 end

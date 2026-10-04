@@ -2,7 +2,7 @@
 ## Title: XPIsland
 ## Notes: A compact experience island for World of Warcraft: Forever.
 ## Author: Matt
-## Version: 0.2.0
+## Version: 0.3.0
 ## SavedVariables: XPIslandDB
 ## SavedVariablesPerCharacter: XPIslandSession
 ## OptionalDeps: LibSharedMedia-3.0

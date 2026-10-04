@@ -20,6 +20,7 @@ M.defaults = {
     fontCustomized = false, fontSizeCustomized = false, placement = "top",
     normal = {0.64, 0.35, 0.94}, rested = {0.24, 0.61, 1},
     locked = true, levelUp = true, hideBlizzard = false,
+    autoCollapse = true, collapseCombat = true,
     position = {x = 0, y = -8},
 }
 
@@ -31,7 +32,7 @@ function M.Profile(p)
     if M.Number(p.fontSize) then clean.fontSize = max(10, min(18, floor(p.fontSize))) end
     if type(p.font) == "string" and #p.font < 120 then clean.font = p.font end
     if p.placement == "bottom" or p.placement == "custom" then clean.placement = p.placement end
-    for _, k in ipairs({"locked", "levelUp", "hideBlizzard", "fontCustomized", "fontSizeCustomized"}) do
+    for _, k in ipairs({"locked", "levelUp", "hideBlizzard", "autoCollapse", "collapseCombat", "fontCustomized", "fontSizeCustomized"}) do
         if type(p[k]) == "boolean" then clean[k] = p[k] end
     end
     for _, k in ipairs({"normal", "rested"}) do

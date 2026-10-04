@@ -34,14 +34,12 @@ for i,name in ipairs({'Kill XP','Quest XP','Dungeon XP','Other XP'}) do eq(UI.ce
 UI.cells[5].scripts.OnEnter();eq(W.tooltip.anchor,'ANCHOR_BOTTOM');eq(W.tooltip.lines[1][1],'Outdoor kills','existing tooltip title unchanged')
 eq(W.tooltip.lines[2][1],'Confirmed kill XP earned outside instances, including rested bonuses.')
 eq(GameTooltipText:GetFont(),originalTooltipFont,'no tooltip font mutation')
-SlashCmdList.XPISLAND('');eq(O.frame.template,'BasicFrameTemplateWithInset');eq(O.scale.template,'UISliderTemplate');eq(O.fontSize.template,'InputBoxTemplate')
+SlashCmdList.XPISLAND('');eq(O.frame.template,'BackdropTemplate');eq(O.scale.template,'UISliderTemplate');eq(O.fontSize.template,'InputBoxTemplate')
 W.click(O.checks[1]);eq(X.profile.locked,false,'native checkbox updates profile')
-W.click(O.font);local custom
-for _,e in ipairs(O.menu.entries) do if e.value=='Arial' then custom=e end end
-O.menu.choose(custom);eq(X.profile.fontCustomized,true)
+W.choose(O.font,'Arial');eq(X.profile.fontCustomized,true)
 X.profile.font='Game tooltip';X.profile.fontSize=14
-W.click(O.format);eq(#O.menu.entries,5);eq(O.menu.entries[2].label,'Current / Total XP');eq(O.menu.entries[5].label,'Time to Next Level')
-O.menu.choose({value='eta'});eq(UI.label:GetText(),'—')
+W.click(O.format);eq(#O.format.menuDescription.entries,5);eq(O.format.menuDescription.entries[2].label,'Current / Total XP');eq(O.format.menuDescription.entries[5].label,'Time to Next Level')
+W.choose(O.format,'eta');eq(UI.label:GetText(),'—')
 X.session.total=6000;X.session.buckets.other=6000;X.session.seconds=3600
 W.xp=60800;W.cap=95000;X:Sample();X.session.total=6000;X.session.buckets={kills=0,quests=0,dungeons=0,other=6000};X.session.rate={version=1,startedAt=0,buckets={}};M.RateAward(X.session,6000);UI:Update()
 eq(UI.label:GetText(),UI.cells[3].value:GetText(),'same ETA in bar and cell')
@@ -62,9 +60,9 @@ for _,vw in ipairs({420,1024,1399,1400,1999,2000,3840}) do
      X.profile.scale=scale;X.profile.placement=placement;X.profile.position=position
      for _,format in ipairs({'percent','fraction','left','leftPercent','eta'}) do
       X.profile.format=format;X.profile.fontSize=18
-      UI:SetExpanded(false);local bx,by,bw,bh=UI.header:Rect()
-      UI:SetExpanded(true);local ax,ay,aw,ah=UI.header:Rect()
-      near(ax,bx,'bar X stable');near(ay,by,'bar Y stable');near(aw,bw,'bar width stable');near(ah,bh,'bar height stable')
+      UI:SetExpanded(false,true);local bx,by,bw,bh=UI.header:Rect()
+      UI:SetExpanded(true,true);local ax,ay,aw,ah=UI.header:Rect()
+      near(ax+aw/2,bx+bw/2,'header center stable');near(ay,by,'bar Y stable');eq(aw>=bw,true,'header grows with island');near(ah,bh,'bar height stable')
       local x,y,w,h=UI.frame:Rect()
       eq(x>=-.001 and x+w<=vw+.001,true,'horizontal containment');eq(y>=-.001 and y+h<=vh+.001,true,'vertical containment')
       eq(UI.label:GetUnboundedStringWidth()<=UI.label:GetWidth(),true,'unclipped label')
@@ -81,7 +79,7 @@ UIParent:SetSize(1728,1080);X.profile.scale=1;X.profile.fontSize=14;X.profile.pl
 X.profile.position={x=0,y=-50};UI:Layout();eq(UI.layout.up,false)
 X.profile.position.y=-1000;UI:Layout();eq(UI.layout.up,true,'direction changes after moving')
 -- UIParent's already shifted top is inherited, never offset a second time.
-UIParent:SetHeight(1040);UI:SetExpanded(true);local _,y,_,h=UI.frame:Rect();eq(y+h<=1040,true,'uses reduced notch-safe viewport')
+UIParent:SetHeight(1040);UI:SetExpanded(true,true);local _,y,_,h=UI.frame:Rect();eq(y+h<=1040,true,'uses reduced notch-safe viewport')
 X.profile.placement='top';W.event('NOTCHED_DISPLAY_MODE_CHANGED');W.advance(.01)
 near(UI.header:GetTop(),UIParent:GetTop()-8,'inherits shifted parent top')
 for _,fraction in ipairs({0,.001,.025,.05,.471,.975,.999,1}) do

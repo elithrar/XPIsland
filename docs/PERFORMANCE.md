@@ -1,6 +1,6 @@
 # Resource audit
 
-The 0.2 audit followed screenshot review, implementation and visual self-review. It covers Lua ownership and an offline stress run; it does not establish WoW native memory, GPU cost or taint safety.
+The 0.3 audit followed screenshot review, implementation and visual self-review. It covers Lua ownership and an offline stress run; it does not establish WoW native memory, GPU cost or taint safety.
 
 ## Findings and changes
 
@@ -8,11 +8,11 @@ An idle expanded panel redrew all 20 XP segments every second despite unchanged 
 
 ## Ownership review
 
-- One event frame, 20 event registrations, no OnUpdate handlers. Initialization is guarded by the session owner.
+- One event frame, 21 event registrations, no idle OnUpdate handlers; one temporary island OnUpdate during a transition. Initialization is guarded by the session owner.
 - One shared one-second ticker owns clock accounting, queue expiry and visible rate/ETA refresh, including rate decay during idle. Display modes do not create tickers.
-- One replaceable ten-second level-up timer. Manual toggles, profile application and dragging cancel it; repeated level-ups cancel and replace it.
+- One replaceable collapse timer: ten seconds for level-up, fifteen for manual opening when enabled. Hover/drag/settings suspend it; leaving restarts it. Profile changes reconcile the active policy. Combat and hiding cancel it. The existing clock reconciles pointer changes, with no added ticker.
 - Zero-delay XP sampling is coalesced. Resize callbacks live only to the next timer dispatch. No recurring work is created by opening settings.
-- Island geometry, eight cells, settings pages and ten reusable menu rows are created once. Profile switches change references and apply settings; they do not create new frames.
+- Island geometry, the clipped detail container, eight cells and settings pages are created once. Native dropdown descriptions are regenerated as needed; Blizzard owns menu-row pooling. The mock checks XPIsland-owned objects, not that native pool. Profile switches change references and apply settings; they do not create new frames.
 - Global logout/reload hooks are installed once per addon load. Optional stock-XP filtering restores only its owned method, or disables its token when another owner has wrapped it. It never unregisters another frame's events.
 - Attribution awards/hints expire after two seconds; chat deduplication expires after three. These are time-window bounds, not an arbitrary maximum event count. Normal high-rate stream tests verify expiry and conservation.
 - Profile and character tables grow only through explicit profile creation and use by distinct characters. Rate history has exactly 61 reusable minute slots at most, with total/kill counters per slot; it does not store individual events. There is no per-event session log or UI history. A fresh UI runtime is created after reload; session restoration validates saved data and the bounded rolling history, and excludes offline time.
@@ -30,4 +30,4 @@ The full game still needs a multi-hour soak covering quests, dungeon transitions
 
 ## Final local run
 
-After the final design and rate changes: 216 UI objects stayed at 216, 47 registered font objects stayed at 47, 20 event registrations stayed at 20, and one ticker remained live. The two post-warmup 3,000-cycle windows retained 0.10 KiB and 0.00 KiB after garbage collection with JIT disabled. The complete mock stress run took approximately 1.54 seconds on the reviewing Mac. These measurements describe that run only.
+After the 0.3 design changes: 211 UI objects stayed at 211, 43 registered font objects stayed at 43, 21 event registrations stayed at 21, and one ticker remained live. The final post-warmup 3,000-cycle windows retained 0.30 KiB and 0.00 KiB after garbage collection with JIT disabled. The complete mock stress run took approximately 1.8 seconds on the reviewing Mac. A separate motion suite exercises 2,000 interrupted transitions with hover, profile changes and combat, asserting constant owned object counts and no idle animation script. These measurements describe those runs only.

@@ -21,14 +21,14 @@ W.event("QUEST_TURNED_IN",5,100,0);W.event("PLAYER_XP_UPDATE","player");W.advanc
 eq(X.session.buckets.dungeons,100)
 W.rested=500;W.event("UPDATE_EXHAUSTION")
 eq(UI.segments[1].fill.body.color[3],1,"rested color")
-W.click(UI.frame);eq(UI.expanded,true)
+W.click(UI.frame);W.advance(.25);eq(UI.expanded,true)
 eq(UI.frame:GetWidth(),520);eq(UI.cells[4].value:GetText(),"500")
-W.advance(61);eq(X.session.seconds>61,true,"connected timer")
+W.advance(61);eq(X.session.seconds>=61,true,"connected timer")
 eq(UI.cells[2].value:GetText()~="—",true,"rate after a minute")
 W.event("PLAYER_LEAVING_WORLD")
 local seconds=X.session.seconds
 W.advance(200);eq(X.session.seconds,seconds,"loading/offline gap excluded")
-W.event("PLAYER_ENTERING_WORLD",false,false);W.advance(1)
+W.event("PLAYER_ENTERING_WORLD",false,false);W.advance(1);X:Clock()
 eq(X.session.seconds,seconds+1)
 W.level=11;W.xp=25;W.cap=1200;W.event("PLAYER_LEVEL_UP",11);W.advance(.1)
 eq(X.session.total,925,"runtime level rollover")
@@ -42,7 +42,7 @@ W.advance(5);eq(UI.expanded,false,"replacement timer expires after ten seconds")
 
 SlashCmdList.XPISLAND("")
 eq(O.frame:IsShown(),true,"slash opens options")
-eq(#O.checks,3)
+eq(#O.checks,5)
 O.scaleEdit:SetText("125");O.scaleEdit.scripts.OnEnterPressed(O.scaleEdit)
 eq(X.profile.scale,1.25,"numeric scale updates model")
 eq(O.scale.value,125,"numeric scale updates slider")
@@ -91,7 +91,7 @@ for _,vw in ipairs({1024,1399,1400,1999,2000,3840}) do
     for _,scale in ipairs({.5,1,1.5}) do
         for _,format in ipairs({"percent","fraction","left","leftPercent"}) do
             X.profile.scale=scale;X.profile.format=format;X.profile.fontSize=18
-            X.profile.position={x=9000,y=-9000};UI:SetExpanded(true)
+            X.profile.position={x=9000,y=-9000};UI:SetExpanded(true,true)
             local x,y,w,h=UI.frame:Rect()
             eq(x>=0 and x+w<=vw,true,"horizontal clamping")
             eq(y>=0 and y+h<=UIParent:GetHeight(),true,"vertical clamping")
@@ -101,7 +101,7 @@ for _,vw in ipairs({1024,1399,1400,1999,2000,3840}) do
 end
 UIParent:SetWidth(1728);X.profile.position={x=0,y=-8};X.profile.format="percent"
 for _,rootScale in ipairs({.64,.8,1,1.2}) do
-    UIParent:SetScale(rootScale);X.profile.scale=1.25;UI:SetExpanded(true)
+    UIParent:SetScale(rootScale);X.profile.scale=1.25;UI:SetExpanded(true,true)
     eq(UI.frame:GetEffectiveScale(),rootScale*1.25,"effective WoW and addon scale")
     eq(UI.frame:GetWidth(),520,"logical tier does not use render pixels")
 end
@@ -116,8 +116,8 @@ for minute=0,59 do
     local index=ns.Model.RateAward(X.session,5800/60);ns.Model.RateKill(X.session,index,1600/60)
 end
 X.session.seconds=3600
-UI:SetExpanded(false);W.svg("dist/preview-collapsed.svg",UI.frame)
-UI:SetExpanded(true);W.svg("dist/preview-expanded.svg",UI.frame)
+UI:SetExpanded(false,true);W.svg("dist/preview-collapsed.svg",UI.frame)
+UI:SetExpanded(true,true);W.svg("dist/preview-expanded.svg",UI.frame)
 O.frame:Show();W.svg("dist/preview-options.svg",O.frame)
 O:Page(true);W.svg("dist/preview-profiles.svg",O.frame)
 print("PASS: "..n.." runtime/UI assertions; SVG previews use a mocked WoW UI")

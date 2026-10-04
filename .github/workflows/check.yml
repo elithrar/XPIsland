@@ -21,6 +21,7 @@ jobs:
           luajit tests/runtime_test.lua
           luajit tests/revision_test.lua
           luajit tests/rate_test.lua
+          luajit tests/motion_test.lua
           luajit tests/stress_test.lua
       - name: Validate and package addon
         run: python3 tests/package.py

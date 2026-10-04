@@ -51,7 +51,7 @@ assert(peakAwards<=41 and peakHints==0 and peakSeen<=61,'Queues exceed their exp
 t:Expire(6000);assert(#t.awards==0 and #t.hints==0 and next(t.seen)==nil,'Expired records retained')
 assert(t.session.total==1000000 and t.session.buckets.kills==1000000)
 assert(count(t.session)==10,'Session history unexpectedly accumulates')
-UI:SetExpanded(true);local draws=0
+X:CancelAutoCollapse();UI:SetExpanded(true,true);local draws=0
 for _,s in ipairs(UI.segments) do local original=s.fill.Draw;s.fill.Draw=function(self,...) draws=draws+1;return original(self,...) end end
 for i=1,600 do W.advance(1) end
 assert(draws==0,'Idle bar geometry redrawn')

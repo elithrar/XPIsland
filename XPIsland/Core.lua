@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.2.0", formats={}}
+local X = {version="0.3.0", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -26,8 +26,34 @@ function X:IsCapped()
     return IsXPUserDisabled() or UnitLevel("player") >= math.min(GetMaxPlayerLevel(),GetMaxLevelForPlayerExpansion())
 end
 
-function X:CancelAutoCollapse()
+function X:CancelAutoCollapse(keepDelay)
     if self.autoCollapse then self.autoCollapse:Cancel();self.autoCollapse=nil end
+    if not keepDelay then self.collapseDelay=nil end
+end
+
+function X:IsInteracting()
+    return UI.dragging or (UI.frame and UI.frame:IsMouseOver()) or (Options.frame and Options.frame:IsShown())
+end
+
+-- One owned timer. Pointer events react immediately; the existing one-second
+-- clock also reconciles crossing child frames and geometry moving under a cursor.
+function X:InteractionChanged()
+    if not self.collapseDelay then return end
+    if not UI.expanded or not UI.frame:IsShown() then self:CancelAutoCollapse();return end
+    if self:IsInteracting() then self:CancelAutoCollapse(true);return end
+    if self.autoCollapse then return end
+    self.autoCollapse=C_Timer.NewTimer(self.collapseDelay,function()
+        self.autoCollapse=nil
+        if self:IsInteracting() then return end
+        self.collapseDelay=nil
+        UI:SetExpanded(false)
+    end)
+end
+
+function X:ArmCollapse(delay)
+    self:CancelAutoCollapse()
+    self.collapseDelay=delay
+    self:InteractionChanged()
 end
 
 function X:Toggle()
@@ -35,15 +61,14 @@ function X:Toggle()
     self:CancelAutoCollapse()
     if self:IsCapped() then say("The island is hidden while XP is capped or disabled.");return end
     UI:SetExpanded(not UI.expanded)
+    if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(15) end
 end
 
 function X:LevelUp()
+    if not self.profile.levelUp or self:IsCapped() or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:CancelAutoCollapse()
-    if not self.profile.levelUp then return end
     UI:SetExpanded(true)
-    self.autoCollapse=C_Timer.NewTimer(10,function()
-        self.autoCollapse=nil;UI:SetExpanded(false)
-    end)
+    self:ArmCollapse(10)
 end
 
 function X:Clock()
@@ -144,6 +169,7 @@ end
 function X:ApplyProfile()
     self:CancelAutoCollapse()
     UI:Layout();self:Integration()
+    if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(15) end
 end
 
 function X:Initialize(reloading)
@@ -173,6 +199,7 @@ function X:Initialize(reloading)
     UI:Create(self);self:Sample();self:Integration()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
+        self:InteractionChanged()
         if UI.expanded or self.profile.format=="eta" then UI:Update() end
     end)
 end
@@ -222,6 +249,8 @@ events:SetScript("OnEvent",function(_,event,...)
         X.online=false
     elseif event=="PLAYER_CAMPING" or event=="PLAYER_QUITING" then X.cleanIntent=true
     elseif event=="LOGOUT_CANCEL" then X.cleanIntent=nil
+    elseif event=="PLAYER_REGEN_DISABLED" then
+        if X.profile.collapseCombat then X:CancelAutoCollapse();UI:SetExpanded(false) end
     elseif event=="PLAYER_REGEN_ENABLED" then X:Integration();Options:Refresh()
     elseif event=="UI_SCALE_CHANGED" or event=="DISPLAY_SIZE_CHANGED" or event=="NOTCHED_DISPLAY_MODE_CHANGED" then
         C_Timer.After(0,function() UI:Layout();Options:Refresh() end)
@@ -231,7 +260,7 @@ end)
 
 for _,event in ipairs({"ADDON_LOADED","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
     "CHAT_MSG_COMBAT_XP_GAIN","PLAYER_LEAVING_WORLD","PLAYER_LOGOUT","PLAYER_CAMPING","PLAYER_QUITING","LOGOUT_CANCEL",
-    "PLAYER_REGEN_ENABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
+    "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
     "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN"}) do events:RegisterEvent(event) end
 
 hooksecurefunc("Logout",function() X.cleanIntent=true end)

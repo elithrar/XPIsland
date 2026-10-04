@@ -1,6 +1,6 @@
 # XPIsland
 
-A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.2.0 targets interface 16001 and was checked against Blizzard UI source for 1.60.1.70205. Retail, Classic Era, and other clients are not supported.
+A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.3.0 targets interface 16001 and was checked against Blizzard UI source for 1.60.1.70205. Retail, Classic Era, and other clients are not supported.
 
 ## Install
 
@@ -16,7 +16,9 @@ No other addon is required. Existing addon files and settings do not need modifi
 - Click the capsule or its expanded cells to expand/collapse. Configure **Expand / collapse XPIsland** in WoW Keybindings, accessible from XPIsland's Options page. No key is claimed by default.
 - Twenty segments show exact level progress with a partially filled final segment. The right label defaults to earned percentage. Alternatives are Current / Total XP, XP Remaining, XP Remaining (%), and Time to Next Level.
 - Normal XP is purple, rested XP blue. Color pickers preview changes and support cancel. The rested cell shows the remaining rested pool, including any amount beyond this level, or a dash.
-- A level-up expands the capsule for ten seconds. Clicking, changing settings, or dragging cancels the automatic collapse. The checkbox disables automatic expansion.
+- Auto-collapse after 15 seconds is enabled by default. The capsule remains visible. Hovering the island, dragging it, or keeping its settings open suspends the timeout; leaving restarts the full interval. Pointer events react immediately, with the existing one-second ticker reconciling child-frame/geometry changes.
+- A level-up opens a ten-second preview when enabled, even if ordinary auto-collapse is disabled. Repeated level-ups restart those ten seconds. Manual toggling takes over: closing cancels the timer; opening uses the ordinary 15-second policy. Profile/settings changes replace the old timeout with the active profile's ordinary policy. Hover/settings/dragging suspend the level-up timeout too.
+- Collapse when combat starts is enabled by default. Combat entry cancels the pending timeout and closes the details, even while hovered or configuring. Combat exit never reopens them. Automatic level-up opening is suppressed during combat with this option on; an explicit manual toggle remains available. Hiding at cap cancels animation and timeout, and returning starts collapsed. Both new settings default on for existing profiles without changing saved false values.
 - The island is locked initially. Top is the default position and expands down; Bottom expands up. Unlock it to drag to a Custom position, which expands into the side with more space. Reset to top restores the default. It hides at the client's effective XP cap or when XP is disabled. Cap visibility takes precedence over the level-up expansion.
 - `/xpisland reset` explicitly starts a fresh session. There is no pause control.
 
@@ -30,9 +32,13 @@ The default is bounded, not a percentage of an ultrawide screen. The following a
 | 1400–1999 | 400 × 34 | 520 × 144 |
 | 2000 and above | 440 × 34 | 560 × 144 |
 
-The independent island scale defaults to 100%. Its slider and numeric field both accept 50–150%. These multiply WoW's effective UI scale; maximum unscaled widths remain 440/560 even on larger screens. A final fit-to-screen limit keeps the expanded panel inside the available viewport. The collapsed width may grow within its 440-unit maximum for a wide custom font. Labels use unbounded text measurements and compact K/M numbers. A useful bar width is preserved without shrinking the selected text size. The bar stays fixed while the surrounding details expand. Custom anchors reserve the complete expanded footprint even while collapsed. Global WoW UI scale and graphics settings are never changed.
+The independent island scale defaults to 100%. Its slider and numeric field both accept 50–150%. These multiply WoW's effective UI scale; maximum unscaled widths remain 440/560 even on larger screens. A final fit-to-screen limit keeps the expanded panel inside the available viewport. The collapsed width may grow within its 440-unit maximum for a wide custom font. Labels use unbounded text measurements and compact K/M numbers. A useful bar width is preserved without shrinking the selected text size. The header keeps its vertical position and horizontal centre while its width grows with the island. Segments fill the available header width and the measured label stays 14 units from its right edge. The two rows of four stat cells have centred labels/values and equal 20-unit outer margins. Custom anchors reserve the complete expanded footprint even while collapsed. Global WoW UI scale and graphics settings are never changed.
 
 The anchor is eight UIParent units below the top edge. WoW already shifts UIParent for the Mac **Notched Display Mode → Shift UI** option. XPIsland inherits that position and adds no second notch offset. It also follows display/UI scale changes. When WoW is configured to overlap the notch, XPIsland respects that choice; drag it lower if desired.
+
+Expansion and contraction use a short normalized critically damped curve (220 ms for the full distance; at least 80 ms for an interrupted short distance). Reversals start from the current shape, and numeric-label remeasurement preserves transition progress. Details fade with progress inside a clipped region. Tooltip hit regions activate only when fully open. The temporary OnUpdate script is removed on completion, hiding, dragging or profile/layout replacement; there is no idle animation work.
+
+The island uses HIGH strata at level 100, above ordinary action bars/panels. Its children inherit this layer; DIALOG settings/system prompts and native menus/tooltips retain their higher ordering. It does not continually raise itself over other addons.
 
 ## XP accounting
 
@@ -79,7 +85,7 @@ Sessions belong to a character, independently of settings profiles. Connected in
 
 ## Options and profiles
 
-`/xpisland` opens one Options page and one Profiles page using Blizzard's native frame, buttons, checkboxes, input fields and slider. Game Tooltip (default) reads the current tooltip body font without modifying it. For an unskinned roman client this is Friz Quadrata; other locales and installed tooltip skins may supply another face. Default island text is 14, with 12-point headings and a subtle shadow instead of a heavy outline. The user can explicitly choose Arial, Friz Quadrata, or a registered LibSharedMedia font. A missing external font falls back to the current tooltip face. The selected face also applies to settings.
+`/xpisland` opens one Options page and one Profiles page in a restrained dark panel with thin grouped borders, small tabs, 12-point labels, colour swatches and compact action buttons. Native WowStyle1DropdownTemplate menus supply radio selections, dismissal, keyboard behavior and scrolling; native checkboxes, input fields and slider retain familiar controls. Settings are 620 × 462 UI units and fit smaller viewports without changing the island scale. Game Tooltip (default) reads the current tooltip body font without modifying it. For an unskinned roman client this is Friz Quadrata; other locales and installed tooltip skins may supply another face. Default island text is 14, with 12-point headings and a subtle shadow instead of a heavy outline. The user can explicitly choose Arial, Friz Quadrata, or a registered LibSharedMedia font. A missing external font falls back to the current tooltip face. The selected face also applies to settings.
 
 Settings schema 2 migrates unmarked Arial/12 defaults to the new face/size while preserving other choices and dragged positions. Version 0.1 did not record whether selecting Arial/12 was intentional, so that ambiguous old-default case follows the new default. Explicit choices are recorded from this version onward. Profile copies preserve those choices.
 
