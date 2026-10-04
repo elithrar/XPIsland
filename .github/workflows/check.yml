@@ -26,6 +26,7 @@ jobs:
           luajit tests/polish_test.lua
           luajit tests/tooltip_test.lua
           luajit tests/features_test.lua
+          luajit tests/played_test.lua
           luajit tests/frame_work_test.lua
           luajit tests/stress_test.lua
       - name: Test release guards

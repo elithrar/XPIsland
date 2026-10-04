@@ -94,59 +94,6 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
  end
 end
 SlashCmdList.XPISLAND('reset');for i=5,8 do eq(UI.cells[i].shareFraction,0) end
--- Whole-level duration: independent counter, loading included, no first partial.
-W,X,UI,M=boot()
-local function levelup(level)
- W.level=level;W.xp=25;W.cap=1000+100*(level-10);W.event('PLAYER_LEVEL_UP',level)
- W.advance(2.1)
-end
-W.advance(100);levelup(11);eq(X.levelNotice,nil,'initial partial level omitted');eq(X.levelTiming.complete,true)
-local start=W.time-2.1
-W.advance(20);SlashCmdList.XPISLAND('reset');eq(X.levelTiming.complete,true,'session reset preserves level observation')
-local timing=X.levelTiming;X:ApplyProfile();eq(X.levelTiming,timing,'profile independent')
-W.event('LOADING_SCREEN_ENABLED');W.event('PLAYER_LEAVING_WORLD');W.connected=false
-W.advance(30);W.time=W.time+7;W.wall=W.wall+7 -- loading that blocks all rendering
-W.connected=true;W.event('PLAYER_ENTERING_WORLD',false,false);W.event('LOADING_SCREEN_DISABLED');W.advance(.1)
-W.advance(40);local expected=W.time-start
-W.hover=UI.frame;levelup(12)
-eq(UI.cells[3].title:GetText(),'Last level took');near(X.levelNotice.seconds,expected,'whole level includes travel and loading')
-eq(UI.cells[3].value:GetText(),M.Duration(expected));eq(X.levelNotice.level,11)
-local notice,timer=X.levelNotice,X.levelNoticeTimer
-W.event('PLAYER_LEVEL_UP',12);eq(X.levelNotice,notice,'duplicate level notification does not restart message');eq(X.levelNoticeTimer,timer)
-UI:ShowStatTooltip(UI.cells[3],3);eq(W.tooltip.lines[1][1],'Last level')
-W.advance(8);eq(X.levelNotice,nil,'message expires even while hover keeps drawer open')
-eq(UI.expanded,true);eq(UI.cells[3].title:GetText(),'Time to Level');eq(X.levelNoticeTimer,nil)
--- Repeated transitions, manual collapse and stale expiry callbacks.
-W.advance(60);levelup(13);eq(X.levelNotice~=nil,true);local stale=X.levelNoticeTimer
-UI:SetExpanded(false);eq(X.levelNotice,nil);eq(stale.cancelled,true);stale.callback();eq(X.levelNotice,nil)
-W.advance(60);levelup(14);eq(X.levelNotice~=nil,true);local newest=X.levelNotice
-stale.callback();eq(X.levelNotice,newest,'old expiry cannot erase newer duration')
-W.combat=true;W.event('PLAYER_REGEN_DISABLED');eq(X.levelNotice,nil);eq(UI.expanded,false)
-W.advance(60);levelup(15);eq(X.levelNotice,nil,'combat suppresses message');eq(X.levelTiming.complete,true)
-W.combat=false;X.profile.levelUp=false;W.advance(60);levelup(16);eq(X.levelNotice,nil,'disabled preview suppresses message')
-X.profile.levelUp=true;W.advance(60);levelup(17);eq(X.levelNotice~=nil,true,'timing continues with presentation disabled')
-UI.frame:Hide();eq(X.levelNotice,nil);eq(X.levelNoticeTimer,nil)
--- Disconnect makes that entire level unknown; next complete level can recover.
-W.connected=false;W.event('UNIT_CONNECTION','player',false);eq(X.levelTiming.complete,false)
-W.advance(100);W.connected=true;W.event('UNIT_CONNECTION','player',true);W.advance(.1);levelup(18)
-eq(X.levelNotice,nil);eq(X.levelTiming.complete,true);W.advance(60);levelup(19);eq(X.levelNotice~=nil,true)
--- Missing/skipped or contradictory boundaries omit results.
-W.advance(60);levelup(21);eq(X.levelNotice,nil);eq(X.levelTiming.complete,false)
-W.advance(60);levelup(22);eq(X.levelNotice,nil);eq(X.levelTiming.complete,true)
-W.event('PLAYER_LEVEL_UP',20);eq(X.levelTiming.level,22,'stale backward event cannot move baseline');eq(X.levelTiming.complete,true,'old event does not invalidate current level')
-W.advance(60);levelup(23);eq(X.levelNotice~=nil,true)
-W.level=24;W.cap=2400;X:Sample();W.advance(2.1);eq(X.levelTiming.complete,false,'missing level event is not a whole-level boundary')
-UI:SetExpanded(false);W.event('PLAYER_LEVEL_UP',24)
-eq(UI.expanded,true,'late genuine event still expands');eq(X.levelTiming.complete,false,'late event cannot recover missing start time')
-W.advance(60);levelup(25);eq(X.levelNotice,nil);eq(X.levelTiming.complete,true)
--- Reload does not restore a falsely complete duration, even with resumed XP.
-W.advance(60);X:Snapshot('reload');local saved=XPIslandSession
-local W2=dofile('tests/wow_mock.lua');W2.level=25;W2.xp=25;W2.cap=2500;local ns2=W2.load();local Y=ns2.owner
-XPIslandSession=saved;W2.event('ADDON_LOADED','XPIsland');W2.event('PLAYER_ENTERING_WORLD',false,true)
-eq(Y.resumed,true);eq(Y.levelTiming.complete,false);eq(Y.levelNotice,nil)
-W2.advance(60);W2.level=26;W2.cap=2600;W2.event('PLAYER_LEVEL_UP',26);W2.advance(2.1);eq(Y.levelNotice,nil)
-W2.advance(60);W2.level=27;W2.cap=0;W2.xp=0;W2.capped=true;W2.event('PLAYER_LEVEL_UP',27);W2.advance(2.1)
-eq(Y.levelNotice,nil,'cap suppresses presentation');eq(ns2.UI.frame:IsShown(),false)
 -- Highlight workload and cleanup at multiple render cadences; no repeated objects.
 W,X,UI,M=boot();local objects=#W.objects
 for _,hz in ipairs({30,60,120}) do
@@ -164,36 +111,22 @@ for i=1,1000 do
  if i%2==0 then UI:ClearHighlights() else UI:AnimateHighlights(1) end
 end
 eq(#W.objects,objects,'repeated pulses retain bounded objects');eq(next(UI.flashes),nil);eq(UI.flashDriver.scripts.OnUpdate,nil)
--- Label remeasurement must not bypass cell-3 tooltip cancellation on notice changes.
-X.profile.format='fraction';UI:SetExpanded(true,true)
-for _,visible in ipairs({false,true}) do
- W.hover=UI.cells[3];UI.cells[3].scripts.OnEnter();local pending=UI.tooltipTimer
- W.advance(visible and .751 or .1);eq(GameTooltip:IsShown(),visible)
- X.levelNotice={seconds=2160,level=10};X.tracker.cap=10000000;UI:Update()
- eq(UI.tooltipCell,nil);eq(GameTooltip:IsShown(),false);pending.callback();eq(GameTooltip:IsShown(),false)
- UI.cells[3].scripts.OnEnter();pending=UI.tooltipTimer;W.advance(visible and .751 or .1)
- eq(GameTooltip:IsShown(),visible)
- X.levelNotice=nil;X.tracker.cap=1000;UI:Update()
- eq(UI.tooltipCell,nil);eq(GameTooltip:IsShown(),false);pending.callback();eq(GameTooltip:IsShown(),false)
-end
-W.hover=nil
 -- Exact requested phrase and measured wrapping at large fonts/narrow widths.
 for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom font'}) do
  for _,size in ipairs({10,14,18}) do
   for _,scale in ipairs({.5,1,1.5}) do
    for _,viewport in ipairs({{320,180},{900,600},{1728,1080}}) do
     UIParent:SetSize(unpack(viewport));X.profile.font=font;X.profile.fontSize=size;X.profile.scale=scale
-    X.levelTiming={level=11,seconds=0,complete=true};UI:SetExpanded(true,true)
+    UI:SetExpanded(true,true)
     for _,duration in ipairs({36*60,102*60}) do
-     X:LevelUp(duration);UI:SetExpanded(true,true)
-     local c=UI.cells[3];eq((c.title:GetText():gsub('\n',' ')),'Last level took')
-     eq(c.value:GetText(),duration==2160 and '36m' or '1h 42m')
-     eq(c.title:GetUnboundedStringWidth()<=c:GetWidth(),true,'whole phrase fits selected font')
-     eq(c.value:GetUnboundedStringWidth()<=c:GetWidth(),true,'duration fits')
-     local _,cy,_,ch=c:Rect();local _,ty,_,th=c.title:Rect();local _,vy,vw,vh=c.value:Rect()
-     eq(vy>=cy-.001 and ty+th<=cy+ch+.001,true,'wrapped title and duration fit row')
-     eq(vy+vh<=ty+.001,true,'title and duration never overlap')
+     X:LevelUp();X:ShowLevelDuration(10,duration);UI:SetExpanded(true,true)
+     local c=UI.cells[3];eq(c.title:GetText(),'Time to Level')
+     eq(UI.levelText:GetText(),duration==2160 and 'Last level took 36m' or 'Last level took 1h 42m')
+     eq(UI.bar:IsShown(),false);eq(UI.levelText:IsShown(),true)
+     local _,_,width=UI.levelText:Rect();local _,_,headerWidth=UI.header:Rect()
+     eq(width<=headerWidth,true,'whole phrase fits header at chosen font and scale')
      X:ClearLevelNotice();UI:Update();eq(c.title:GetText(),'Time to Level')
+     eq(UI.bar:IsShown(),true);eq(UI.levelText:IsShown(),false)
     end
    end
   end
@@ -205,9 +138,9 @@ X.session.total=15000;X.session.buckets={kills=7500,quests=3000,dungeons=3750,ot
 X.session.seconds=7200;M.RateAward(X.session,15000)
 UI:SetExpanded(false,true);W.svg('dist/preview-rested-05.svg',UI.frame)
 UI:SetExpanded(true,true);W.svg('dist/preview-sources-05.svg',UI.frame)
-X.levelTiming={level=11,seconds=0,complete=true};X:LevelUp(6120);UI:SetExpanded(true,true)
+X:LevelUp();X:ShowLevelDuration(10,6120);UI:SetExpanded(true,true)
 W.svg('dist/preview-level-05.svg',UI.frame)
 UI:HighlightSegments(300,350,1000);W.svg('dist/preview-highlight-05.svg',UI.frame)
-UIParent:SetSize(1300,1080);X.profile.fontSize=18;X:LevelUp(2160);UI:SetExpanded(true,true)
+UIParent:SetSize(1300,1080);X.profile.fontSize=18;X:LevelUp();X:ShowLevelDuration(10,2160);UI:SetExpanded(true,true)
 W.svg('dist/preview-level-wrap-05.svg',UI.frame)
 print('PASS: '..n..' feature assertions (segment highlights, rested preview, source shares, whole-level duration)')

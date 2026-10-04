@@ -97,6 +97,7 @@ function methods:GenerateMenu()
 end
 function methods:CloseMenu() self.menuOpen=false end
 function methods:SetScript(event,f) self.scripts[event]=f end
+function methods:IsEventRegistered(e) return self.events and self.events[e] or false end
 function methods:RegisterEvent(e) self.events=self.events or {};self.events[e]=true end
 function methods:RegisterUnitEvent(e) self:RegisterEvent(e) end
 function methods:UnregisterAllEvents() self.events={} end
@@ -265,9 +266,10 @@ function BreakUpLargeNumbers(n)
     repeat s,k=s:gsub("^(%d+)(%d%d%d)","%1,%2") until k==0
     return s
 end
+function RequestTimePlayed() W.playedRequests=(W.playedRequests or 0)+1 end
 function W.load()
     local ns={}
-    for _,name in ipairs({"Model","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
+    for _,name in ipairs({"Model","Played","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
     return ns
 end
 

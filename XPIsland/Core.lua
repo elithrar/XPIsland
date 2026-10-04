@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.5.0", formats={}}
+local X = {version="0.5.1", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -70,49 +70,53 @@ function X:ClearLevelNotice()
     self.levelNotice=nil
 end
 
--- Independent from session XP/rate counters. Only a whole, continuously observed
--- level is reportable; the chat-producing /played API is deliberately not called.
+-- Presentation watermark is separate from sampled XP and server played-time anchors.
 function X:ObserveLevel(level)
     if not M.Number(level) or level<1 or level~=math.floor(level) then return false end
-    self:Clock()
-    local previous=self.levelTiming
     if self.lastLevelEvent and level<=self.lastLevelEvent then return false end
-    if previous and level<previous.level then return false end
-    self:ClearLevelNotice()
-    local adjacent=previous and level==previous.level+1 and level==(self.lastLevelEvent or previous.level)+1
     self.lastLevelEvent=level
-    local duration=adjacent and previous.complete and previous.seconds>0 and previous.seconds or nil
-    self.levelTiming={level=level,seconds=0,complete=not not (adjacent and self.online and self.connected~=false)}
-    return true,duration
+    ns.Played:Invalidate();ns.Played:Sync()
+    return true
 end
 
 function X:ObserveLevelSample(level)
     if not self.lastLevelEvent then self.lastLevelEvent=level end
-    local timing=self.levelTiming
-    if not timing or timing.level~=level then
-        -- A level changed without its event (or values contradicted an event).
-        -- Never turn a partial observation into a completed-level duration.
-        self.levelTiming={level=level,seconds=0,complete=false}
-        self:ClearLevelNotice()
+    if self.playedSampleLevel and self.playedSampleLevel~=level then
+        ns.Played:Invalidate();ns.Played:Sync()
     end
+    self.playedSampleLevel=level
 end
 
-function X:LevelUp(duration)
+function X:PlayedLevelComplete(level,duration)
+    if not self.levelWindow or self.levelWindow.level~=level+1 or GetTime()>=self.levelWindow.untilTime
+        or not UI.expanded or not UI.frame:IsShown() or not self.profile.levelUp or self:IsCapped()
+        or (self.profile.collapseCombat and InCombatLockdown()) then return end
+    self:ShowLevelDuration(level,duration,10)
+    self:ArmCollapse(10)
+end
+
+function X:ShowLevelDuration(level,duration,delay)
+    self:ClearLevelNotice()
+    if not M.Number(duration) or duration<=0 then return end
+    local notice={seconds=duration,level=level}
+    self.levelNotice=notice
+    self.levelNoticeTimer=C_Timer.NewTimer(delay or 10,function()
+        if self.levelNotice~=notice then return end
+        self.levelNoticeTimer=nil;self.levelNotice=nil
+        UI:Update()
+    end)
+    UI:Update()
+end
+
+function X:LevelUp()
     self:ClearLevelNotice()
     if not self.profile.levelUp or self:IsCapped() or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:CancelAutoCollapse()
     UI:SetExpanded(true)
-    if M.Number(duration) and duration>0 then
-        local notice={seconds=duration,level=self.levelTiming.level-1}
-        self.levelNotice=notice
-        self.levelNoticeTimer=C_Timer.NewTimer(10,function()
-            if self.levelNotice~=notice then return end
-            self.levelNoticeTimer=nil;self.levelNotice=nil
-            UI:Update()
-        end)
-        UI:Update()
-    end
+    self.levelWindow={level=self.lastLevelEvent,untilTime=GetTime()+10}
     self:ArmCollapse(10)
+    local completed=ns.Played.completed
+    if completed and GetTime()-completed.observed<=10 then self:PlayedLevelComplete(completed.level,completed.seconds) end
 end
 
 function X:Clock()
@@ -129,12 +133,14 @@ function X:Clock()
         local elapsed=now-self.clockAt
         if elapsed>=0 then
             self.session.seconds=self.session.seconds+elapsed
-            if self.levelTiming and self.levelTiming.complete then self.levelTiming.seconds=self.levelTiming.seconds+elapsed end
-        elseif self.levelTiming then self.levelTiming.complete=false end
+        end
     end
     if connected==false then
         self.transition=true
-        if self.levelTiming then self.levelTiming.complete=false end
+    end
+    if connected~=self.connected then
+        ns.Played:Invalidate()
+        if connected then ns.Played:Sync() end
     end
     self.connected=connected
     self.clockAt=now
@@ -269,10 +275,12 @@ function X:Initialize(reloading)
             if f then self.formats[#self.formats+1]=f end
         end
     end
+    ns.Played:Initialize(self,XPIslandPlayed)
     UI:Create(self);self:Sample();self:Integration()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
         if self.online and (self.transition or self.tracker.pending or self.levelPending) then self:Sample() end
+        ns.Played:Pump()
         self:InteractionChanged()
         if UI.expanded or self.profile.format=="eta" then UI:Update() end
     end)
@@ -288,6 +296,7 @@ events:SetScript("OnEvent",function(_,event,...)
     if event=="LOADING_SCREEN_ENABLED" or event=="PLAYER_LEAVING_WORLD" then
         if event=="LOADING_SCREEN_ENABLED" then X.loading=true else X.inWorld=false end
         X:Clock();X.transition=true
+        if X.session then ns.Played:Invalidate() end
         if UI.frame then UI:ClearHighlights() end
         if X.tracker then X.tracker.pending=nil;X.tracker.awards={};X.tracker.hints={} end
         -- Do not sample here: unit values can already be unloading/reset.
@@ -312,21 +321,26 @@ events:SetScript("OnEvent",function(_,event,...)
     if event=="UNIT_CONNECTION" then
         local unit,connected=...
         if safe(unit) and unit=="player" and safe(connected) and type(connected)=="boolean" then
-            X:Clock();X.connected=connected;X.clockAt=GetTime()
-            if not connected and X.levelTiming then X.levelTiming.complete=false end
+            X:Clock()
+            if X.connected~=connected then
+                ns.Played:Invalidate()
+                if connected then ns.Played:Sync() end
+            end
+            X.connected=connected;X.clockAt=GetTime()
             if connected then X:DeferSample() else X.transition=true end
         end
+    elseif event=="TIME_PLAYED_MSG" then ns.Played:Response(...)
     elseif event=="PLAYER_XP_UPDATE" then
         local unit=...
         if safe(unit) and unit=="player" then X:DeferSample() end
     elseif event=="PLAYER_LEVEL_UP" then
         local level=...
-        local changed,duration=X:ObserveLevel(level)
+        local changed=X:ObserveLevel(level)
         if M.Number(level) and level>(X.tracker.level or 0) and X.levelPending~=level then
             X.levelPending=level;X.levelPendingAt=GetTime()
         end
         X:DeferSample()
-        if changed then UI:ClearHighlights();X:LevelUp(duration) end
+        if changed then UI:ClearHighlights();X:LevelUp() end
     elseif event=="QUEST_TURNED_IN" then
         if not X.online or not X.inWorld or X.loading or X.connected==false then return end
         local id,amount=...
@@ -355,7 +369,7 @@ events:SetScript("OnEvent",function(_,event,...)
     else X:Sample() end
 end)
 
-for _,event in ipairs({"ADDON_LOADED","UNIT_CONNECTION","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
+for _,event in ipairs({"ADDON_LOADED","TIME_PLAYED_MSG","UNIT_CONNECTION","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
     "CHAT_MSG_COMBAT_XP_GAIN","LOADING_SCREEN_ENABLED","LOADING_SCREEN_DISABLED","PLAYER_LEAVING_WORLD","PLAYER_LOGOUT","PLAYER_CAMPING","PLAYER_QUITING","LOGOUT_CANCEL",
     "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
     "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN"}) do events:RegisterEvent(event) end

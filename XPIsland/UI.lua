@@ -163,13 +163,6 @@ end
 
 function UI:ShowStatTooltip(cell,i)
     local owner=self.owner
-    if i==3 and owner.levelNotice then
-        GameTooltip:SetOwner(cell,"ANCHOR_BOTTOM")
-        GameTooltip:AddLine("Last level",1,1,1)
-        GameTooltip:AddLine(string.format("Level %d took %s of observed play time.",owner.levelNotice.level,M.Duration(owner.levelNotice.seconds,true)),.75,.77,.82,true)
-        GameTooltip:AddLine("Includes idle, travel and loading. Shown only when the whole level was observed without a reload or disconnection.",.75,.77,.82,true)
-        GameTooltip:Show();return
-    end
     GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
     GameTooltip:AddLine(tooltipLabels[i], 1,1,1)
     if i~=3 then GameTooltip:AddLine(explanations[i], .75,.77,.82, true) end
@@ -214,23 +207,26 @@ function UI:Create(owner)
     self.flashStep=function(_,elapsed) self:AnimateHighlights(elapsed) end
     self.flashes={}
     self.restedColor={}
-    self.label = UI.Text(self.header, 14)
+    self.bar=CreateFrame("Frame",nil,self.header);self.bar:SetAllPoints()
+    self.levelText=UI.Text(self.header,14)
+    self.levelText:SetPoint("CENTER",self.header,"CENTER");self.levelText:Hide()
+    self.label = UI.Text(self.bar, 14)
     self.label:SetJustifyH("RIGHT")
     -- A bundled symbol avoids guessing arbitrary SharedMedia font coverage.
     -- If the client cannot load it, the label uses the ASCII fallback "n/a".
-    self.infinity=self.header:CreateTexture(nil,"OVERLAY")
+    self.infinity=self.bar:CreateTexture(nil,"OVERLAY")
     self.infinitySupported=self.infinity:SetTexture("Interface\\AddOns\\XPIsland\\media\\infinity.tga")
     self.infinity:SetVertexColor(.93,.94,.97,1)
     self.infinity:SetPoint("RIGHT",self.header,"RIGHT",-14,0);self.infinity:Hide()
     self.segments = {}
     for i=1,20 do
         local edge=i==1 and "left" or i==20 and "right" or nil
-        local track = UI.BarPiece(self.header, "ARTWORK", edge)
-        local preview=UI.BarPiece(self.header,"ARTWORK",edge)
+        local track = UI.BarPiece(self.bar, "ARTWORK", edge)
+        local preview=UI.BarPiece(self.bar,"ARTWORK",edge)
         preview:SetFrameLevel(track:GetFrameLevel()+1);preview:SetPoint("LEFT",track,"LEFT")
-        local fill = UI.BarPiece(self.header, "OVERLAY", edge)
+        local fill = UI.BarPiece(self.bar, "OVERLAY", edge)
         fill:SetFrameLevel(track:GetFrameLevel()+2);fill:SetPoint("LEFT",track,"LEFT")
-        local flash=UI.BarPiece(self.header,"OVERLAY",edge)
+        local flash=UI.BarPiece(self.bar,"OVERLAY",edge)
         flash:SetFrameLevel(track:GetFrameLevel()+3);flash:SetPoint("LEFT",track,"LEFT");flash:Hide()
         self.segments[i] = {track=track,preview=preview,fill=fill,flash=flash}
     end
@@ -302,6 +298,7 @@ function UI:Create(owner)
     f:SetScript("OnLeave", function() GameTooltip:Hide();owner:InteractionChanged() end)
     f:SetScript("OnHide",function()
         self:CancelStatTooltip();self:ClearHighlights()
+        owner.levelWindow=nil
         owner:ClearLevelNotice()
         self:StopAnimation();owner:CancelAutoCollapse()
         self.expanded=false
@@ -345,22 +342,12 @@ function UI:Layout(preserveMotion)
     local p,f=self.owner.profile,self.frame
     self.font=UI.Font(p)
     self.label:SetFont(self.font,p.fontSize,"")
+    self.levelText:SetFont(self.font,p.fontSize,"")
+    self.levelTextSource=nil
     self.infinity:SetSize(p.fontSize*1.4,p.fontSize*.8)
     local titleHeight,valueHeight=0,0
-    local _,expandedWidth=M.Layout(UIParent:GetWidth(),p.scale)
-    local titleWidth=(expandedWidth-76)/4
-    local showing=self.owner.levelNotice~=nil
-    if self.noticeShowing~=showing then self:CancelStatTooltip(self.cells[3]) end
-    self.noticeShowing=showing
     for i,c in ipairs(self.cells) do
         c.title:SetFont(self.font,math.max(12,math.min(14,p.fontSize-2)),"")
-        if i==3 then
-            c.title:SetText(self.noticeShowing and "Last level took" or labels[3])
-            if self.noticeShowing and c.title:GetUnboundedStringWidth()>titleWidth then
-                c.title:SetText("Last level\ntook")
-                if c.title:GetUnboundedStringWidth()>titleWidth then c.title:SetText("Last\nlevel\ntook") end
-            end
-        end
         c.value:SetFont(self.font,p.fontSize,"")
         titleHeight=math.max(titleHeight,c.title:GetStringHeight())
         valueHeight=math.max(valueHeight,c.value:GetStringHeight())
@@ -466,7 +453,7 @@ end
 function UI:SetExpanded(expanded, instant)
     self:CancelStatTooltip()
     expanded=not not expanded
-    if not expanded then self.owner:ClearLevelNotice() end
+    if not expanded then self.owner.levelWindow=nil;self.owner:ClearLevelNotice() end
     GameTooltip:Hide()
     if self.expanded==expanded and self.animation and not instant then return end
     self.expanded=expanded
@@ -488,7 +475,7 @@ function UI:ClearHighlights()
 end
 
 function UI:HighlightSegments(before,after,cap)
-    if not self.frame:IsVisible() or self.dragging or cap<=0 or after<=before then return end
+    if self.owner.levelNotice or not self.frame:IsVisible() or self.dragging or cap<=0 or after<=before then return end
     local first=math.floor(before*20/cap)+1
     local last=math.min(20,math.floor(after*20/cap))
     if last<first then return end
@@ -511,6 +498,23 @@ end
 
 function UI:PaintBar(geometryChanged)
     local o,p=self.owner,self.owner.profile
+    local notice=o.levelNotice
+    if notice~=self.headerNotice then
+        self.headerNotice=notice
+        self.headerNoticeText=notice and ("Last level took "..M.Duration(notice.seconds)) or nil
+    end
+    local text=self.headerNoticeText
+    if text~=self.levelTextSource then
+        self.levelTextSource=text
+        self.levelText:SetText(text or "")
+        self.levelTextWidth=self.levelText:GetUnboundedStringWidth()
+        self.levelText:SetSize(math.max(1,self.levelTextWidth),p.fontSize+4)
+    end
+    self.levelText:SetShown(notice~=nil);self.bar:SetShown(notice==nil)
+    if notice then
+        self.levelText:SetScale(math.min(1,(self.header:GetWidth()-28)/math.max(1,self.levelTextWidth)))
+        self:ClearHighlights()
+    end
     local t=o.tracker
     if not t or not t.cap then return end
     local fraction=t.cap>0 and math.min(1,math.max(0,t.xp/t.cap)) or 0
@@ -550,12 +554,10 @@ function UI:Update()
     if labelWidth~=self.layout.labelWidth or UI.Font(p)~=self.layout.font then self:Layout(true);return end
     self:PaintBar()
     local s=o.session
-    local notice=o.levelNotice
-    if self.noticeShowing~=(notice~=nil) then self:Layout(true);return end
     local left=math.max(0,cap-xp)
     local values = {
         M.Compact(left).." / "..M.Compact(cap), rate and M.Compact(rate) or "—",
-        M.Duration(notice and notice.seconds or duration), rested>0 and M.Compact(rested) or "—",
+        M.Duration(duration), rested>0 and M.Compact(rested) or "—",
         M.Compact(s.buckets.kills), M.Compact(s.buckets.quests), M.Compact(s.buckets.dungeons), M.Compact(s.buckets.other),
     }
     for i,c in ipairs(self.cells) do

@@ -17,9 +17,9 @@ toc = (addon / "XPIsland.toc").read_text()
 assert "## Interface: 16001" in toc
 assert "## X-Curse-Project-ID: 1727059" in toc
 assert "## SavedVariables: XPIslandDB" in toc
-assert "## SavedVariablesPerCharacter: XPIslandSession" in toc
+assert "## SavedVariablesPerCharacter: XPIslandSession, XPIslandPlayed" in toc
 files = [line.strip() for line in toc.splitlines() if line.strip() and not line.startswith("#")]
-assert files == ["Model.lua", "UI.lua", "Options.lua", "Core.lua"]
+assert files == ["Model.lua", "Played.lua", "UI.lua", "Options.lua", "Core.lua"]
 for name in files:
     path = addon / name
     assert path.is_file()
