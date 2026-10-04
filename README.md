@@ -1,5 +1,7 @@
 # XPIsland
 
+<img width="556" height="299" alt="xp-island-collapsed" src="https://github.com/user-attachments/assets/b241fb90-beaf-42a0-8e35-8fb6bc308707" />
+
 A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sources of XP during your current session.
 
 - A segmented XP bar that shows rested XP and can be configured to show XP remaining or time to next level based on your current leveling pace.
@@ -13,6 +15,25 @@ For World of Warcraft: Forever. This is a fun experiment to better show the pace
 Copy the `XPIsland` folder into your Forever client's `Interface/AddOns` directory, then restart WoW. The folder should contain `XPIsland.toc` directly.
 
 Type `/xpisland` for settings. Click the island to expand it, or assign “Expand / collapse XPIsland” in WoW's Keybindings. Use `/xpisland reset` to start a fresh session.
+
+## Screenshots
+
+Collapsed:
+
+![Uploading xp-island-collapsed.png…]()
+
+Expanded:
+
+<img width="689" height="463" alt="xp-island-expanded" src="https://github.com/user-attachments/assets/7b4ae7d5-1826-436b-b0b1-20d55b7d9852" />
+
+Tooltip:
+
+<img width="601" height="267" alt="xp-island-tooltip" src="https://github.com/user-attachments/assets/dd3cd877-8c6c-43b9-b823-9b308926f2ac" />
+
+Options:
+
+<img width="744" height="566" alt="xp-island-options" src="https://github.com/user-attachments/assets/95bf43b0-da5d-448d-8805-2758c66d9e12" />
+
 
 ## Contributing
 
