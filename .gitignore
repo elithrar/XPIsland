@@ -1,0 +1,6 @@
+/dist/
+/references/
+/VALIDATION.md
+__pycache__/
+*.pyc
+.DS_Store

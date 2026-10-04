@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: XPIsland
+## Notes: A compact experience island for World of Warcraft: Forever.
+## Author: Matt
+## Version: 0.1.0
+## SavedVariables: XPIslandDB
+## SavedVariablesPerCharacter: XPIslandSession
+## OptionalDeps: LibSharedMedia-3.0
+Model.lua
+UI.lua
+Options.lua
+Core.lua

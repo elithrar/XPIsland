@@ -1,0 +1,23 @@
+name: Check addon
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+      - name: Test model and runtime
+        run: |
+          mkdir -p dist
+          luajit tests/model_test.lua
+          luajit tests/runtime_test.lua
+      - name: Validate and package addon
+        run: python3 tests/package.py
