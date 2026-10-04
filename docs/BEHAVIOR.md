@@ -112,3 +112,5 @@ See [validation coverage](VALIDATION.md) for exact checks. LuaJIT model and mock
 - [Stock XP eligibility](https://github.com/Gethe/wow-ui-source/blob/e3ecc27b64d30fdc735a3f6579b866858f9f9df1/Interface/AddOns/Blizzard_StatusTrackingBar/Mainline/StatusTrackingManagerOverrides.lua)
 
 XPIsland's code and rounded textures are original. No Ellesmere/Danders code, fonts, or artwork is bundled.
+
+Expanded stat tooltips require two seconds over the same cell. Leaving, switching cells, collapsing, hiding or dragging cancels that hover; the next cell starts a fresh delay. The collapsed bar keeps its immediate tooltip.

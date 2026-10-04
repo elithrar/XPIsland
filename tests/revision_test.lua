@@ -31,7 +31,7 @@ X.profile.font='Arial';UI:Layout();eq(UI.label.fontPath,'Fonts\\ARIALN.TTF','exp
 GameTooltipTextLeft2=nil;X.profile.font='Game tooltip';UI:Layout()
 local originalTooltipFont=GameTooltipText:GetFont()
 for i,name in ipairs({'Kill XP','Quest XP','Dungeon XP','Other XP'}) do eq(UI.cells[i+4].title:GetText(),name) end
-UI.cells[5].scripts.OnEnter();eq(W.tooltip.anchor,'ANCHOR_BOTTOM');eq(W.tooltip.lines[1][1],'Outdoor kills','existing tooltip title unchanged')
+UI:ShowStatTooltip(UI.cells[5],5);eq(W.tooltip.anchor,'ANCHOR_BOTTOM');eq(W.tooltip.lines[1][1],'Outdoor kills','existing tooltip title unchanged')
 eq(W.tooltip.lines[2][1],'Confirmed kill XP earned outside instances, including rested bonuses.')
 eq(GameTooltipText:GetFont(),originalTooltipFont,'no tooltip font mutation')
 SlashCmdList.XPISLAND('');eq(O.frame.template,'BackdropTemplate');eq(O.scale.template,'UISliderTemplate');eq(O.fontSize.template,'InputBoxTemplate')
@@ -43,7 +43,7 @@ W.choose(O.format,'eta');eq(UI.infinity:IsShown(),true,'no-activity infinity sym
 X.session.total=6000;X.session.buckets.other=6000;X.session.seconds=3600
 W.xp=60800;W.cap=95000;X:Sample();W.advance(2.1);X.session.total=6000;X.session.buckets={kills=0,quests=0,dungeons=0,other=6000};X.session.rate={version=1,startedAt=0,buckets={}};M.RateAward(X.session,6000);UI:Update()
 eq(UI.label:GetText(),UI.cells[3].value:GetText(),'same ETA in bar and cell')
-UI.cells[3].scripts.OnEnter();eq(#W.tooltip.lines,4,'ETA context added without styling change')
+UI:ShowStatTooltip(UI.cells[3],3);eq(#W.tooltip.lines,4,'ETA context added without styling change')
 eq(W.tooltip.lines[4][1],'6K XP/hour · 34200 XP remaining')
 local previous=UI.label:GetText();W.event('PLAYER_LEAVING_WORLD');W.advance(120);eq(UI.label:GetText(),previous,'no offline ETA drift')
 W.event('PLAYER_ENTERING_WORLD',false,false)

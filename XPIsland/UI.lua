@@ -130,6 +130,62 @@ local explanations = {
     "Exploration, raid/other-instance gains, and XP whose source could not be confirmed. Categories sum to session XP.",
 }
 
+-- A single cancellable timer belongs to the current stat target. The generation
+-- also rejects callbacks already dispatched before a leave or same-cell re-entry.
+function UI:CancelStatTooltip(cell)
+    if cell and self.tooltipCell~=cell then return end
+    local previous=self.tooltipCell
+    self.tooltipGeneration=(self.tooltipGeneration or 0)+1
+    if self.tooltipTimer then self.tooltipTimer:Cancel();self.tooltipTimer=nil end
+    self.tooltipCell=nil
+    if previous and GameTooltip:GetOwner()==previous then GameTooltip:Hide() end
+end
+
+function UI:BeginStatTooltip(cell,index)
+    self:CancelStatTooltip()
+    GameTooltip:Hide()
+    if not self.expanded or self.progress~=1 or not cell:IsVisible() or self.dragging then return end
+    self.tooltipCell=cell
+    local generation=self.tooltipGeneration
+    self.tooltipTimer=C_Timer.NewTimer(2,function()
+        if self.tooltipGeneration~=generation or self.tooltipCell~=cell then return end
+        self.tooltipTimer=nil
+        if not self.expanded or self.progress~=1 or self.dragging
+            or not self.frame:IsVisible() or not cell:IsVisible() or not cell:IsMouseOver() then
+            self:CancelStatTooltip(cell)
+            return
+        end
+        self:ShowStatTooltip(cell,index)
+    end)
+end
+
+function UI:ShowStatTooltip(cell,i)
+    local owner=self.owner
+    GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
+    GameTooltip:AddLine(tooltipLabels[i], 1,1,1)
+    if i~=3 then GameTooltip:AddLine(explanations[i], .75,.77,.82, true) end
+    local s = owner.session
+    if i >= 5 and s then
+        local key = ({"kills","quests","dungeons","other"})[i-4]
+        local amount = s.buckets[key]
+        GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
+    elseif i == 3 and owner.tracker then
+        local t=owner.tracker
+        local rate,duration=M.Estimate(s,t.xp,t.cap,owner:IsCapped())
+        local state=M.ETAState(s,rate,duration)
+        GameTooltip:AddLine(state=="ready" and explanations[i] or M.ETAMessages[state],.75,.77,.82,true)
+        if duration then
+            GameTooltip:AddLine(M.Duration(duration,true).." at your current rate",.8,.65,1)
+            GameTooltip:AddLine(string.format("%s XP/hour · %d XP remaining",M.Compact(rate),math.max(0,t.cap-t.xp)),.75,.77,.82,true)
+
+        end
+    elseif i == 1 and owner.tracker and owner.tracker.cap then
+        GameTooltip:AddLine(string.format("%d / %d XP remaining", math.max(0,owner.tracker.cap-owner.tracker.xp), owner.tracker.cap), .8,.65,1)
+    end
+    if i>=5 and s and s.partial then GameTooltip:AddLine("Totals include recorded XP only.",.75,.77,.82,true) end
+    GameTooltip:Show()
+end
+
 function UI:Create(owner)
     self.owner = owner
     local f = CreateFrame("Button", "XPIslandFrame", UIParent)
@@ -176,31 +232,10 @@ function UI:Create(owner)
         cell.title:SetText(labels[i])
         cell:SetScript("OnEnter", function()
             owner:InteractionChanged()
-            GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
-            GameTooltip:AddLine(tooltipLabels[i], 1,1,1)
-            if i~=3 then GameTooltip:AddLine(explanations[i], .75,.77,.82, true) end
-            local s = owner.session
-            if i >= 5 and s then
-                local key = ({"kills","quests","dungeons","other"})[i-4]
-                local amount = s.buckets[key]
-                GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
-            elseif i == 3 and owner.tracker then
-                local t=owner.tracker
-                local rate,duration=M.Estimate(s,t.xp,t.cap,owner:IsCapped())
-                local state=M.ETAState(s,rate,duration)
-                GameTooltip:AddLine(state=="ready" and explanations[i] or M.ETAMessages[state],.75,.77,.82,true)
-                if duration then
-                    GameTooltip:AddLine(M.Duration(duration,true).." at your current rate",.8,.65,1)
-                    GameTooltip:AddLine(string.format("%s XP/hour · %d XP remaining",M.Compact(rate),math.max(0,t.cap-t.xp)),.75,.77,.82,true)
-
-                end
-            elseif i == 1 and owner.tracker and owner.tracker.cap then
-                GameTooltip:AddLine(string.format("%d / %d XP remaining", math.max(0,owner.tracker.cap-owner.tracker.xp), owner.tracker.cap), .8,.65,1)
-            end
-            if i>=5 and s and s.partial then GameTooltip:AddLine("Totals include recorded XP only.",.75,.77,.82,true) end
-            GameTooltip:Show()
+            self:BeginStatTooltip(cell,i)
         end)
-        cell:SetScript("OnLeave", function() GameTooltip:Hide();owner:InteractionChanged() end)
+        cell:SetScript("OnLeave", function() self:CancelStatTooltip(cell);owner:InteractionChanged() end)
+        cell:SetScript("OnHide", function() self:CancelStatTooltip(cell) end)
         cell:SetScript("OnMouseUp", function(_,button) if button=="LeftButton" then owner:Toggle() end end)
         self.cells[i] = cell
     end
@@ -210,6 +245,7 @@ function UI:Create(owner)
     end)
     f:SetScript("OnDragStart", function()
         if owner.profile.locked then return end
+        self:CancelStatTooltip()
         self.dragged = true; self.dragging = true
         owner:InteractionChanged(); self:StopAnimation(); self:RenderGeometry(self.expanded and 1 or 0); f:StartMoving()
     end)
@@ -225,6 +261,7 @@ function UI:Create(owner)
         owner:InteractionChanged()
     end)
     f:SetScript("OnEnter", function()
+        self:CancelStatTooltip()
         owner:InteractionChanged()
         local t=owner.tracker
         if not t or not t.cap or t.cap<=0 then return end
@@ -242,6 +279,7 @@ function UI:Create(owner)
     end)
     f:SetScript("OnLeave", function() GameTooltip:Hide();owner:InteractionChanged() end)
     f:SetScript("OnHide",function()
+        self:CancelStatTooltip()
         self:StopAnimation();owner:CancelAutoCollapse()
         self.expanded=false
         if self.layout then self:RenderGeometry(0) end
@@ -280,6 +318,7 @@ end
 
 function UI:Layout(preserveMotion)
     if not self.frame or self.dragging then return end
+    if not preserveMotion then self:CancelStatTooltip() end
     local p,f=self.owner.profile,self.frame
     self.font=UI.Font(p)
     self.label:SetFont(self.font,p.fontSize,"")
@@ -385,6 +424,7 @@ function UI:Animate(elapsed)
 end
 
 function UI:SetExpanded(expanded, instant)
+    self:CancelStatTooltip()
     expanded=not not expanded
     GameTooltip:Hide()
     if self.expanded==expanded and self.animation and not instant then return end

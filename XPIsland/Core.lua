@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.4.1", formats={}}
+local X = {version="0.4.2", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end

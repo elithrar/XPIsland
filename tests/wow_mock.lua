@@ -156,7 +156,10 @@ UIParent=object("Frame","UIParent");UIParent:SetSize(1728,1080)
 UISpecialFrames={};SlashCmdList={}
 GameTooltipText={GetFont=function() return "Fonts\\FRIZQT__.TTF",12,"" end}
 GameTooltip={SetOwner=function(_,owner,anchor) W.tooltip={owner=owner,anchor=anchor,lines={}} end,
-AddLine=function(_,...) W.tooltip.lines[#W.tooltip.lines+1]={...} end,Show=function() end,Hide=function() end}
+AddLine=function(_,...) W.tooltip.lines[#W.tooltip.lines+1]={...} end,Show=function() W.tooltip.shown=true end,
+Hide=function() if W.tooltip then W.tooltip.shown=false end end,
+GetOwner=function() return W.tooltip and W.tooltip.owner end,
+IsShown=function() return W.tooltip and W.tooltip.shown or false end}
 DEFAULT_CHAT_FRAME={AddMessage=function(_,msg) W.lastMessage=msg end}
 Settings={KEYBINDINGS_CATEGORY_ID=7,OpenToCategory=function(...) W.settingsOpened={...} end}
 ColorPickerFrame={SetupColorPickerAndShow=function(_,info) W.colorInfo=info end,GetColorRGB=function() return .1,.2,.3 end}

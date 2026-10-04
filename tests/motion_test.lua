@@ -56,7 +56,7 @@ eq(UI.frame:IsShown(),false);eq(UI.expanded,false);eq(UI.animation,nil);eq(timer
 W.capped=false;X:Sample();eq(UI.frame:IsShown(),true);eq(UI.progress,0)
 -- No duplicate ETA warmup copy. No tooltip font mutation.
 X.session=M.NewSession(X.character,GetServerTime());X.tracker.session=X.session;UI:Update()
-UI.cells[3].scripts.OnEnter();eq(#W.tooltip.lines,2);eq(W.tooltip.lines[1][1],'Next level')
+UI:ShowStatTooltip(UI.cells[3],3);eq(#W.tooltip.lines,2);eq(W.tooltip.lines[1][1],'Next level')
 -- Every animated frame stays within the reserved footprint, keeps the bar's
 -- vertical position, stretches segments and pins the measured label to the right.
 X.profile.autoCollapse=false

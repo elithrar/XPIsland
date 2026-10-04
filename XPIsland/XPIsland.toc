@@ -3,7 +3,7 @@
 ## Notes: A compact experience island for World of Warcraft: Forever.
 ## Author: Matt
 ## X-Curse-Project-ID: 1727059
-## Version: 0.4.1
+## Version: 0.4.2
 ## SavedVariables: XPIslandDB
 ## SavedVariablesPerCharacter: XPIslandSession
 ## OptionalDeps: LibSharedMedia-3.0
