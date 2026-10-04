@@ -2,11 +2,13 @@ local _, ns = ...
 local M = ns.Model
 local UI = {}
 ns.UI = UI
+local TRACK_COLOR={.14,.14,.18}
 local MEDIA = "Interface\\AddOns\\XPIsland\\media\\rounded.tga"
 
 function UI.Text(parent, size, r, g, b)
     local text = parent:CreateFontString(nil, "OVERLAY")
-    text:SetFont("Fonts\\ARIALN.TTF", size, "")
+    text:SetFont(UI.Font({font="Game tooltip"}), size, "")
+    text:SetShadowColor(0,0,0,.8); text:SetShadowOffset(1,-1)
     text:SetTextColor(r or 0.93, g or 0.94, b or 0.97)
     text:SetJustifyH("LEFT")
     text:SetWordWrap(false)
@@ -49,17 +51,58 @@ function UI.Round(parent, color, inset)
 end
 
 function UI.Font(profile)
+    local tooltip = GameTooltipTextLeft2 or GameTooltipText
+    local default = tooltip and tooltip:GetFont() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+    if profile.font == "Game tooltip" then return default end
     if profile.font == "Arial" then return "Fonts\\ARIALN.TTF" end
     if profile.font == "Friz Quadrata" then return STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF" end
     local lsm = LibStub and LibStub("LibSharedMedia-3.0", true)
-    return (lsm and lsm:IsValid("font", profile.font) and lsm:Fetch("font", profile.font)) or "Fonts\\ARIALN.TTF"
+    return (lsm and lsm:IsValid("font", profile.font) and lsm:Fetch("font", profile.font)) or default
 end
 
-local labels = {"XP remaining", "Session XP/hour", "Next level", "Rested XP", "Outdoor kills", "Outdoor quests", "Dungeons", "Other"}
+-- End caps use a fixed-radius circular texture, cropped (never compressed) at
+-- the current XP boundary. Interior segments remain rectangular.
+function UI.BarPiece(parent, layer, edge)
+    local f=CreateFrame("Frame",nil,parent)
+    f.edge=edge
+    f.body=UI.Solid(f,layer,1,1,1)
+    if edge then
+        f.cap=f:CreateTexture(nil,layer)
+        f.cap:SetTexture("Interface\\AddOns\\XPIsland\\media\\cap.tga")
+    end
+    function f:Draw(width,height,amount,color)
+        self:SetSize(width,height)
+        local visible=width*amount
+        self:SetShown(visible>0)
+        self.body:SetColorTexture(color[1],color[2],color[3],1)
+        local radius=math.min(height/2,width)
+        local start=self.edge=="left" and radius or 0
+        local finish=self.edge=="right" and width-radius or width
+        local bodyWidth=math.max(0,math.min(visible,finish)-start)
+        self.body:ClearAllPoints();self.body:SetPoint("LEFT",start,0)
+        self.body:SetSize(math.max(.001,bodyWidth),height);self.body:SetShown(bodyWidth>0)
+        if self.cap then
+            local offset=self.edge=="left" and 0 or width-radius
+            local capWidth=math.max(0,math.min(radius,visible-offset))
+            self.cap:ClearAllPoints();self.cap:SetPoint("LEFT",offset,0)
+            self.cap:SetSize(math.max(.001,capWidth),height)
+            local u=self.edge=="left" and 0 or .5
+            self.cap:SetTexCoord(u,u+.5*capWidth/radius,0,1)
+            self.cap:SetVertexColor(color[1],color[2],color[3],1)
+            self.cap:SetShown(capWidth>0)
+        end
+        self.visibleWidth=visible
+    end
+    return f
+end
+
+local labels = {"XP Remaining", "XP/hour", "Time to Level", "Rested XP", "Kill XP", "Quest XP", "Dungeon XP", "Other XP"}
+-- Keep the approved tooltip wording and presentation intact.
+local tooltipLabels = {"XP remaining", "Session XP/hour", "Next level", "Rested XP", "Outdoor kills", "Outdoor quests", "Dungeons", "Other"}
 local explanations = {
     "XP still needed / total required for this level.",
-    "All session XP divided by connected gameplay time. Idle time counts; reload and reconnect gaps do not.",
-    "Estimated from the session XP/hour rate. Available after one minute with XP earned.",
+    "XP rate over up to the last hour, weighted towards recent kill XP.",
+    "Estimated from your current XP/hour rate. Available after one minute with XP earned.",
     "Rested XP still available, including any amount extending into the next level.",
     "Confirmed kill XP earned outside instances, including rested bonuses.",
     "Confirmed quest rewards received outside instances. A dungeon quest turned in outdoors counts here.",
@@ -77,12 +120,15 @@ function UI:Create(owner)
     self.inner = UI.Round(f, {0.035,0.04,0.055,0.97}, 1)
     local content = CreateFrame("Frame", nil, f)
     self.content = content; content:SetAllPoints(); content:SetFrameLevel(f:GetFrameLevel()+2)
-    self.label = UI.Text(content, 12)
+    self.header=CreateFrame("Frame",nil,content)
+    self.label = UI.Text(self.header, 14)
     self.label:SetJustifyH("RIGHT")
     self.segments = {}
     for i=1,20 do
-        local track = UI.Solid(content, "ARTWORK", .14,.14,.18)
-        local fill = UI.Solid(content, "OVERLAY", .64,.35,.94)
+        local edge=i==1 and "left" or i==20 and "right" or nil
+        local track = UI.BarPiece(self.header, "ARTWORK", edge)
+        local fill = UI.BarPiece(self.header, "OVERLAY", edge)
+        fill:SetFrameLevel(track:GetFrameLevel()+1)
         fill:SetPoint("LEFT", track, "LEFT")
         self.segments[i] = {track=track, fill=fill}
     end
@@ -91,19 +137,28 @@ function UI:Create(owner)
     for i=1,8 do
         local cell = CreateFrame("Frame", nil, content)
         cell:EnableMouse(true)
-        cell.title = UI.Text(cell, 10, .56,.58,.65)
-        cell.value = UI.Text(cell, 13)
-        cell.title:SetPoint("TOPLEFT"); cell.value:SetPoint("TOPLEFT",0,-15)
+        cell.title = UI.Text(cell, 12, .86,.79,.63)
+        cell.value = UI.Text(cell, 14)
+        cell.title:SetPoint("TOPLEFT"); cell.value:SetPoint("TOPLEFT",0,-18)
         cell.title:SetText(labels[i])
         cell:SetScript("OnEnter", function()
             GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
-            GameTooltip:AddLine(labels[i], 1,1,1)
+            GameTooltip:AddLine(tooltipLabels[i], 1,1,1)
             GameTooltip:AddLine(explanations[i], .75,.77,.82, true)
             local s = owner.session
             if i >= 5 and s then
                 local key = ({"kills","quests","dungeons","other"})[i-4]
                 local amount = s.buckets[key]
                 GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
+            elseif i == 3 and owner.tracker then
+                local t=owner.tracker
+                local rate,duration=M.Estimate(s,t.xp,t.cap,owner:IsCapped())
+                if duration then
+                    GameTooltip:AddLine(M.Duration(duration,true).." at your current rate",.8,.65,1)
+                    GameTooltip:AddLine(string.format("%s XP/hour · %d XP remaining",M.Compact(rate),math.max(0,t.cap-t.xp)),.75,.77,.82,true)
+                else
+                    GameTooltip:AddLine("Estimate needs one minute of connected time and XP earned.",.75,.77,.82,true)
+                end
             elseif i == 1 and owner.tracker and owner.tracker.cap then
                 GameTooltip:AddLine(string.format("%d / %d XP remaining", math.max(0,owner.tracker.cap-owner.tracker.xp), owner.tracker.cap), .8,.65,1)
             end
@@ -128,8 +183,9 @@ function UI:Create(owner)
         self.dragging = nil; f:StopMovingOrSizing()
         local factor = f:GetEffectiveScale()/UIParent:GetEffectiveScale()
         local x = select(1,f:GetCenter()) * factor - UIParent:GetWidth()/2
-        local y = f:GetTop()*factor - UIParent:GetTop()
+        local y = self.header:GetTop()*factor - UIParent:GetTop()
         owner.profile.position = {x=x, y=y}
+        owner.profile.placement = "custom"
         self:Layout()
     end)
     f:SetScript("OnEnter", function()
@@ -144,41 +200,69 @@ function UI:Create(owner)
     self:Layout(); f:Hide()
 end
 
+function UI:BarLabel(duration)
+    local p,t=self.owner.profile,self.owner.tracker
+    local text="—"
+    if t and t.cap then
+        if p.format=="eta" then
+            text=M.Duration(duration)
+        else text=M.Label(p.format,t.xp,t.cap) end
+    end
+    self.label:SetFont(UI.Font(p),p.fontSize,"")
+    self.label:SetText(text)
+    local width=self.label:GetUnboundedStringWidth()+8
+    -- Drop the redundant unit before giving up bar space. Settings name the XP
+    -- format; the remaining-XP word and percentage denominator stay explicit.
+    if width>200 then
+        text=text:gsub(" XP","");self.label:SetText(text)
+        width=self.label:GetUnboundedStringWidth()+8
+    end
+    return text,math.max(46,width)
+end
+
 function UI:Layout()
     if not self.frame or self.dragging then return end
     local p, f = self.owner.profile, self.frame
-    local cw, ew, scale = M.Layout(UIParent:GetWidth(), p.scale)
-    local width, height = self.expanded and ew or cw, self.expanded and 124 or 30
-    scale = math.min(scale, math.max(.1,(UIParent:GetHeight()-24)/height))
+    local tracker=self.owner.tracker
+    local _,duration=M.Estimate(self.owner.session,tracker and tracker.xp,tracker and tracker.cap,self.owner:IsCapped())
+    local text,labelWidth=self:BarLabel(duration)
+    local layout=M.Placement(UIParent:GetWidth(),UIParent:GetHeight(),p,labelWidth+180)
+    layout.labelWidth=labelWidth;layout.font=UI.Font(p)
+    self.layout=layout
+    local scale=layout.scale
+    local width=self.expanded and layout.expanded or layout.collapsed
+    local height=self.expanded and layout.panelHeight or layout.barHeight
     f:SetScale(scale); f:SetSize(width,height)
-    self.outer:Radius(self.expanded and 17 or 15)
-    self.inner:Radius(self.expanded and 16 or 14)
-    local xLimit = math.max(0,(UIParent:GetWidth()-width*scale)/2-8)
-    local x = math.max(-xLimit,math.min(xLimit,p.position.x))
-    local y = math.max(-UIParent:GetHeight()+height*scale+8, math.min(-8,p.position.y))
-    f:ClearAllPoints(); f:SetPoint("TOP", UIParent,"TOP",x/scale,y/scale)
+    self.outer:Radius(17);self.inner:Radius(16)
+    local y=layout.y
+    if self.expanded and layout.up then y=y+(layout.panelHeight-layout.barHeight)*scale end
+    f:ClearAllPoints(); f:SetPoint("TOP", UIParent,"TOP",layout.x/scale,y/scale)
+    self.header:ClearAllPoints()
+    self.header:SetSize(layout.collapsed,layout.barHeight)
+    local headerPoint=layout.up and "BOTTOM" or "TOP"
+    self.header:SetPoint(headerPoint,self.content,headerPoint)
     local font = UI.Font(p)
-    self.label:SetFont(font,p.fontSize,"")
-    self.label:SetText(({percent="100.0%",fraction="999.9k / 999.9k",left="999.9k left",leftPercent="999.9k left (100.0%)"})[p.format])
-    local labelWidth = math.max(46,self.label:GetStringWidth()+3)
-    self.label:ClearAllPoints(); self.label:SetPoint("TOPRIGHT",-14,-(30-p.fontSize)/2+1)
-    self.label:SetSize(labelWidth,p.fontSize+3)
-    local barWidth = width-28-labelWidth-12
+    self.label:ClearAllPoints();self.label:SetPoint("RIGHT",self.header,"RIGHT",-14,0)
+    self.label:SetSize(labelWidth,p.fontSize+4)
+    local barWidth = layout.collapsed-28-labelWidth-12
     local gap = 2
     local segWidth = (barWidth-19*gap)/20
     for i,s in ipairs(self.segments) do
-        s.track:ClearAllPoints(); s.track:SetPoint("TOPLEFT",14+(i-1)*(segWidth+gap),-11)
-        s.track:SetSize(segWidth,8); s.fill:SetHeight(8)
+        s.track:ClearAllPoints();s.track:SetPoint("LEFT",self.header,"LEFT",14+(i-1)*(segWidth+gap),0)
+        s.track:Draw(segWidth,10,1,TRACK_COLOR)
         s.width=segWidth
     end
-    self.divider:ClearAllPoints(); self.divider:SetPoint("TOPLEFT",14,-33); self.divider:SetSize(width-28,1)
-    self.divider:SetShown(self.expanded or false)
+    self.barFraction=nil
+    local detailsTop=layout.up and -12 or -46
+    self.divider:ClearAllPoints()
+    self.divider:SetPoint("TOPLEFT",14,layout.up and -(height-layout.barHeight-1) or -layout.barHeight)
+    self.divider:SetSize(width-28,1);self.divider:SetShown(self.expanded or false)
     local cellWidth=(width-32)/4
     for i,c in ipairs(self.cells) do
         local col=(i-1)%4; local row=math.floor((i-1)/4)
-        c:ClearAllPoints(); c:SetPoint("TOPLEFT",16+col*cellWidth,-43-row*39)
-        c:SetSize(cellWidth-9,32)
-        c.title:SetFont(font,math.max(10,math.min(12,p.fontSize-2)),"")
+        c:ClearAllPoints(); c:SetPoint("TOPLEFT",16+col*cellWidth,detailsTop-row*44)
+        c:SetSize(cellWidth-9,37)
+        c.title:SetFont(font,math.max(12,math.min(14,p.fontSize-2)),"")
         c.value:SetFont(font,p.fontSize,"")
         c.title:SetWidth(cellWidth-9); c.value:SetWidth(cellWidth-9)
         c:SetShown(self.expanded or false)
@@ -198,28 +282,31 @@ function UI:Update()
     local t = o.tracker
     if not t or not t.cap then return end
     local xp, cap, rested = t.xp, t.cap, o.rested or 0
+    local rate,duration=M.Estimate(o.session,xp,cap,o:IsCapped())
+    local text,labelWidth=self:BarLabel(duration)
+    if labelWidth~=self.layout.labelWidth or UI.Font(p)~=self.layout.font then self:Layout();return end
     local fraction=cap>0 and math.min(1,math.max(0,xp/cap)) or 0
     local color=rested>0 and p.rested or p.normal
-    for i,s in ipairs(self.segments) do
-        local fill=math.min(1,math.max(0,fraction*20-(i-1)))
-        s.fill:SetColorTexture(color[1],color[2],color[3],1)
-        s.fill:SetWidth(math.max(.01,s.width*fill)); s.fill:SetShown(fill>0)
+    if fraction~=self.barFraction or color[1]~=self.barR or color[2]~=self.barG or color[3]~=self.barB then
+        for i,s in ipairs(self.segments) do
+            local fill=math.min(1,math.max(0,fraction*20-(i-1)))
+            s.fill:Draw(s.width,10,fill,color)
+        end
+        self.barFraction,self.barR,self.barG,self.barB=fraction,color[1],color[2],color[3]
     end
-    self.label:SetText(M.Label(p.format,xp,cap))
     local s=o.session
     local left=math.max(0,cap-xp)
-    local rate = not s.incomplete and s.seconds >= 60 and s.total > 0 and s.total*3600/s.seconds or nil
     local values = {
         M.Compact(left).." / "..M.Compact(cap), rate and M.Compact(rate) or "—",
-        rate and M.Duration(left/rate*3600) or "—", rested>0 and M.Compact(rested) or "—",
+        M.Duration(duration), rested>0 and M.Compact(rested) or "—",
         M.Compact(s.buckets.kills), M.Compact(s.buckets.quests), M.Compact(s.buckets.dungeons), M.Compact(s.buckets.other),
     }
     for i,c in ipairs(self.cells) do
         c.value:SetText(values[i])
         local size=p.fontSize
         c.value:SetFont(UI.Font(p),size,"")
-        while size>10 and c.value:GetStringWidth()>c:GetWidth() do
-            size=size-1;c.value:SetFont(UI.Font(p),size,"")
+        if i==1 and c.value:GetUnboundedStringWidth()>c:GetWidth() then
+            c.value:SetText(M.Compact(left,0).." / "..M.Compact(cap,0))
         end
     end
     self.frame:SetShown(not o:IsCapped() and cap>0)

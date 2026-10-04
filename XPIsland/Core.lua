@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.1.0", formats={}}
+local X = {version="0.2.0", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -67,6 +67,7 @@ end
 
 function X:Sample(overrideContext)
     if not self.tracker then return end
+    self:Clock()
     local level,xp,cap=UnitLevel("player"),UnitXP("player"),UnitXPMax("player")
     local t=self.tracker
     if not M.Number(level) or not M.Number(xp) or not M.Number(cap) then return end
@@ -172,7 +173,7 @@ function X:Initialize(reloading)
     UI:Create(self);self:Sample();self:Integration()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
-        if UI.expanded then UI:Update() end
+        if UI.expanded or self.profile.format=="eta" then UI:Update() end
     end)
 end
 

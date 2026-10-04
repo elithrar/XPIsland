@@ -1,26 +1,29 @@
 # XPIsland
 
-Keep XP progress and leveling pace in view without a full-size tracking panel.
+A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sources of XP during your current session.
 
-- A floating, segmented XP bar with purple/blue rested colors, four label formats, and bounded widths that stay compact on ultrawide screens.
-- Click or bind a key to expand an eight-cell view of XP remaining, XP/hour, time to level, rested XP, and where your session XP came from.
-- Separate outdoor kills, outdoor quests, dungeon XP, and other gains without double-counting. Sessions survive reloads and allow a five-minute reconnect grace period.
-- Shared or per-character profiles, font and color choices, and a scale slider with numeric entry. Follows WoW's Mac notch setting and hides at the XP cap.
+- A segmented XP bar that shows rested XP and can be configured to show XP remaining or time to next level based on your current leveling pace.
+- An expandable island that shows time to level, XP earned in your current session, and where it came from.
+- Per-character profiles, customizable fonts, and automatic scaling based on your UI size, with widths that stay compact on ultrawide screens.
 
-Built for **official WoW: Forever**. No other addons required, and existing XP bars stay in place unless you opt to hide Blizzard's.
+For World of Warcraft: Forever. This is a fun experiment to better show the pace of leveling.
 
 ## Installation
 
 Copy the `XPIsland` folder into your Forever client's `Interface/AddOns` directory, then restart WoW. The folder should contain `XPIsland.toc` directly.
 
-Type `/xpisland` for settings. Click the capsule to expand it, or assign **Expand / collapse XPIsland** in WoW's Keybindings. Use `/xpisland reset` to start a fresh session.
+Type `/xpisland` for settings. Click the island to expand it, or assign “Expand / collapse XPIsland” in WoW's Keybindings. Use `/xpisland reset` to start a fresh session.
 
 ## Contributing
 
-Please open an issue first. PRs that just throw code over the wall without a discussion or some design taste may be closed—sorry!
+Open an issue first. PRs that just throw code over the wall without a discussion or some taste may be closed, sorry!
 
 ## Development
 
-In a source checkout, run `luajit tests/model_test.lua`, `luajit tests/runtime_test.lua`, and `python3 tests/package.py` from the repository root. The package is written to `dist/`.
+In a source checkout, run `luajit tests/model_test.lua`, `luajit tests/runtime_test.lua`, `luajit tests/revision_test.lua`, `luajit tests/rate_test.lua`, `luajit tests/stress_test.lua`, and `python3 tests/package.py` from the repository root. The package is written to `dist/`.
 
 See [behavior details](docs/BEHAVIOR.md) and [validation coverage](docs/VALIDATION.md), including the in-game checks still needed.
+
+## License
+
+BSD 3-Clause, see the [license file](LICENSE) for details.

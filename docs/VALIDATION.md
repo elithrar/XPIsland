@@ -1,6 +1,6 @@
 # Validation
 
-XPIsland 0.1.0 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
+XPIsland 0.2.0 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
 
 ## Automated checks
 
@@ -10,12 +10,18 @@ Run from the repository root with LuaJIT and Python 3:
 mkdir -p dist
 luajit tests/model_test.lua
 luajit tests/runtime_test.lua
+luajit tests/revision_test.lua
+luajit tests/rate_test.lua
+luajit tests/stress_test.lua
 python3 tests/package.py
 ```
 
-- **1,073 model assertions:** XP conservation, source reconciliation, dungeon precedence, ambiguous gains, level rollover, reconnect boundaries, profiles, text formatting, and localized XP parsing.
-- **278 runtime/UI assertions:** actual addon callbacks under a deterministic WoW API double; timers, options, color cancellation, profile copying, width breakpoints, effective scales, cap visibility, and integration lifecycle.
-- **Package checks:** Lua syntax, TOC load order, bindings XML, texture format, ZIP structure and integrity.
+- 1,073 model assertions: XP conservation, attribution, rollover, reconnect boundaries, profiles and localized XP parsing.
+- 278 runtime/UI assertions: actual addon callbacks under a deterministic WoW API double; timers, controls, profile copying, sizing, cap visibility and stock-XP integration.
+- 36,623 revision assertions: font/default migration, explicit customization, unchanged category tooltip behavior, native template selection, numeric/ETA formatting, all five display modes, top/bottom/custom placement, stable collapsed-bar coordinates, narrow/short windows, corners, scale extremes, reduced safe viewport, and cropped fractional end caps.
+- 52 rolling-rate assertions: reviewed steady/step/idle/quest scenarios, partial-minute expiry, first-minute warmup, reload/grace history, legacy history migration, dungeon-kill weighting without category overlap, delayed source corrections and the fixed 61-slot ring over 10,000 minutes.
+- Resource stress: 6,000 repeated UI/profile/timer cycles, 100,000 XP awards with hints, stable retained UI/event/timer counts, expiry, conservation and idle redraw elimination. See [resource audit](PERFORMANCE.md) for measurement caveats.
+- Package checks: Lua syntax, TOC load order, bindings XML, both original TGA assets, ZIP paths and integrity.
 
 An optional source integration test executes Blizzard's actual tracking selection logic. Download the `Shared/StatusTrackingManager.lua` and `Mainline/StatusTrackingManagerOverrides.lua` files from the pinned commit, preserving those subdirectories, then run:
 
@@ -23,18 +29,18 @@ An optional source integration test executes Blizzard's actual tracking selectio
 luajit tests/stock_tracking_test.lua /path/to/Blizzard_StatusTrackingBar/
 ```
 
-Its eight assertions check XP-only suppression, reputation preservation, reversal, and restoration through a later addon owner's wrapper. This does **not** establish live taint safety.
+Its eight assertions check XP-only suppression, reputation preservation, reversal, and restoration through a later addon owner's wrapper. This does not establish live taint safety. The five assertion suites total 38,034 checks, in addition to stress and package checks.
 
-The runtime test also emits four SVG layout fixtures in `dist/`. `tests/render_previews.py` optionally renders them using a local macOS Chrome installation. These are offline fixtures, not in-game screenshots.
+The runtime and revision tests emit six SVG layout fixtures in `dist/`. `tests/render_previews.py` renders them with a local macOS Chrome installation. These are explicitly marked offline fixtures, not in-game screenshots: substitute fonts and native-control outlines cannot validate WoW's actual artwork or text rasterization. Screenshot findings and the final self-review are recorded in [design review](DESIGN-REVIEW.md).
 
 ## In-game acceptance
 
-These cases remain to be verified on the running client:
+These cases remain to be verified after loading the revision on the running client:
 
-- First load, native font/texture rendering, click/keybind, dragging, all label formats, scale entry, and narrow/ultrawide layout.
-- Real outdoor/rested kills, quest turn-ins, exploration, dungeon gains, event ordering, and level rollover.
-- Reload, reconnect inside/outside five minutes, cancelled logout, deliberate logout, and crash recovery limits.
-- XP hiding with watched reputation, Edit Mode, combat transitions, and Ellesmere stock/custom bar modes.
-- Physical Mac notch modes, external displays, effective beta cap changes, and XP-disabled characters.
+- Native font/texture/control rendering, interactions, custom font extremes, native dropdown/button skins, physical Mac notch and external display transitions.
+- Real outdoor/rested kills, quests, dungeon gains and delayed event ordering; inspect that XP/hour and ETA follow the intended rolling pace during idle and changing activities.
+- Reload, reconnect inside/outside five minutes, cancelled logout, deliberate logout and engine-controlled crash recovery.
+- XP hiding with watched reputation, Edit Mode, combat and Ellesmere stock/custom bar modes.
+- Multi-hour native-memory/CPU soak alongside the user's other addons.
 
-Offline tests do not replace these checks. No gameplay automation is part of the test suite.
+The saved client configuration inspected during this revision had `NotchedDisplayMode=0` (Overlap); XPIsland does not change it. A read-only screenshot captured another foreground app, so no live safe-area values or revised in-game rendering were observed. No gameplay automation, forced reload, restart or global setting changes are part of the validation.

@@ -4,31 +4,27 @@ local O = {}
 ns.Options = O
 
 local function button(parent, text, x, y, width, callback)
-    local b = CreateFrame("Button",nil,parent)
+    local b = CreateFrame("Button",nil,parent,"UIPanelButtonTemplate")
     b:SetPoint("TOPLEFT",x,y); b:SetSize(width or 240,28)
-    local bg=UI.Solid(b,"BACKGROUND",.13,.14,.18); bg:SetAllPoints()
-    b.text=UI.Text(b,12); b.text:SetPoint("LEFT",10,0); b.text:SetWidth((width or 240)-20); b.text:SetText(text)
-    O.fontObjects[#O.fontObjects+1]={object=b.text,size=12}
-    b:SetScript("OnEnter",function() bg:SetColorTexture(.21,.18,.29,1) end)
-    b:SetScript("OnLeave",function() bg:SetColorTexture(.13,.14,.18,1) end)
+    b:SetText(text); b.text=b:GetFontString()
+    O.fontObjects[#O.fontObjects+1]={object=b.text,size=14}
     b:SetScript("OnClick",callback)
     return b
 end
 
 local function label(parent,text,x,y,size)
-    local t=UI.Text(parent,size or 11,.65,.67,.73)
+    local t=UI.Text(parent,size or 14,1,.82,0)
     t:SetPoint("TOPLEFT",x,y); t:SetText(text)
-    O.fontObjects[#O.fontObjects+1]={object=t,size=size or 11}
+    O.fontObjects[#O.fontObjects+1]={object=t,size=size or 14}
     return t
 end
 
 local function edit(parent,x,y,width)
-    local e=CreateFrame("EditBox",nil,parent)
+    local e=CreateFrame("EditBox",nil,parent,"InputBoxTemplate")
     e:SetPoint("TOPLEFT",x,y); e:SetSize(width,28)
-    local bg=UI.Solid(e,"BACKGROUND",.10,.11,.15);bg:SetAllPoints()
-    e:SetFont("Fonts\\ARIALN.TTF",12,""); e:SetTextInsets(8,8,0,0)
+    e:SetFont(UI.Font({font="Game tooltip"}),14,""); e:SetTextInsets(8,8,0,0)
     e:SetAutoFocus(false);e:SetMaxLetters(48)
-    O.fontObjects[#O.fontObjects+1]={object=e,size=12}
+    O.fontObjects[#O.fontObjects+1]={object=e,size=14}
     e:SetScript("OnEscapePressed",function(self) self:ClearFocus(); O:Refresh() end)
     return e
 end
@@ -42,8 +38,8 @@ function O:Dropdown(anchor, entries, selected)
     if not self.menu then
         local menu=CreateFrame("Frame",nil,self.frame,"BackdropTemplate")
         menu:SetFrameStrata("FULLSCREEN_DIALOG");menu:EnableMouse(true);menu:EnableMouseWheel(true)
-        menu:SetBackdrop({bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Buttons\\WHITE8X8",edgeSize=1})
-        menu:SetBackdropColor(.07,.08,.11,1);menu:SetBackdropBorderColor(.3,.25,.4,1)
+        menu:SetBackdrop({bgFile="Interface\\DialogFrame\\UI-DialogBox-Background",edgeFile="Interface\\DialogFrame\\UI-DialogBox-Border",tile=true,tileSize=32,edgeSize=16,insets={left=4,right=4,top=4,bottom=4}})
+        menu:SetBackdropColor(1,1,1,1);menu:SetBackdropBorderColor(1,1,1,1)
         menu.rows={}
         for i=1,10 do
             local row=button(menu,"",4,-4-(i-1)*26,232,function()
@@ -75,20 +71,24 @@ function O:MenuRows()
     for i,row in ipairs(self.menu.rows) do
         local entry=self.menu.entries[self.menu.offset+i]
         row:SetShown(entry~=nil)
-        if entry then row.text:SetText(entry.label or entry.value) end
+        if entry then
+            row.text:SetText(entry.label or entry.value)
+            row.text:SetFont(UI.Font(self.owner.profile),14,"")
+        end
     end
 end
 
 function O:Check(parent,text,key,x,y)
-    local b=button(parent,"",x,y,280,function()
-        self.owner.profile[key]=not self.owner.profile[key]
+    local b=CreateFrame("CheckButton",nil,parent,"UICheckButtonTemplate")
+    b:SetPoint("TOPLEFT",x-4,y);b:SetSize(28,28)
+    b.key,b.caption=key,text;b.text=b.Text
+    b.text:SetWidth(254);b.text:SetJustifyH("LEFT")
+    b:SetHitRectInsets(0,-254,0,0)
+    b:SetScript("OnClick",function()
+        self.owner.profile[key]=b:GetChecked()
         self.owner:ApplyProfile();self:Refresh()
     end)
-    b.key,b.caption=key,text
-    local border=UI.Solid(b,"ARTWORK",.42,.38,.5);border:SetSize(12,12);border:SetPoint("LEFT",10,0)
-    local well=UI.Solid(b,"ARTWORK",.07,.08,.11);well:SetSize(10,10);well:SetPoint("CENTER",border,"CENTER")
-    b.checkFill=UI.Solid(b,"OVERLAY",.68,.46,.97);b.checkFill:SetSize(6,6);b.checkFill:SetPoint("CENTER",border,"CENTER")
-    b.text:ClearAllPoints();b.text:SetPoint("LEFT",32,0);b.text:SetWidth(238)
+    self.fontObjects[#self.fontObjects+1]={object=b.text,size=14}
     self.checks[#self.checks+1]=b
     return b
 end
@@ -107,50 +107,47 @@ end
 
 function O:Create(owner)
     self.owner=owner;self.checks={};self.fontObjects={}
-    local f=CreateFrame("Frame","XPIslandOptions",UIParent)
+    local f=CreateFrame("Frame","XPIslandOptions",UIParent,"BasicFrameTemplateWithInset")
     self.frame=f
-    f:SetSize(644,520);f:SetPoint("CENTER");f:SetFrameStrata("DIALOG")
+    f:SetSize(644,550);f:SetPoint("CENTER");f:SetFrameStrata("DIALOG")
     f:EnableMouse(true); f:SetClampedToScreen(true);f:SetMovable(true);f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart",function() f:StartMoving() end)
     f:SetScript("OnDragStop",function() f:StopMovingOrSizing() end)
-    UI.Round(f,{.21,.21,.26,1},0);UI.Round(f,{.055,.06,.08,1},1)
+    f.TitleText:SetText("XPIsland")
+    self.fontObjects[#self.fontObjects+1]={object=f.TitleText,size=14}
     local content=CreateFrame("Frame",nil,f);content:SetAllPoints();content:SetFrameLevel(f:GetFrameLevel()+3)
     self.content=content
-    label(content,"XPIsland",24,-20,21):SetTextColor(.82,.70,1)
-    label(content,"Experience, quietly in view.",24,-48,11)
-    button(content,"×",596,-18,28,function() f:Hide() end)
-    self.optionsTab=button(content,"Options",24,-77,112,function() self:Page(false) end)
-    self.profilesTab=button(content,"Profiles",144,-77,112,function() self:Page(true) end)
-    self.options=CreateFrame("Frame",nil,content);self.options:SetAllPoints()
-    self.profiles=CreateFrame("Frame",nil,content);self.profiles:SetAllPoints()
+    self.optionsTab=button(content,"Options",24,-48,112,function() self:Page(false) end)
+    self.profilesTab=button(content,"Profiles",144,-48,112,function() self:Page(true) end)
+    self.options=CreateFrame("Frame",nil,content);self.options:SetPoint("TOPLEFT",0,29);self.options:SetPoint("BOTTOMRIGHT",0,29)
+    self.profiles=CreateFrame("Frame",nil,content);self.profiles:SetPoint("TOPLEFT",0,29);self.profiles:SetPoint("BOTTOMRIGHT",0,29)
     local page=self.options
-    label(page,"DISPLAY",24,-124)
+    label(page,"Display",24,-124)
     self.format=button(page,"",24,-146,280,function(b)
-        self:Dropdown(b,{{value="percent",label="Percentage"},{value="fraction",label="X / Y"},{value="left",label="X left"},{value="leftPercent",label="X left (remaining %)"}},function(e)
+        self:Dropdown(b,{{value="percent",label="Percentage"},{value="fraction",label="Current / Total XP"},{value="left",label="XP Remaining"},{value="leftPercent",label="XP Remaining (%)"},{value="eta",label="Time to Next Level"}},function(e)
             owner.profile.format=e.value;owner:ApplyProfile();self:Refresh()
         end)
     end)
-    label(page,"Typeface",24,-188)
+    label(page,"Font",24,-188)
     self.font=button(page,"",24,-207,280,function(b)
-        local names={Arial=true,["Friz Quadrata"]=true}
+        local names={Arial=true,["Friz Quadrata"]=true,["Game tooltip"]=true}
         local lsm=LibStub and LibStub("LibSharedMedia-3.0",true)
         if lsm then for name in pairs(lsm:HashTable("font")) do names[name]=true end end
-        local list={};for name in pairs(names) do list[#list+1]={value=name} end
+        local list={};for name in pairs(names) do list[#list+1]={value=name,label=name=="Game tooltip" and "Game Tooltip (default)" or name} end
         table.sort(list,function(a,b) return a.value<b.value end)
-        self:Dropdown(b,list,function(e) owner.profile.font=e.value;owner:ApplyProfile();self:Refresh() end)
+        self:Dropdown(b,list,function(e) owner.profile.font=e.value;owner.profile.fontCustomized=e.value~="Game tooltip";owner:ApplyProfile();self:Refresh() end)
     end)
     label(page,"Font size",24,-249)
     self.fontSize=edit(page,238,-241,66)
     self.fontSize:SetScript("OnEnterPressed",function(e)
         owner.profile.fontSize=math.floor(math.max(10,math.min(18,tonumber(e:GetText()) or owner.profile.fontSize)))
+        owner.profile.fontSizeCustomized=true
         e:ClearFocus();owner:ApplyProfile();self:Refresh()
     end)
     label(page,"Island scale",24,-293)
-    local slider=CreateFrame("Slider",nil,page)
+    local slider=CreateFrame("Slider",nil,page,"UISliderTemplate")
     self.scale=slider;slider:SetPoint("TOPLEFT",24,-321);slider:SetSize(192,16)
     slider:SetOrientation("HORIZONTAL");slider:SetMinMaxValues(50,150);slider:SetValueStep(1);slider:SetObeyStepOnDrag(true)
-    local track=UI.Solid(slider,"BACKGROUND",.22,.20,.29);track:SetPoint("LEFT");track:SetPoint("RIGHT");track:SetHeight(3)
-    slider:SetThumbTexture("Interface\\Buttons\\WHITE8X8");slider:GetThumbTexture():SetSize(10,16);slider:GetThumbTexture():SetVertexColor(.7,.5,1)
     self.scaleEdit=edit(page,238,-313,66)
     slider:SetScript("OnValueChanged",function(_,value)
         if self.refreshing then return end
@@ -161,43 +158,51 @@ function O:Create(owner)
         owner.profile.scale=math.max(50,math.min(150,math.floor((tonumber(e:GetText()) or owner.profile.scale*100)+.5)))/100
         e:ClearFocus();owner:ApplyProfile();self:Refresh()
     end)
-    label(page,"50–150% · width is capped on large screens",24,-352,10)
+    label(page,"50–150% · adjusts the island only",24,-352,12)
     self.normal=button(page,"Normal XP",24,-382,132,function(b) self:Color("normal",b) end)
     self.rested=button(page,"Rested XP",172,-382,132,function(b) self:Color("rested",b) end)
-    label(page,"BEHAVIOR",340,-124)
+    label(page,"Behavior",340,-124)
     self:Check(page,"Lock position","locked",340,-146)
-    self:Check(page,"Expand on level-up (10 seconds)","levelUp",340,-184)
+    self:Check(page,"Expand at level-up (10 sec)","levelUp",340,-184)
     self:Check(page,"Hide Blizzard XP bar","hideBlizzard",340,-222)
-    local hint=label(page,"Affects Blizzard XP only. Reputation and other addons keep their own controls.",340,-260,10)
-    hint:SetWidth(280);hint:SetWordWrap(true)
+    local hint=label(page,"Reputation and other addon bars keep their own controls.",340,-260,12)
+    hint:SetWidth(280);hint:SetWordWrap(true);hint:SetTextColor(.8,.8,.8)
     self.binding=button(page,"",340,-309,280,function()
         Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID,"XPIsland")
     end)
-    button(page,"Reset position",340,-347,280,function()
-        owner.profile.position={x=0,y=-8};owner:ApplyProfile()
+    label(page,"Position",340,-352)
+    self.placement=button(page,"",340,-375,280,function(b)
+        self:Dropdown(b,{{value="top",label="Top"},{value="bottom",label="Bottom"},{value="custom",label="Custom (dragged)"}},function(e)
+            owner.profile.placement=e.value;owner:ApplyProfile();self:Refresh()
+        end)
     end)
-    button(page,"Toggle island",340,-385,280,function() owner:Toggle() end)
-    self.status=label(content,"",24,-453,11);self.status:SetWidth(596);self.status:SetWordWrap(true)
+    local positionHint=label(page,"Unlock and drag to set a custom position.",340,-410,12)
+    positionHint:SetWidth(280);positionHint:SetTextColor(.8,.8,.8)
+    button(page,"Reset to top",340,-442,132,function()
+        owner.profile.position={x=0,y=-8};owner.profile.placement="top";owner:ApplyProfile();self:Refresh()
+    end)
+    button(page,"Expand/collapse",488,-442,132,function() owner:Toggle() end)
+    self.status=label(content,"",24,-487,12);self.status:SetWidth(596);self.status:SetWordWrap(true);self.status:SetTextColor(.8,.8,.8)
     page=self.profiles
-    label(page,"ACTIVE PROFILE",24,-126)
+    label(page,"Active profile",24,-126)
     self.active=button(page,"",24,-148,280,function(b)
         self:Dropdown(b,self:ProfileEntries(),function(e) self:Switch(e.value) end)
     end)
-    local info=label(page,"Shared profiles update every character using them. A character profile is an independent copy. Session statistics never travel with a profile.",340,-126,12)
-    info:SetWidth(280);info:SetWordWrap(true)
-    button(page,"Use Shared",24,-190,132,function() self:Switch("Shared") end)
-    button(page,"Per-character",172,-190,132,function()
+    local info=label(page,"Shared profiles update every character using them. A character profile is an independent copy. Session statistics never travel with a profile.",340,-126,14)
+    info:SetWidth(280);info:SetWordWrap(true);info:SetTextColor(.9,.9,.9)
+    button(page,"Use shared",24,-190,132,function() self:Switch("Shared") end)
+    button(page,"Use character",172,-190,132,function()
         local name=owner.characterName
         if not owner.db.profiles[name] then owner.db.profiles[name]=M.Copy(owner.profile) end
         self:Switch(name)
     end)
-    label(page,"Duplicate active profile as",24,-249)
+    label(page,"New profile name",24,-249)
     self.name=edit(page,24,-271,280)
-    button(page,"Duplicate & switch",340,-271,280,function()
+    button(page,"Duplicate and use",340,-271,280,function()
         local name,err=M.Duplicate(owner.db,owner.profileName,self.name:GetText())
         if name then self:Switch(name);self.name:SetText("") else self.status:SetText(err) end
     end)
-    label(page,"Copy settings into the active profile",24,-326)
+    label(page,"Copy from another profile",24,-326)
     self.copy=button(page,"Choose source…",24,-348,280,function(b)
         self:Dropdown(b,self:ProfileEntries(),function(e)
             self.copySource=e.value;self.copy.text:SetText(e.value)
@@ -236,8 +241,8 @@ end
 function O:Page(profiles)
     self:CloseMenu();self.confirmCopy=nil
     self.profiles:SetShown(profiles);self.options:SetShown(not profiles)
-    self.optionsTab.text:SetTextColor(profiles and .65 or .82,profiles and .67 or .70,profiles and .73 or 1)
-    self.profilesTab.text:SetTextColor(profiles and .82 or .65,profiles and .70 or .67,profiles and 1 or .73)
+    self.optionsTab.text:SetTextColor(1,profiles and .82 or 1,profiles and 0 or 1)
+    self.profilesTab.text:SetTextColor(1,profiles and 1 or .82,profiles and 1 or 0)
     self:Refresh()
 end
 
@@ -246,17 +251,18 @@ function O:Refresh()
     self.refreshing=true
     self.confirmCopy=nil
     local p=self.owner.profile
-    self.format.text:SetText(({percent="Percentage",fraction="X / Y",left="X left",leftPercent="X left (remaining %)"})[p.format])
-    self.font.text:SetText(p.font);self.fontSize:SetText(tostring(p.fontSize))
+    self.format.text:SetText(({percent="Percentage",fraction="Current / Total XP",left="XP Remaining",leftPercent="XP Remaining (%)",eta="Time to Next Level"})[p.format])
+    self.font.text:SetText(p.font=="Game tooltip" and "Game Tooltip (default)" or p.font);self.fontSize:SetText(tostring(p.fontSize))
     self.scale:SetValue(p.scale*100);self.scaleEdit:SetText(tostring(math.floor(p.scale*100+.5)))
-    for _,b in ipairs(self.checks) do b.text:SetText(b.caption);b.checkFill:SetShown(p[b.key]) end
+    for _,b in ipairs(self.checks) do b.text:SetText(b.caption);b:SetChecked(p[b.key]) end
     for _,entry in ipairs(self.fontObjects) do entry.object:SetFont(UI.Font(p),entry.size,"") end
     self.normal.text:SetTextColor(unpack(p.normal));self.rested.text:SetTextColor(unpack(p.rested))
-    self.binding.text:SetText("Keybind: "..(GetBindingKey("XPISLAND_TOGGLE") or "unassigned").."  ›")
+    self.binding.text:SetText("Key binding: "..(GetBindingKey("XPISLAND_TOGGLE") or "unassigned"))
+    self.placement.text:SetText(({top="Top",bottom="Bottom",custom="Custom (dragged)"})[p.placement])
     self.active.text:SetText(self.owner.profileName)
     self.copyButton.text:SetText("Copy settings")
-    self.status:SetText(self.owner.integrationMessage or "Forever only · five-minute reconnect grace · /reload preserves sessions")
-    local availableScale=math.min(1,(UIParent:GetWidth()-24)/644,(UIParent:GetHeight()-24)/520)
+    self.status:SetText(self.owner.integrationMessage or "")
+    local availableScale=math.min(1,(UIParent:GetWidth()-24)/644,(UIParent:GetHeight()-24)/550)
     self.frame:SetScale(math.max(.3,availableScale))
     self.refreshing=nil
 end

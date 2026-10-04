@@ -16,7 +16,8 @@ function M.Copy(t)
 end
 
 M.defaults = {
-    format = "percent", scale = 1, font = "Arial", fontSize = 12,
+    format = "percent", scale = 1, font = "Game tooltip", fontSize = 14,
+    fontCustomized = false, fontSizeCustomized = false, placement = "top",
     normal = {0.64, 0.35, 0.94}, rested = {0.24, 0.61, 1},
     locked = true, levelUp = true, hideBlizzard = false,
     position = {x = 0, y = -8},
@@ -25,11 +26,12 @@ M.defaults = {
 function M.Profile(p)
     p = type(p) == "table" and p or {}
     local clean = M.Copy(M.defaults)
-    if p.format == "percent" or p.format == "fraction" or p.format == "left" or p.format == "leftPercent" then clean.format = p.format end
+    if p.format == "percent" or p.format == "fraction" or p.format == "left" or p.format == "leftPercent" or p.format == "eta" then clean.format = p.format end
     if M.Number(p.scale) then clean.scale = max(0.5, min(1.5, p.scale)) end
     if M.Number(p.fontSize) then clean.fontSize = max(10, min(18, floor(p.fontSize))) end
     if type(p.font) == "string" and #p.font < 120 then clean.font = p.font end
-    for _, k in ipairs({"locked", "levelUp", "hideBlizzard"}) do
+    if p.placement == "bottom" or p.placement == "custom" then clean.placement = p.placement end
+    for _, k in ipairs({"locked", "levelUp", "hideBlizzard", "fontCustomized", "fontSizeCustomized"}) do
         if type(p[k]) == "boolean" then clean[k] = p[k] end
     end
     for _, k in ipairs({"normal", "rested"}) do
@@ -48,11 +50,23 @@ end
 function M.Database(db)
     db = type(db) == "table" and db or {}
     -- Do not destructively downgrade a newer saved schema.
-    if M.Number(db.version) and db.version > 1 then return nil, "Saved settings belong to a newer XPIsland version." end
-    db.version = 1
+    if M.Number(db.version) and db.version > 2 then return nil, "Saved settings belong to a newer XPIsland version." end
+    local legacy = not M.Number(db.version) or db.version < 2
+    db.version = 2
     db.profiles = type(db.profiles) == "table" and db.profiles or {}
     for name, p in pairs(db.profiles) do
-        if type(name) ~= "string" then db.profiles[name] = nil else db.profiles[name] = M.Profile(p) end
+        if type(name) ~= "string" then db.profiles[name] = nil else
+            p = type(p) == "table" and p or {}
+            if legacy then
+                -- v1 did not record intent. Preserve non-default choices and any
+                -- explicit markers; an unmarked old default follows the new one.
+                if p.font == "Arial" and not p.fontCustomized then p.font = nil end
+                if p.fontSize == 12 and not p.fontSizeCustomized then p.fontSize = nil end
+                if not p.placement and type(p.position) == "table"
+                    and ((p.position.x or 0) ~= 0 or (p.position.y or -8) ~= -8) then p.placement = "custom" end
+            end
+            db.profiles[name] = M.Profile(p)
+        end
     end
     db.profiles.Shared = db.profiles.Shared or M.Profile()
     db.characters = type(db.characters) == "table" and db.characters or {}
@@ -75,29 +89,94 @@ function M.Duplicate(db, source, name)
     return name
 end
 
-function M.Compact(n)
+function M.Compact(n, precision)
+    if not M.Number(n) then return "—" end
     n = max(0, n or 0)
-    if n >= 1000000 then return string.format("%.2fm", n / 1000000) end
-    if n >= 10000 then return string.format("%.1fk", n / 1000) end
-    return tostring(floor(n + 0.5))
+    if n >= 999950000 then return "999M+" end
+    local unit, suffix = 1, ""
+    if n >= 999950 then unit,suffix = 1000000,"M"
+    elseif n >= 1000 then unit,suffix = 1000,"K" end
+    if unit == 1 then return tostring(floor(n+.5)) end
+    local decimals=precision == 0 and 0 or 1
+    local power=10^decimals
+    local value=floor(n/unit*power+.5)/power
+    if suffix == "K" and value >= 1000 then value,suffix=1,"M" end
+    local result=string.format("%."..decimals.."f",value):gsub("%.0$","")
+    return (result:gsub("%.",DECIMAL_SEPERATOR or "."))..suffix
 end
 
 function M.Label(format, xp, cap)
     if not cap or cap <= 0 then return "—" end
     xp = max(0, min(cap, xp))
     local left = cap - xp
-    if format == "fraction" then return M.Compact(xp) .. " / " .. M.Compact(cap) end
-    if format == "left" then return M.Compact(left) .. " left" end
-    if format == "leftPercent" then return string.format("%s left (%.1f%%)", M.Compact(left), 100 * left / cap) end
-    return string.format("%.1f%%", 100 * xp / cap)
+    if format == "fraction" then return M.Compact(xp) .. " / " .. M.Compact(cap) .. " XP" end
+    if format == "left" then return M.Compact(left) .. " XP left" end
+    if format == "leftPercent" then return string.format("%s XP left (%d%%)", M.Compact(left), floor(left / cap*100+.5)) end
+    return (string.format("%.1f%%", xp / cap*100):gsub("%.",DECIMAL_SEPERATOR or "."))
 end
 
-function M.Duration(seconds)
+function M.Duration(seconds, long)
     if not M.Number(seconds) or seconds < 0 then return "—" end
-    if seconds < 60 then return "<1 min" end
+    if seconds < 60 then return long and "Less than one minute" or "<1m" end
     local minutes = floor(seconds / 60 + 0.5)
-    if minutes < 60 then return minutes .. " min" end
-    return string.format("%dh %02dm", floor(minutes / 60), minutes % 60)
+    if minutes >= 999*1440 then return long and "999 days or more" or "999d+" end
+    local function units(value,unit) return value.." "..unit..(value==1 and "" or "s") end
+    if minutes >= 2880 then
+        local days,hours=floor(minutes/1440),floor(minutes/60)%24
+        return long and units(days,"day")..", "..units(hours,"hour") or string.format("%dd %dh",days,hours)
+    end
+    if minutes < 60 then return long and units(minutes,"minute") or minutes.."m" end
+    local hours,remainder=floor(minutes/60),minutes%60
+    return long and units(hours,"hour")..", "..units(remainder,"minute") or string.format("%dh %dm",hours,remainder)
+end
+
+-- Fixed-size rolling history in connected-session seconds. Classification can
+-- arrive after an award; its kill correction updates the same minute bucket.
+function M.RateHistory(session)
+    if not session.rate then session.rate={version=1,startedAt=session.seconds,buckets={}} end
+    return session.rate
+end
+
+function M.RateAward(session, amount)
+    local history=M.RateHistory(session)
+    local index=floor((session.seconds-history.startedAt)/60)
+    local slot=index%61+1
+    local bucket=history.buckets[slot]
+    if not bucket or bucket.index~=index then
+        bucket={index=index,totalXP=0,killXP=0};history.buckets[slot]=bucket
+    end
+    bucket.totalXP=bucket.totalXP+amount
+    return index
+end
+
+function M.RateKill(session,index,amount)
+    local bucket=session.rate.buckets[index%61+1]
+    if bucket and bucket.index==index then bucket.killXP=min(bucket.totalXP,bucket.killXP+amount) end
+end
+
+function M.Estimate(session, xp, cap, capped)
+    if capped or not cap or cap<=0 or not session or session.incomplete then return end
+    local history=M.RateHistory(session)
+    local age=max(0,session.seconds-history.startedAt)
+    local k20,k60,n60=0,0,0
+    local function weight(index,window)
+        local start=index*60
+        if start>age then return 0 end
+        return min(1,max(0,(start+60-max(0,age-window))/60))
+    end
+    for _,bucket in pairs(history.buckets) do
+        local w60=weight(bucket.index,3600)
+        k60=k60+bucket.killXP*w60
+        n60=n60+(bucket.totalXP-bucket.killXP)*w60
+        k20=k20+bucket.killXP*weight(bucket.index,1200)
+    end
+    local t20=min(1200,max(age,60))
+    local t60=min(3600,max(age,60))
+    local perSecond=n60/t60+.5*k60/t60+.5*k20/t20
+    if not M.Number(perSecond) then return end
+    local duration=perSecond>0 and age>=60 and max(0,cap-xp)/perSecond or nil
+    if duration and not M.Number(duration) then duration=nil end
+    return perSecond*3600,duration
 end
 
 -- Widths use usable UIParent units, independent of 3D render scale.
@@ -111,10 +190,33 @@ function M.Layout(usableWidth, scale)
     return collapsed, expanded, fit
 end
 
+-- All coordinates are in UIParent units: Blizzard already excludes the notch
+-- in Shift UI mode. Reserve the expanded footprint even while collapsed, so
+-- toggling never moves the bar to make room for its details.
+function M.Placement(viewWidth, viewHeight, p, minimumHeader)
+    local cw, ew, scale = M.Layout(viewWidth, p.scale)
+    cw=max(cw,min(440,minimumHeader or cw))
+    local barHeight, panelHeight = 34, 144
+    scale = min(scale, max(.01, (viewHeight-16)/panelHeight))
+    local bh, ph = barHeight*scale, panelHeight*scale
+    local xLimit = max(0,(viewWidth-ew*scale)/2-8)
+    local x = p.placement == "custom" and max(-xLimit,min(xLimit,p.position.x)) or 0
+    local y, up
+    if p.placement == "bottom" then y,up = -viewHeight+8+bh,true
+    elseif p.placement == "custom" then
+        y = max(-viewHeight+8+bh,min(-8,p.position.y))
+        local above,below = -y-8,viewHeight+y-bh-8
+        up = above > below
+        if up then y = min(y,-8-(ph-bh)) else y = max(y,-viewHeight+8+ph) end
+    else y,up = -8,false end
+    return {collapsed=cw,expanded=ew,scale=scale,barHeight=barHeight,panelHeight=panelHeight,x=x,y=y,up=up}
+end
+
 function M.NewSession(character, wall)
     return {version = 1, character = character, total = 0, seconds = 0,
         buckets = {kills = 0, quests = 0, dungeons = 0, other = 0},
-        started = wall, savedAt = wall, reason = "active", incomplete = false}
+        started = wall, savedAt = wall, reason = "active", incomplete = false,
+        rate = {version=1,startedAt=0,buckets={}}}
 end
 
 function M.ValidSession(s, character)
@@ -126,7 +228,20 @@ function M.ValidSession(s, character)
         if not M.Number(n) or n < 0 then return false end
         sum = sum + n
     end
-    return sum == s.total
+    if sum~=s.total then return false end
+    if s.rate~=nil then
+        local r=s.rate
+        if type(r)~="table" or r.version~=1 or not M.Number(r.startedAt) or r.startedAt<0 or r.startedAt>s.seconds or type(r.buckets)~="table" then return false end
+        local count=0
+        for slot,b in pairs(r.buckets) do
+            count=count+1
+            if count>61 or not M.Number(slot) or slot<1 or slot>61 or slot~=floor(slot)
+                or type(b)~="table" or not M.Number(b.index) or b.index<0 or b.index~=floor(b.index) or b.index%61+1~=slot
+                or b.index>floor((s.seconds-r.startedAt)/60) or not M.Number(b.totalXP) or not M.Number(b.killXP)
+                or b.totalXP<0 or b.killXP<0 or b.killXP>b.totalXP then return false end
+        end
+    end
+    return true
 end
 
 function M.Resume(saved, character, wall, reloading)
@@ -137,6 +252,7 @@ function M.Resume(saved, character, wall, reloading)
         if reloadOK or reconnectOK then
             local s = M.Copy(saved)
             s.reason, s.savedAt = "active", wall
+            M.RateHistory(s)
             return s, true
         end
     end
@@ -174,7 +290,8 @@ function M:Award(amount, context, now)
     local bucket = dungeon and "dungeons" or "other"
     s.total = s.total + amount
     s.buckets[bucket] = s.buckets[bucket] + amount
-    self.awards[#self.awards + 1] = {left = amount, context = context, time = now, dungeon = dungeon}
+    local rateIndex=M.RateAward(s,amount)
+    self.awards[#self.awards + 1] = {left = amount, context = context, time = now, dungeon = dungeon,rateIndex=rateIndex}
     self:Reconcile(now)
 end
 
@@ -183,8 +300,9 @@ function M:Hint(bucket, amount, context, now, id)
     self:Expire(now)
     if id and self.seen[id] then return end
     if id then self.seen[id] = now end
-    -- Dungeon awards are already classified, and raids are deliberately Other.
-    if context ~= "none" then return end
+    -- Source identity is orthogonal to display category: dungeon kills remain
+    -- Dungeon XP but can contribute to the recent-kill rate weighting.
+    if context == "unknown" then return end
     self.hints[#self.hints + 1] = {bucket = bucket, amount = amount, context = context, time = now}
     self:Reconcile(now)
 end
@@ -202,18 +320,21 @@ function M:Reconcile(now)
         local h = self.hints[i]
         local available = 0
         for _, a in ipairs(self.awards) do
-            if not a.dungeon and a.context == h.context then available = available + a.left end
+            if a.context == h.context then available = available + a.left end
         end
         if available >= h.amount then
             local left = h.amount
             for _, a in ipairs(self.awards) do
-                if not a.dungeon and a.context == h.context then
+                if a.context == h.context then
                     local take = min(left, a.left)
                     a.left, left = a.left - take, left - take
+                    if h.bucket=="kills" and take>0 then M.RateKill(self.session,a.rateIndex,take) end
                 end
             end
-            self.session.buckets.other = self.session.buckets.other - h.amount
-            self.session.buckets[h.bucket] = self.session.buckets[h.bucket] + h.amount
+            if h.context=="none" then
+                self.session.buckets.other = self.session.buckets.other - h.amount
+                self.session.buckets[h.bucket] = self.session.buckets[h.bucket] + h.amount
+            end
             table.remove(self.hints, i)
         end
     end

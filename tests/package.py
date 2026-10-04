@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import os
+import re
 import struct
 import subprocess
 import zipfile
@@ -21,11 +22,13 @@ for name in files:
     subprocess.run(["luajit", "-b", str(path), os.devnull], check=True)
 bindings = ET.parse(addon / "Bindings.xml").getroot()
 assert bindings.find("Binding").attrib["name"] == "XPISLAND_TOGGLE"
-data = (addon / "media" / "rounded.tga").read_bytes()
-assert len(data) == 18 + 64 * 64 * 4
-assert struct.unpack_from("<HH", data, 12) == (64, 64)
-assert data[16] == 32
-out = root / "dist" / "XPIsland-0.1.0.zip"
+for asset in ["rounded.tga", "cap.tga"]:
+    data = (addon / "media" / asset).read_bytes()
+    assert len(data) == 18 + 64 * 64 * 4
+    assert struct.unpack_from("<HH", data, 12) == (64, 64)
+    assert data[16] == 32
+version = re.search(r"^## Version: ([0-9.]+)$", toc, re.M).group(1)
+out = root / "dist" / f"XPIsland-{version}.zip"
 out.parent.mkdir(exist_ok=True)
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     for path in sorted(addon.rglob("*")):

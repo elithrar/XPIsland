@@ -9,7 +9,20 @@ local function object(kind,name,parent)
     if name then _G[name]=o end
     return o
 end
-function CreateFrame(kind,name,parent) return object(kind,name,parent) end
+function CreateFrame(kind,name,parent,template)
+    local o=object(kind,name,parent);o.template=template
+    if template=="UIPanelButtonTemplate" then
+        o.fontString=o:CreateFontString(nil,"OVERLAY");o.fontString:SetPoint("CENTER");o.fontString:SetFont("Fonts\\FRIZQT__.TTF",14,"")
+    elseif template=="BasicFrameTemplateWithInset" then
+        o.TitleText=o:CreateFontString(nil,"OVERLAY");o.TitleText:SetPoint("TOP",0,-4)
+        o.CloseButton=CreateFrame("Button",nil,o,"UIPanelButtonTemplate")
+        o.CloseButton:SetSize(24,24);o.CloseButton:SetPoint("TOPRIGHT",0,0);o.CloseButton:SetText("×")
+        o.CloseButton:SetScript("OnClick",function() o:Hide() end)
+    elseif template=="UICheckButtonTemplate" then
+        o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetPoint("LEFT",o,"RIGHT",-2,0)
+    elseif template=="UISliderTemplate" then o:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal") end
+    return o
+end
 function methods:CreateTexture(name,layer) local t=object("Texture",name,self);t.layer=layer;return t end
 function methods:CreateFontString(name,layer) local t=object("FontString",name,self);t.layer=layer;return t end
 function methods:SetSize(w,h) assert(w>=0 and h>=0);self.width,self.height=w,h end
@@ -71,10 +84,18 @@ function methods:SetColorTexture(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:SetVertexColor(r,g,b,a) self.tint={r,g,b,a or 1} end
 function methods:SetTexCoord(...) self.coords={...} end
 function methods:SetFont(path,size,flags) self.fontPath,self.fontSize,self.fontFlags=path,size,flags;return true end
-function methods:SetText(text) self.text=tostring(text) end
+function methods:SetText(text) self.text=tostring(text);if self.fontString then self.fontString:SetText(text) end end
 function methods:GetText() return self.text or "" end
 function methods:SetTextColor(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:GetStringWidth() return #(self.text or "")*(self.fontSize or 12)*.52 end
+methods.GetUnboundedStringWidth=methods.GetStringWidth
+function methods:GetFont() return self.fontPath,self.fontSize,self.fontFlags end
+function methods:SetShadowColor() end
+function methods:SetShadowOffset() end
+function methods:GetFontString() return self.fontString end
+function methods:SetChecked(v) self.checked=v end
+function methods:GetChecked() return self.checked end
+function methods:SetHitRectInsets() end
 function methods:SetJustifyH(v) self.justify=v end
 function methods:SetWordWrap(v) self.wrap=v end
 function methods:EnableMouse(v) self.mouse=v end
@@ -105,7 +126,9 @@ end
 
 UIParent=object("Frame","UIParent");UIParent:SetSize(1728,1080)
 UISpecialFrames={};SlashCmdList={}
-GameTooltip={SetOwner=function() end,AddLine=function() end,Show=function() end,Hide=function() end}
+GameTooltipText={GetFont=function() return "Fonts\\FRIZQT__.TTF",12,"" end}
+GameTooltip={SetOwner=function(_,owner,anchor) W.tooltip={owner=owner,anchor=anchor,lines={}} end,
+AddLine=function(_,...) W.tooltip.lines[#W.tooltip.lines+1]={...} end,Show=function() end,Hide=function() end}
 DEFAULT_CHAT_FRAME={AddMessage=function(_,msg) W.lastMessage=msg end}
 Settings={KEYBINDINGS_CATEGORY_ID=7,OpenToCategory=function(...) W.settingsOpened={...} end}
 ColorPickerFrame={SetupColorPickerAndShow=function(_,info) W.colorInfo=info end,GetColorRGB=function() return .1,.2,.3 end}
@@ -158,7 +181,7 @@ function W.event(event,...)
         if o.events and o.events[event] and o.scripts.OnEvent then o.scripts.OnEvent(o,event,...) end
     end
 end
-function W.click(button) button.scripts.OnClick(button,"LeftButton") end
+function W.click(button) if button.kind=="CheckButton" then button.checked=not button.checked end;button.scripts.OnClick(button,"LeftButton") end
 StatusTrackingBarInfo={BarsEnum={Experience=1,Reputation=2,Honor=3}}
 StatusTrackingBarManager={CanShowBar=function() return true end,UpdateBarsShown=function() W.barUpdates=(W.barUpdates or 0)+1 end}
 COMBATLOG_XPGAIN_FIRSTPERSON="%s dies, you gain %d experience."
@@ -180,7 +203,7 @@ function W.svg(path,root)
     for _,o in ipairs(W.objects) do
         local p=o;local include=not root
         while p do if p==root then include=true end;p=p.parent end
-        if include and o:IsVisible() and (o.kind=="Texture" or o.kind=="FontString" or o.kind=="EditBox") then ordered[#ordered+1]=o end
+        if include and o:IsVisible() and (o.kind=="Texture" or o.kind=="FontString" or o.kind=="EditBox" or o.template) then ordered[#ordered+1]=o end
     end
     local layers={BACKGROUND=0,ARTWORK=1,OVERLAY=2}
     table.sort(ordered,function(a,b)
@@ -192,7 +215,16 @@ function W.svg(path,root)
     for i,o in ipairs(ordered) do
         local x,y,w,h=o:Rect();y=rh-y-h
         local c=o.color or o.tint or {1,1,1,1}
-        if o.kind=="FontString" or o.kind=="EditBox" then
+        if o.template and o.kind~="EditBox" then
+            -- Layout-only stand-ins: Blizzard's native art is not bundled here.
+            local fill=o.template=="UIPanelButtonTemplate" and "#681a16" or "#211e19"
+            local stroke=o.template=="UIPanelButtonTemplate" and "#9c8258" or "#756753"
+            f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="3" fill="%s" stroke="%s" stroke-width="2"/>',x,y,w,h,fill,stroke))
+            if o.kind=="CheckButton" and o.checked then
+                f:write(string.format('<text x="%.2f" y="%.2f" fill="#ffd100" font-size="22">✓</text>',x+4,y+22))
+            end
+        elseif o.kind=="FontString" or o.kind=="EditBox" then
+            if o.kind=="EditBox" then f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" fill="#10100f" stroke="#817457"/>',x,y,w,h)) end
             local s=o.fontSize*o:GetEffectiveScale()
             if o.kind=="EditBox" then x=x+8;y=y+(h-s)/2 end
             local anchor=o.justify=="RIGHT" and "end" or "start"
@@ -206,8 +238,11 @@ function W.svg(path,root)
                 lines[#lines+1]=line
             end
             for li,line in ipairs(lines) do
-                f:write(string.format('<text x="%.2f" y="%.2f" font-family="Arial" font-size="%.2f" fill="%s" text-anchor="%s">%s</text>',o.justify=="RIGHT" and x+w or x,y+s+(li-1)*s*1.2,s,color(c),anchor,xml(line)))
+                f:write(string.format('<text x="%.2f" y="%.2f" font-family="Georgia" font-size="%.2f" fill="%s" text-anchor="%s">%s</text>',o.justify=="RIGHT" and x+w or x,y+s+(li-1)*s*1.2,s,color(c),anchor,xml(line)))
             end
+        elseif o.texture and o.texture:find("cap.tga",1,true) then
+            local co=o.coords
+            f:write(string.format('<defs><clipPath id="cap%d"><rect x="%f" y="%f" width="%f" height="%f"/></clipPath></defs><circle cx="%f" cy="%f" r="%f" fill="%s" clip-path="url(#cap%d)"/>',i,x,y,w,h,x+h*(.5-co[1]),y+h/2,h/2,color(c),i))
         elseif o.texture and o.coords then
             local co=o.coords
             local corner=co[1]==0 and (co[3]==0 and "tl" or "bl") or (co[3]==0 and "tr" or "br")
@@ -219,6 +254,6 @@ function W.svg(path,root)
             f:write(string.format('<path d="%s" fill="%s" opacity="%f"/>',d,color(c),c[4]))
         else f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" fill="%s" opacity="%.2f"/>',x,y,w,h,color(c),c[4])) end
     end
-    f:write('</svg>');f:close()
+    f:write('<text x="24" y="1056" font-family="Arial" font-size="14" fill="#aaa">OFFLINE LAYOUT FIXTURE — substitute font and native-control outlines; not an in-game screenshot</text></svg>');f:close()
 end
 return W

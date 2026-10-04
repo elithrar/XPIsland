@@ -20,7 +20,7 @@ W.instance="party";W.xp=250
 W.event("QUEST_TURNED_IN",5,100,0);W.event("PLAYER_XP_UPDATE","player");W.advance(.1)
 eq(X.session.buckets.dungeons,100)
 W.rested=500;W.event("UPDATE_EXHAUSTION")
-eq(UI.segments[1].fill.color[3],1,"rested color")
+eq(UI.segments[1].fill.body.color[3],1,"rested color")
 W.click(UI.frame);eq(UI.expanded,true)
 eq(UI.frame:GetWidth(),520);eq(UI.cells[4].value:GetText(),"500")
 W.advance(61);eq(X.session.seconds>61,true,"connected timer")
@@ -107,9 +107,15 @@ for _,rootScale in ipairs({.64,.8,1,1.2}) do
 end
 UIParent:SetScale(1)
 
-O.frame:Hide();X.profile.scale=1;X.profile.fontSize=12;X:ApplyProfile()
+O.frame:Hide();X.profile.scale=1;X.profile.fontSize=14;X.profile.placement="top";X:ApplyProfile()
 W.xp=7242;W.cap=8800;W.rested=0;X:Sample()
 X.session.total=5800;X.session.seconds=3600;X.session.buckets={kills=1600,quests=3200,dungeons=900,other=100};X.session.incomplete=false
+X.session.rate={version=1,startedAt=0,buckets={}}
+for minute=0,59 do
+    X.session.seconds=minute*60
+    local index=ns.Model.RateAward(X.session,5800/60);ns.Model.RateKill(X.session,index,1600/60)
+end
+X.session.seconds=3600
 UI:SetExpanded(false);W.svg("dist/preview-collapsed.svg",UI.frame)
 UI:SetExpanded(true);W.svg("dist/preview-expanded.svg",UI.frame)
 O.frame:Show();W.svg("dist/preview-options.svg",O.frame)
