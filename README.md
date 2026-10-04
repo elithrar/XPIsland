@@ -1,7 +1,5 @@
 # XPIsland
 
-<img width="556" height="299" alt="xp-island-collapsed" src="https://github.com/user-attachments/assets/b241fb90-beaf-42a0-8e35-8fb6bc308707" />
-
 A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sources of XP during your current session.
 
 - A segmented XP bar that shows rested XP and can be configured to show XP remaining or time to next level based on your current leveling pace.
@@ -9,6 +7,8 @@ A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sou
 - Per-character profiles, customizable fonts, and automatic scaling based on your UI size, with widths that stay compact on ultrawide screens.
 
 For World of Warcraft: Forever. This is a fun experiment to better show the pace of leveling.
+
+<img width="556" height="299" alt="xp-island-collapsed" src="https://github.com/user-attachments/assets/b241fb90-beaf-42a0-8e35-8fb6bc308707" />
 
 ## Installation
 
