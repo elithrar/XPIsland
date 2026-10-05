@@ -67,3 +67,7 @@ The 250 ms highlight driver changes alpha only and removes its OnUpdate when emp
 The level elapsed counter is removed. One `TIME_PLAYED_MSG` registration and a small per-character authoritative anchor replace it. The existing one-second ticker services bounded synchronization requests; there is no recurring server polling or second permanent timer. The header adds one fixed bar container and one text object. Text is cached and measured only when the message/font changes; animation only adjusts its fit scale. Independent active-notice checks measured approximately 152–153 native-call proxies per frame at 30/60/120 Hz, with no new objects or remaining callbacks.
 
 The latest stress run retains 312 mock objects, 43 font entries, 25 events and one clock through 6,000 cycles. The second memory window remains 0.00 KiB, and 600 idle seconds still produce zero segment redraws. Network timeouts may make the bounded automatic replies visible to preserve manual chat output; they do not start perpetual retries.
+
+## 0.5.2 duration controls
+
+Two fixed sliders, thumb textures, value labels and six ticks add 12 mock objects. The stress run retains 324 objects, 45 font entries, 25 events and one clock over 6,000 cycles, with 0.00 KiB growth in the second post-warmup memory window. No permanent timer or server request was added. Changes reconcile existing one-shot timers, using identity guards to reject callbacks from canceled intervals.

@@ -1,6 +1,6 @@
 # Validation
 
-XPIsland 0.5.0 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
+XPIsland 0.5.2 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
 
 ## Automated checks
 
@@ -34,6 +34,7 @@ python3 tests/package.py
 - 155 stat-hover assertions: 750 ms dwell in all eight cells, switch/leave cancellation, same-cell re-entry, already-dispatched callbacks, tooltip ownership, collapse/combat/hide/drag/layout dismissal, missing leave events and 1,000 rapid transitions without retained UI objects or polling.
 - 13,441 feature assertions: exact segment thresholds, simultaneous highlights, repeated updates, rollover/loading/correction suppression, highlight workload/cleanup, rested 0/partial/overflow/color/cap geometry, shared source denominators and attribution corrections, font/scale/viewport bounds, header phrase/ETA separation, fitting selected fonts to the pill, expiry and restoration. Historical 0.5.0 behavior is documented in [feature review](FEATURE-REVIEW-05.md).
 - 133 authoritative played-time assertions: server-only anchor arithmetic, saved-state validation, mid-level login, reload/reconnect/offline gaps, session/profile independence, duplicate/missing replies, old-level races, equality boundary, skipped levels, native API errors, bounded requests, chat dispatch ordering/ownership, delayed manual replies, corroboration, header expiry/interruption and active-header animation work. See [0.5.1 review](PLAYED-REVIEW-051.md).
+- 655 duration-control assertions: old/invalid profile migration, defaults, discrete slider values, disabled state, copy/switch/restore, every 5/10/15-second combination, hover/settings/drag, active duration changes, stale callbacks, reset/combat/cap, retained 750 ms tooltips and font/viewport/scale bounds.
 - Ten release tests: stable/alpha/beta/RC classification, exact TOC/flavor/version, actual Git annotated/lightweight tag and merged/unmerged ancestry, unchanged multipart ZIP bytes, duplicate receipt guards, ambiguous upload timeouts, absent token and hash mismatch.
 - Resource stress: 6,000 repeated UI/profile/timer cycles, 100,000 XP awards with hints, stable retained UI/event/timer counts, expiry, conservation and idle redraw elimination. See [resource audit](PERFORMANCE.md) for measurement caveats.
 - Package checks: Lua syntax, TOC load order, bindings XML, all three original TGA assets, ZIP paths and integrity.
@@ -44,9 +45,9 @@ An optional source integration test executes Blizzard's actual tracking selectio
 luajit tests/stock_tracking_test.lua /path/to/Blizzard_StatusTrackingBar/
 ```
 
-Its eight assertions check XP-only suppression, reputation preservation, reversal, and restoration through a later addon owner's wrapper. This does not establish live taint safety. The twelve Lua assertion suites, including pinned source integration, total 62,149 checks, in addition to stress and package checks.
+Its eight assertions check XP-only suppression, reputation preservation, reversal, and restoration through a later addon owner's wrapper. This does not establish live taint safety. The thirteen Lua assertion suites, including pinned source integration, total 62,804 checks, in addition to stress and package checks.
 
-The runtime, revision, motion and feature tests emit nineteen SVG layout fixtures in `dist/`. `tests/render_previews.py` renders them with a local macOS Chrome installation. These are explicitly marked offline fixtures, not in-game screenshots: substitute fonts and native-control outlines cannot validate WoW's actual artwork or text rasterization. Screenshot findings and the final self-review are recorded in [0.4 design review](DESIGN-REVIEW-04.md).
+The runtime, revision, motion and feature tests emit twenty-one SVG layout fixtures in `dist/`. `tests/render_previews.py` renders them with a local macOS Chrome installation. These are explicitly marked offline fixtures, not in-game screenshots: substitute fonts and native-control outlines cannot validate WoW's actual artwork or text rasterization. Screenshot findings and the final self-review are recorded in [0.4 design review](DESIGN-REVIEW-04.md).
 
 ## In-game acceptance
 

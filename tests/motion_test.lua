@@ -102,7 +102,7 @@ for i=1,2000 do
  W.event('PLAYER_REGEN_DISABLED');W.advance(.25)
  eq(timers(),1);eq(UI.frame.scripts.OnUpdate,nil)
 end
-eq(#W.objects,objects);eq(#O.fontObjects,43)
+eq(#W.objects,objects);eq(#O.fontObjects,45)
 -- Fresh layout fixtures, including a partially expanded clipped/faded frame.
 X.profile=M.Profile();X.db.profiles.Shared=X.profile;X.profileName='Shared';X:CancelAutoCollapse()
 X.tracker.xp=60800;X.tracker.cap=95000;X.rested=12000;UI:SetExpanded(false,true)

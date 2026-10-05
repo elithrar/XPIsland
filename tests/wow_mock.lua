@@ -130,7 +130,7 @@ function methods:SetShadowOffset() end
 function methods:GetFontString() return self.fontString end
 function methods:SetChecked(v) self.checked=v end
 function methods:GetChecked() return self.checked end
-function methods:SetHitRectInsets() end
+function methods:SetHitRectInsets(...) self.hitInsets={...} end
 function methods:SetJustifyH(v) self.justify=v end
 function methods:SetWordWrap(v) self.wrap=v end
 function methods:EnableMouse(v) self.mouse=v end
@@ -147,10 +147,12 @@ function methods:ClearFocus() end
 function methods:SetBackdrop(v) self.backdrop=v end
 function methods:SetBackdropColor(...) self.backdropColor={...} end
 function methods:SetBackdropBorderColor(...) self.backdropBorder={...} end
+function methods:SetEnabled(v) self.enabled=v end
+function methods:IsEnabled() return self.enabled~=false end
 function methods:SetOrientation() end
 function methods:SetMinMaxValues(a,b) self.minimum,self.maximum=a,b end
 function methods:SetValueStep(v) self.step=v end
-function methods:SetObeyStepOnDrag() end
+function methods:SetObeyStepOnDrag(v) self.obeyStep=v end
 function methods:SetThumbTexture(t) self.thumb=self:CreateTexture(nil,"OVERLAY");self.thumb:SetTexture(t) end
 function methods:GetThumbTexture() return self.thumb end
 function methods:SetValue(v)

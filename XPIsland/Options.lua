@@ -90,6 +90,33 @@ function O:Check(parent,text,key,x,y)
     return b
 end
 
+function O:Duration(parent,toggle,key,y)
+    local check=self:Check(parent,toggle=="levelUp" and "Expand at level-up" or "Auto-collapse",toggle,328,y)
+    check.text:SetWidth(134);check.text:SetWordWrap(false);check:SetHitRectInsets(0,-134,0,0)
+    local slider=CreateFrame("Slider",nil,parent,"UISliderTemplate")
+    slider:SetPoint("TOPLEFT",492,y-4);slider:SetSize(56,16)
+    slider:SetHitRectInsets(0,0,-3,-3)
+    slider:SetOrientation("HORIZONTAL");slider:SetMinMaxValues(5,15)
+    slider:SetValueStep(5);slider:SetObeyStepOnDrag(true)
+    slider:GetThumbTexture():SetSize(20,20)
+    for i=0,2 do
+        local tick=UI.Solid(slider,"BACKGROUND",.55,.55,.6,.7)
+        tick:SetSize(1,3);tick:SetPoint("TOP",slider,"BOTTOMLEFT",i*28,0)
+    end
+    slider.valueText=label(parent,"",562,y-6,11)
+    slider.valueText:SetWidth(34);slider.valueText:SetJustifyH("RIGHT")
+    slider.toggle=toggle
+    slider:SetScript("OnValueChanged",function(_,value)
+        if self.refreshing or not self.owner.profile[toggle] then return end
+        local snapped=math.max(5,math.min(15,math.floor(value/5+.5)*5))
+        if self.owner.profile[key]~=snapped then
+            self.owner.profile[key]=snapped;self.owner:ApplyProfile()
+        end
+        self:Refresh()
+    end)
+    self.durationSliders[key]=slider
+end
+
 function O:Color(key)
     local p=self.owner.profile
     local original=M.Copy(p[key])
@@ -101,7 +128,7 @@ function O:Color(key)
 end
 
 function O:Create(owner)
-    self.owner=owner;self.checks={};self.fontObjects={};self.dropdowns={}
+    self.owner=owner;self.checks={};self.fontObjects={};self.dropdowns={};self.durationSliders={}
     local f=CreateFrame("Frame","XPIslandOptions",UIParent,"BackdropTemplate")
     self.frame=f
     f:SetSize(620,462);f:SetPoint("CENTER");f:SetFrameStrata("DIALOG")
@@ -169,8 +196,8 @@ function O:Create(owner)
         self[key]=b
     end
     self:Check(page,"Lock position","locked",328,-104)
-    self:Check(page,"Expand at level-up (10 sec)","levelUp",328,-132)
-    self:Check(page,"Auto-collapse after 15 sec","autoCollapse",328,-160)
+    self:Duration(page,"levelUp","levelUpDuration",-132)
+    self:Duration(page,"autoCollapse","autoCollapseDuration",-160)
     self:Check(page,"Collapse when combat starts","collapseCombat",328,-188)
     self:Check(page,"Hide Blizzard XP bar","hideBlizzard",328,-216)
     local hint=label(page,"Other addon bars keep their own controls.",328,-247,11)
@@ -248,6 +275,12 @@ function O:Refresh()
     local p=self.owner.profile
     self.fontSize:SetText(tostring(p.fontSize));self.scale:SetValue(p.scale*100);self.scaleEdit:SetText(tostring(math.floor(p.scale*100+.5)))
     for _,b in ipairs(self.checks) do b.text:SetText(b.caption);b:SetChecked(p[b.key]) end
+    for key,slider in pairs(self.durationSliders) do
+        slider:SetValue(p[key]);slider.valueText:SetText(p[key].." s")
+        slider:SetEnabled(p[slider.toggle])
+        slider:SetAlpha(p[slider.toggle] and 1 or .35)
+        slider.valueText:SetAlpha(p[slider.toggle] and 1 or .35)
+    end
     for _,d in ipairs(self.dropdowns) do d:GenerateMenu() end
     for _,entry in ipairs(self.fontObjects) do entry.object:SetFont(UI.Font(p),entry.size,"") end
     self.normal.swatch:SetColorTexture(unpack(p.normal));self.rested.swatch:SetColorTexture(unpack(p.rested))

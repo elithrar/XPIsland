@@ -21,6 +21,7 @@ M.defaults = {
     normal = {0.64, 0.35, 0.94}, rested = {0.24, 0.61, 1},
     locked = true, levelUp = true, hideBlizzard = false,
     autoCollapse = true, collapseCombat = true,
+    levelUpDuration = 10, autoCollapseDuration = 15,
     position = {x = 0, y = -8},
 }
 
@@ -34,6 +35,9 @@ function M.Profile(p)
     if p.placement == "bottom" or p.placement == "custom" then clean.placement = p.placement end
     for _, k in ipairs({"locked", "levelUp", "hideBlizzard", "autoCollapse", "collapseCombat", "fontCustomized", "fontSizeCustomized"}) do
         if type(p[k]) == "boolean" then clean[k] = p[k] end
+    end
+    for _, k in ipairs({"levelUpDuration", "autoCollapseDuration"}) do
+        if p[k]==5 or p[k]==10 or p[k]==15 then clean[k]=p[k] end
     end
     for _, k in ipairs({"normal", "rested"}) do
         if type(p[k]) == "table" then

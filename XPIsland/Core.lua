@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options = ns.Model, ns.UI, ns.Options
-local X = {version="0.5.1", formats={}}
+local X = {version="0.5.2", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -28,7 +28,7 @@ end
 
 function X:CancelAutoCollapse(keepDelay)
     if self.autoCollapse then self.autoCollapse:Cancel();self.autoCollapse=nil end
-    if not keepDelay then self.collapseDelay=nil end
+    if not keepDelay then self.collapseDelay=nil;self.collapseKind=nil end
 end
 
 function X:IsInteracting()
@@ -42,17 +42,20 @@ function X:InteractionChanged()
     if not UI.expanded or not UI.frame:IsShown() then self:CancelAutoCollapse();return end
     if self:IsInteracting() then self:CancelAutoCollapse(true);return end
     if self.autoCollapse then return end
-    self.autoCollapse=C_Timer.NewTimer(self.collapseDelay,function()
+    local timer
+    timer=C_Timer.NewTimer(self.collapseDelay,function()
+        if self.autoCollapse~=timer then return end
         self.autoCollapse=nil
         if self:IsInteracting() then return end
-        self.collapseDelay=nil
+        self.collapseDelay=nil;self.collapseKind=nil
         UI:SetExpanded(false)
     end)
+    self.autoCollapse=timer
 end
 
-function X:ArmCollapse(delay)
+function X:ArmCollapse(delay,kind)
     self:CancelAutoCollapse()
-    self.collapseDelay=delay
+    self.collapseDelay=delay;self.collapseKind=kind or "manual"
     self:InteractionChanged()
 end
 
@@ -62,7 +65,7 @@ function X:Toggle()
     if self:IsCapped() then say("The island is hidden while XP is capped or disabled.");return end
     if not UI.expanded then self.db.expandedOnce=true end
     UI:SetExpanded(not UI.expanded)
-    if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(15) end
+    if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(self.profile.autoCollapseDuration) end
 end
 
 function X:ClearLevelNotice()
@@ -91,21 +94,32 @@ function X:PlayedLevelComplete(level,duration)
     if not self.levelWindow or self.levelWindow.level~=level+1 or GetTime()>=self.levelWindow.untilTime
         or not UI.expanded or not UI.frame:IsShown() or not self.profile.levelUp or self:IsCapped()
         or (self.profile.collapseCombat and InCombatLockdown()) then return end
-    self:ShowLevelDuration(level,duration,10)
-    self:ArmCollapse(10)
+    self:ShowLevelDuration(level,duration,self.profile.levelUpDuration)
+    self:ArmCollapse(self.profile.levelUpDuration,"level")
 end
 
 function X:ShowLevelDuration(level,duration,delay)
     self:ClearLevelNotice()
     if not M.Number(duration) or duration<=0 then return end
-    local notice={seconds=duration,level=level}
+    local notice={seconds=duration,level=level,startedAt=GetTime()}
     self.levelNotice=notice
-    self.levelNoticeTimer=C_Timer.NewTimer(delay or 10,function()
-        if self.levelNotice~=notice then return end
+    self:ScheduleLevelNotice(delay or self.profile.levelUpDuration)
+    UI:Update()
+end
+
+function X:ScheduleLevelNotice(delay)
+    if self.levelNoticeTimer then self.levelNoticeTimer:Cancel();self.levelNoticeTimer=nil end
+    local notice=self.levelNotice
+    if not notice then return end
+    local remaining=notice.startedAt+delay-GetTime()
+    if remaining<=0 then self.levelNotice=nil;return end
+    local timer
+    timer=C_Timer.NewTimer(remaining,function()
+        if self.levelNotice~=notice or self.levelNoticeTimer~=timer then return end
         self.levelNoticeTimer=nil;self.levelNotice=nil
         UI:Update()
     end)
-    UI:Update()
+    self.levelNoticeTimer=timer
 end
 
 function X:LevelUp()
@@ -113,10 +127,10 @@ function X:LevelUp()
     if not self.profile.levelUp or self:IsCapped() or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:CancelAutoCollapse()
     UI:SetExpanded(true)
-    self.levelWindow={level=self.lastLevelEvent,untilTime=GetTime()+10}
-    self:ArmCollapse(10)
+    self.levelWindow={level=self.lastLevelEvent,startedAt=GetTime(),untilTime=GetTime()+self.profile.levelUpDuration}
+    self:ArmCollapse(self.profile.levelUpDuration,"level")
     local completed=ns.Played.completed
-    if completed and GetTime()-completed.observed<=10 then self:PlayedLevelComplete(completed.level,completed.seconds) end
+    if completed and GetTime()-completed.observed<=self.profile.levelUpDuration then self:PlayedLevelComplete(completed.level,completed.seconds) end
 end
 
 function X:Clock()
@@ -247,9 +261,19 @@ function X:Integration()
 end
 
 function X:ApplyProfile()
+    local kind=self.collapseKind
     self:CancelAutoCollapse()
+    if not self.profile.levelUp then
+        self.levelWindow=nil;self:ClearLevelNotice()
+    else
+        if self.levelWindow then self.levelWindow.untilTime=self.levelWindow.startedAt+self.profile.levelUpDuration end
+        self:ScheduleLevelNotice(self.profile.levelUpDuration)
+    end
     UI:Layout();self:Integration()
-    if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(15) end
+    if UI.expanded then
+        if kind=="level" and self.profile.levelUp then self:ArmCollapse(self.profile.levelUpDuration,"level")
+        elseif self.profile.autoCollapse then self:ArmCollapse(self.profile.autoCollapseDuration) end
+    end
 end
 
 function X:Initialize(reloading)
