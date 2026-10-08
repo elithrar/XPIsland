@@ -11,8 +11,10 @@ remain unsupported.
   `GetXPExhaustion`, existing XP/quest/localized combat-XP notifications. XP deltas
   are authoritative; chat only classifies already observed XP.
 - Progression reads `GetPetExperience()` and `UnitLevel("pet")`, guarded by
-  `UnitExists("pet")` and pet GUID. Refresh on `UNIT_PET` / `UNIT_PET_EXPERIENCE`
-  for player, `UNIT_LEVEL` for pet, and world entry. The event is NOT PET_XP_UPDATE.
+  `UnitExists("pet")` and pet GUID. Refresh on `UNIT_PET` for player,
+  `UNIT_LEVEL` for pet, and world entry. Like Blizzard's pet XP bar, refresh on
+  every `UNIT_PET_EXPERIENCE` regardless of payload, reading the current pet.
+  The event is NOT PET_XP_UPDATE.
   Missing/non-leveling pets have no row; a valid zero numerator is real zero.
 - Honor is currency, not a rank proxy. Read
   `C_CurrencyInfo.GetCurrencyInfo(Constants.CurrencyConsts.HONOR_CURRENCY_ID)`

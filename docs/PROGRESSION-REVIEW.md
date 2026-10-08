@@ -27,11 +27,15 @@ The implementation contract was written before the code changes; see
 5. Regression pass: ran every Lua suite, release-guard tests, stock selection
    integration and package checks after fixes. Reviewed diff/whitespace and CI
    wiring. There is no release tag or publication change.
+6. Pet-event follow-up: matched the pinned Blizzard pet bar's unconditional
+   `UNIT_PET_EXPERIENCE` refresh. A regression test failed with the old player-only
+   filter and passes for player, pet, unrelated, restricted and missing payloads.
+   The current pet is always read; `UNIT_PET` and `UNIT_LEVEL` keep their filters.
 
 ## Executed checks
 
-- 64,987 assertions across 15 Lua assertion suites, including 45 new kill-model
-  and 1,920 new progression/runtime/layout assertions.
+- 65,000 assertions across 15 Lua assertion suites, including 45 new kill-model
+  and 1,933 new progression/runtime/layout assertions.
 - Existing stress suite: 6,000 UI/profile/timer cycles; 100,000 XP awards/hints;
   fixed frame/font/event counts; one recurring ticker; kill history <=61 buckets
   and ID cache <=8192 entries; zero bar geometry redraws across 600 idle seconds.

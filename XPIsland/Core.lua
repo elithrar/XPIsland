@@ -379,7 +379,9 @@ events:SetScript("OnEvent",function(_,event,...)
     if not X.session then return end
     if event=="UNIT_PET" or event=="UNIT_PET_EXPERIENCE" or event=="UNIT_LEVEL" then
         local unit=...
-        if safe(unit) and ((event=="UNIT_LEVEL" and unit=="pet") or (event~="UNIT_LEVEL" and unit=="player")) then
+        -- Blizzard's pet XP bar treats this event as a refresh signal regardless of payload.
+        if event=="UNIT_PET_EXPERIENCE" or (safe(unit) and
+            ((event=="UNIT_LEVEL" and unit=="pet") or (event=="UNIT_PET" and unit=="player"))) then
             local previous=P.pet and P.pet.guid
             P:Pet()
             if previous~=(P.pet and P.pet.guid) then UI:CancelStatTooltip(UI.inlineCells[1]) end

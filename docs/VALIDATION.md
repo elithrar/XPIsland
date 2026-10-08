@@ -67,7 +67,7 @@ The saved client configuration inspected in the prior revision had `NotchedDispl
 ## Progression branch validation
 
 See [progression review](PROGRESSION-REVIEW.md) for the completed review/fix loop
-and current executed results: 64,987 Lua assertions, stress tests, ten release
+and current executed results: 65,000 Lua assertions, stress tests, ten release
 checks, source integration and local package validation. New suites are
 `luajit tests/kills_test.lua` and `luajit tests/progression_test.lua`. The latter
 emits XP, Honor/PvP and Tracking-settings offline fixtures. The reviewed API and

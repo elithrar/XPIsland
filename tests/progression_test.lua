@@ -28,6 +28,16 @@ W.event('UNIT_PET','player');eq(P.pet.guid,'Pet-A');eq(UI.inlineCells[1].value:G
 W.petGUID='Pet-B';W.petXP=0;W.event('UNIT_PET','target');eq(P.pet.guid,'Pet-A')
 W.event('UNIT_PET','player');eq(P.pet.guid,'Pet-B');eq(P.pet.xp,0)
 W.petXP=500;W.event('UNIT_PET_EXPERIENCE','player');eq(P.pet.xp,500)
+-- Blizzard's Camelot consumer refreshes current pet XP regardless of payload.
+-- The payload is only documented as UnitTokenVariant, not specifically player.
+for i,unit in ipairs({'player','pet','target','party1',secret}) do
+ W.petXP=600+i;W.event('UNIT_PET_EXPERIENCE',unit)
+ eq(P.pet.xp,600+i,'pet XP event refreshes the current pet for any payload')
+ eq(P.pet.guid,'Pet-B','payload does not select which pet is read')
+end
+W.petXP=700;W.event('UNIT_PET_EXPERIENCE')
+eq(P.pet.xp,700,'missing event payload still refreshes pet XP');eq(P.pet.guid,'Pet-B')
+W.petXP=800;W.event('UNIT_LEVEL','player');eq(P.pet.xp,700,'UNIT_LEVEL retains its pet filter')
 W.petLevel=10;W.event('UNIT_LEVEL','pet');eq(P.pet.level,10)
 W.petCap=0;W.event('UNIT_PET_EXPERIENCE','player');eq(P.pet,nil);eq(UI.inlineCells[1]:IsShown(),false)
 W.petCap=2000;W.petXP=secret;W.event('UNIT_PET','player');eq(P.pet,nil)
