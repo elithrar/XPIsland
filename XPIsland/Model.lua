@@ -23,17 +23,21 @@ M.defaults = {
     autoCollapse = true, collapseCombat = true,
     levelUpDuration = 10, autoCollapseDuration = 15,
     position = {x = 0, y = -8},
+    mode = "xp", pvpAtCap = false, pvpFormat = "honor",
+    showPet = true, showRank = true, showKills = true,
 }
 
 function M.Profile(p)
     p = type(p) == "table" and p or {}
     local clean = M.Copy(M.defaults)
-    if p.format == "percent" or p.format == "fraction" or p.format == "left" or p.format == "leftPercent" or p.format == "eta" then clean.format = p.format end
+    if p.format == "percent" or p.format == "fraction" or p.format == "left" or p.format == "leftPercent" or p.format == "eta" or p.format == "kills" then clean.format = p.format end
+    if p.mode == "pvp" then clean.mode = "pvp" end
+    if p.pvpFormat == "rankLeft" then clean.pvpFormat = "rankLeft" end
     if M.Number(p.scale) then clean.scale = max(0.5, min(1.5, p.scale)) end
     if M.Number(p.fontSize) then clean.fontSize = max(10, min(18, floor(p.fontSize))) end
     if type(p.font) == "string" and #p.font < 120 then clean.font = p.font end
     if p.placement == "bottom" or p.placement == "custom" then clean.placement = p.placement end
-    for _, k in ipairs({"locked", "levelUp", "hideBlizzard", "autoCollapse", "collapseCombat", "fontCustomized", "fontSizeCustomized"}) do
+    for _, k in ipairs({"locked", "levelUp", "hideBlizzard", "autoCollapse", "collapseCombat", "fontCustomized", "fontSizeCustomized", "pvpAtCap", "showPet", "showRank", "showKills"}) do
         if type(p[k]) == "boolean" then clean[k] = p[k] end
     end
     for _, k in ipairs({"levelUpDuration", "autoCollapseDuration"}) do
@@ -160,6 +164,61 @@ function M.RateKill(session,index,amount)
     if bucket and bucket.index==index then bucket.killXP=min(bucket.totalXP,bucket.killXP+amount) end
 end
 
+-- Independent of rate history: one full award AND one count per reconciled
+-- named kill, never one count per fragment consumed by Reconcile.
+function M.KillHistory(session)
+    if not session.killHistory then session.killHistory={version=1,buckets={}} end
+    return session.killHistory
+end
+
+function M.ValidKillHistory(history,seconds)
+    if type(history)~="table" or history.version~=1 or type(history.buckets)~="table" then return false end
+    local count=0
+    for slot,b in pairs(history.buckets) do
+        count=count+1
+        if count>61 or not M.Number(slot) or slot~=floor(slot) or slot<1 or slot>61
+            or type(b)~="table" or not M.Number(b.index) or b.index<0 or b.index~=floor(b.index)
+            or b.index%61+1~=slot or b.index>floor(seconds/60)
+            or not M.Number(b.xp) or b.xp<=0 or not M.Number(b.count) or b.count<1
+            or b.count~=floor(b.count) then return false end
+    end
+    return true
+end
+
+function M.KillAward(session,amount,observed)
+    local h=M.KillHistory(session)
+    local index=floor(observed/60)
+    local slot=index%61+1
+    local b=h.buckets[slot]
+    if not b or b.index~=index then b={index=index,xp=0,count=0};h.buckets[slot]=b end
+    b.xp,b.count=b.xp+amount,b.count+1
+end
+
+function M.KillsToLevel(session,xp,cap,capped)
+    if capped or not session or not M.Number(xp) or not M.Number(cap) or cap<=0 then return nil,"unavailable" end
+    local h=session.killHistory
+    local weightedXP,weightedCount,count=0,0,0
+    local function weight(index,window)
+        return min(1,max(0,(index*60+60-max(0,session.seconds-window))/60))
+    end
+    for _,b in pairs(h and h.buckets or {}) do
+        local hour,recent=weight(b.index,3600),weight(b.index,1200)
+        weightedXP=weightedXP+b.xp*(hour+recent)
+        weightedCount=weightedCount+b.count*(hour+recent)
+        count=count+b.count*hour
+    end
+    if count==0 then return nil,"empty",count end
+    if count<5 then return nil,"warming",count end
+    local mean=weightedXP/weightedCount
+    local kills=math.ceil(max(0,cap-xp)/mean)
+    if not M.Number(mean) or mean<=0 or not M.Number(kills) then return nil,"unavailable",count end
+    return kills,"ready",count,mean
+end
+
+M.KillMessages={empty="No recent confirmed kills.", warming="Collecting kill history: at least five confirmed kills are needed.",
+    unavailable="Waiting for player XP information, or XP is capped/disabled.",
+    ready="Approximate kills at recent rewards. The newest 20 minutes count twice within one hour; XP and kill counts use identical weights. Assumes similar rewards, including rested and group bonuses."}
+
 function M.Estimate(session, xp, cap, capped)
     if capped or not cap or cap<=0 or not session then return end
     local history=M.RateHistory(session)
@@ -284,6 +343,8 @@ function M.Resume(saved, character, wall, reloading)
             local s = M.Copy(saved)
             s.reason, s.savedAt = "active", wall
             M.RateHistory(s)
+            if not M.ValidKillHistory(s.killHistory,s.seconds) then s.killHistory=nil end
+            M.KillHistory(s)
             if s.incomplete then M.RestartRate(s) end
             return s, true
         end
@@ -301,7 +362,7 @@ end
 
 function M.NewTracker(session)
     if session.incomplete then M.RestartRate(session) end
-    return setmetatable({session = session, awards = {}, hints = {}, seen = {}}, {__index = M})
+    return setmetatable({session = session, awards = {}, hints = {}, seen = {}, killSeen={}, killSeenCount=0}, {__index = M})
 end
 
 function M:Baseline(level, xp, cap)
@@ -356,12 +417,23 @@ end
 function M:Hint(bucket, amount, context, now, id)
     if not M.Number(amount) or amount <= 0 or (bucket ~= "kills" and bucket ~= "quests") then return end
     self:Expire(now)
+    -- Long-lived dedup is deliberately runtime-only: chat line IDs belong to
+    -- this client event stream, while saved aggregates survive reloads.
+    local countable=false
+    if bucket=="kills" and id then
+        if self.killSeen[id] then return end
+        if self.killSeenCount<8192 then
+            self.killSeen[id]=self.session.seconds;self.killSeenCount=self.killSeenCount+1
+            countable=true
+        end
+    end
     if id and self.seen[id] then return end
     if id then self.seen[id] = now end
     -- Source identity is orthogonal to display category: dungeon kills remain
     -- Dungeon XP but can contribute to the recent-kill rate weighting.
     if context == "unknown" then return end
-    self.hints[#self.hints + 1] = {bucket = bucket, amount = amount, context = context, time = now}
+    self.hints[#self.hints + 1] = {bucket = bucket, amount = amount, context = context, time = now,
+        observed=self.session.seconds,countable=countable}
     self:Reconcile(now)
 end
 
@@ -370,6 +442,13 @@ function M:Expire(now)
         for i = #list, 1, -1 do if now - list[i].time > 2 then table.remove(list, i) end end
     end
     for id, t in pairs(self.seen) do if now - t > 3 then self.seen[id] = nil end end
+    local minute=floor(self.session.seconds/60)
+    if self.killPrunedMinute~=minute then
+        self.killPrunedMinute=minute
+        for id,t in pairs(self.killSeen) do
+            if self.session.seconds-t>3660 then self.killSeen[id]=nil;self.killSeenCount=self.killSeenCount-1 end
+        end
+    end
 end
 
 function M:Reconcile(now)
@@ -393,6 +472,7 @@ function M:Reconcile(now)
                 self.session.buckets.other = self.session.buckets.other - h.amount
                 self.session.buckets[h.bucket] = self.session.buckets[h.bucket] + h.amount
             end
+            if h.bucket=="kills" and h.countable then M.KillAward(self.session,h.amount,h.observed) end
             table.remove(self.hints, i)
         end
     end

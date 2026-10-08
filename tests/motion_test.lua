@@ -28,7 +28,7 @@ X:Toggle();W.hover=UI.frame;W.advance(15);eq(UI.expanded,true);eq(timers(),1)
 W.hover=nil;W.advance(1);eq(timers(),2);W.advance(15);eq(UI.expanded,false)
 -- Settings hold the panel open. Profile changes replace the old policy/deadline.
 X:Toggle();SlashCmdList.XPISLAND('');eq(timers(),1);W.advance(30);eq(UI.expanded,true)
-eq(O.frame.template,'BackdropTemplate');eq(#O.dropdowns,5)
+eq(O.frame.template,'BackdropTemplate');eq(#O.dropdowns,7)
 for _,d in ipairs(O.dropdowns) do eq(d.template,'WowStyle1DropdownTemplate') end
 W.choose(O.format,'leftPercent');eq(X.profile.format,'leftPercent')
 W.choose(O.placement,'bottom');eq(X.profile.placement,'bottom');eq(UI.layout.up,true)
@@ -102,7 +102,7 @@ for i=1,2000 do
  W.event('PLAYER_REGEN_DISABLED');W.advance(.25)
  eq(timers(),1);eq(UI.frame.scripts.OnUpdate,nil)
 end
-eq(#W.objects,objects);eq(#O.fontObjects,45)
+eq(#W.objects,objects);eq(#O.fontObjects,59)
 -- Fresh layout fixtures, including a partially expanded clipped/faded frame.
 X.profile=M.Profile();X.db.profiles.Shared=X.profile;X.profileName='Shared';X:CancelAutoCollapse()
 X.tracker.xp=60800;X.tracker.cap=95000;X.rested=12000;UI:SetExpanded(false,true)

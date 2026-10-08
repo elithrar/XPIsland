@@ -67,6 +67,8 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
 end
 W.choose(O.format,'leftPercent');eq(O.format.Text:GetText(),'XP Remaining (%)')
 eq(O.active.Text:GetText(),longName,'long profile selection preserved')
+-- Retain the two-row padding contract when optional inline details are disabled.
+X.profile.showRank=false;X.profile.showKills=false
 -- Measured rows with equally inset visible text, including larger font metrics.
 for _,size in ipairs({10,12,14,18}) do
  for _,placement in ipairs({'top','bottom'}) do

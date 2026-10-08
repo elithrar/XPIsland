@@ -63,3 +63,13 @@ These cases remain to be verified after loading the revision on the running clie
 - Multi-hour native-memory/CPU soak alongside the user's other addons.
 
 The saved client configuration inspected in the prior revision had `NotchedDisplayMode=0` (Overlap); XPIsland does not change it. A read-only screenshot captured another foreground app, so no live safe-area values or revised in-game rendering were observed. No gameplay automation, forced reload, restart or global setting changes are part of the validation.
+
+## Progression branch validation
+
+See [progression review](PROGRESSION-REVIEW.md) for the completed review/fix loop
+and current executed results: 64,987 Lua assertions, stress tests, ten release
+checks, source integration and local package validation. New suites are
+`luajit tests/kills_test.lua` and `luajit tests/progression_test.lua`. The latter
+emits XP, Honor/PvP and Tracking-settings offline fixtures. The reviewed API and
+saved/runtime state boundaries are in [the contract](PROGRESSION-CONTRACT.md).
+Live Forever checks remain explicitly separate.

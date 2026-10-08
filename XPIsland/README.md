@@ -3,7 +3,8 @@
 A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sources of XP during your current session.
 
 - A segmented XP bar that shows rested XP and can be configured to show XP remaining or time to next level based on your current leveling pace.
-- An expandable island that shows time to level, XP earned in your current session, and where it came from.
+- An expandable island that shows time to level, session XP sources, and a compact inline row for pet XP, PvP rank progress, and estimated kills to level.
+- Optional Honor & PvP mode stays useful at max level, with separate Honor balance and Rank Points. Choose it in Tracking settings, or opt into switching at the player level cap.
 - Per-character profiles, customizable fonts, and automatic scaling based on your UI size, with widths that stay compact on ultrawide screens.
 
 For World of Warcraft: Forever. This is a fun experiment to better show the pace of leveling.
@@ -20,7 +21,7 @@ Open an issue first. PRs that just throw code over the wall without a discussion
 
 ## Development
 
-In a source checkout, run `luajit tests/model_test.lua`, `luajit tests/runtime_test.lua`, `luajit tests/revision_test.lua`, `luajit tests/rate_test.lua`, `luajit tests/motion_test.lua`, `luajit tests/recovery_test.lua`, `luajit tests/polish_test.lua`, `luajit tests/frame_work_test.lua`, `luajit tests/stress_test.lua`, `python3 tests/release_test.py`, and `python3 tests/package.py` from the repository root. The package is written to `dist/`.
+In a source checkout, run `luajit tests/model_test.lua`, `luajit tests/runtime_test.lua`, `luajit tests/revision_test.lua`, `luajit tests/rate_test.lua`, `luajit tests/kills_test.lua`, `luajit tests/progression_test.lua`, `luajit tests/motion_test.lua`, `luajit tests/recovery_test.lua`, `luajit tests/polish_test.lua`, `luajit tests/frame_work_test.lua`, `luajit tests/stress_test.lua`, `python3 tests/release_test.py`, and `python3 tests/package.py` from the repository root. The package is written to `dist/`.
 
 See [behavior details](https://github.com/elithrar/XPIsland/blob/main/docs/BEHAVIOR.md) and [validation coverage](https://github.com/elithrar/XPIsland/blob/main/docs/VALIDATION.md), including the in-game checks still needed.
 

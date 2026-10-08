@@ -1,5 +1,5 @@
 local addon, ns = ...
-local M, UI, Options = ns.Model, ns.UI, ns.Options
+local M, UI, Options, P = ns.Model, ns.UI, ns.Options, ns.Progression
 local X = {version="0.5.2", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
@@ -24,6 +24,32 @@ end
 function X:IsCapped()
     if GameRulesUtil and GameRulesUtil.CanShowExperienceBar then return not GameRulesUtil.CanShowExperienceBar() end
     return IsXPUserDisabled() or UnitLevel("player") >= math.min(GetMaxPlayerLevel(),GetMaxLevelForPlayerExpansion())
+end
+
+function X:AtLevelCap()
+    local level=UnitLevel("player")
+    local maximum,expansion=GetMaxPlayerLevel(),GetMaxLevelForPlayerExpansion()
+    return M.Number(level) and M.Number(maximum) and M.Number(expansion) and level>=math.min(maximum,expansion)
+end
+
+function X:Mode()
+    return (self.profile.mode=="pvp" or (self.profile.pvpAtCap and self:AtLevelCap())) and "pvp" or "xp"
+end
+
+function X:CanShow()
+    return self:Mode()=="pvp" or (not self:IsCapped() and self.tracker and M.Number(self.tracker.cap) and self.tracker.cap>0)
+end
+
+function X:RefreshMode()
+    local mode=self:Mode()
+    if self.displayMode==mode then return end
+    self.displayMode=mode
+    if not UI.frame then return end
+    self:CancelAutoCollapse();self:ClearLevelNotice();self.levelWindow=nil
+    UI:CancelStatTooltip();UI:ClearHighlights();UI:StopAnimation()
+    GameTooltip:Hide()
+    UI.expanded=false;UI.progress=0
+    UI:Layout()
 end
 
 function X:CancelAutoCollapse(keepDelay)
@@ -62,7 +88,7 @@ end
 function X:Toggle()
     if not self.session then return end
     self:CancelAutoCollapse()
-    if self:IsCapped() then say("The island is hidden while XP is capped or disabled.");return end
+    if not self:CanShow() then say("XP is capped or disabled. Select Honor & PvP in Tracking settings to show PvP progression.");return end
     if not UI.expanded then self.db.expandedOnce=true end
     UI:SetExpanded(not UI.expanded)
     if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(self.profile.autoCollapseDuration) end
@@ -92,7 +118,7 @@ end
 
 function X:PlayedLevelComplete(level,duration)
     if not self.levelWindow or self.levelWindow.level~=level+1 or GetTime()>=self.levelWindow.untilTime
-        or not UI.expanded or not UI.frame:IsShown() or not self.profile.levelUp or self:IsCapped()
+        or not UI.expanded or not UI.frame:IsShown() or not self.profile.levelUp or self:IsCapped() or self:Mode()~="xp"
         or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:ShowLevelDuration(level,duration,self.profile.levelUpDuration)
     self:ArmCollapse(self.profile.levelUpDuration,"level")
@@ -124,7 +150,7 @@ end
 
 function X:LevelUp()
     self:ClearLevelNotice()
-    if not self.profile.levelUp or self:IsCapped() or (self.profile.collapseCombat and InCombatLockdown()) then return end
+    if not self.profile.levelUp or self:IsCapped() or self:Mode()~="xp" or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:CancelAutoCollapse()
     UI:SetExpanded(true)
     self.levelWindow={level=self.lastLevelEvent,startedAt=GetTime(),untilTime=GetTime()+self.profile.levelUpDuration}
@@ -171,6 +197,7 @@ end
 function X:Sample(overrideContext)
     if not self.tracker or not self.online or not self.inWorld or self.loading or self.connected==false then return end
     self:Clock()
+    self:RefreshMode()
     if self.connected==false then return end
     local level,xp,cap=UnitLevel("player"),UnitXP("player"),UnitXPMax("player")
     local t=self.tracker
@@ -180,6 +207,7 @@ function X:Sample(overrideContext)
     self.levelPending,self.levelPendingAt=nil,nil
     local capped=self:IsCapped()
     if capped and cap==0 and level==t.level then
+        if self.transition then P:Refresh() end
         t.pending=nil;self.transition=nil;UI:Update();return
     end
     local oldLevel,oldXP,oldCap=t.level,t.xp,t.cap
@@ -188,6 +216,7 @@ function X:Sample(overrideContext)
     if accepted then
         self.transition=nil
         self:ObserveLevelSample(level)
+        if wasTransition then P:Refresh() end
     end
     local rested=GetXPExhaustion()
     self.rested=M.Number(rested) and math.max(0,rested) or 0
@@ -261,6 +290,7 @@ function X:Integration()
 end
 
 function X:ApplyProfile()
+    self:RefreshMode()
     local kind=self.collapseKind
     self:CancelAutoCollapse()
     if not self.profile.levelUp then
@@ -300,13 +330,16 @@ function X:Initialize(reloading)
         end
     end
     ns.Played:Initialize(self,XPIslandPlayed)
+    P:Refresh();self:RefreshMode()
     UI:Create(self);self:Sample();self:Integration()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
         if self.online and (self.transition or self.tracker.pending or self.levelPending) then self:Sample() end
         ns.Played:Pump()
+        local changed=P:Pump()
+        self:RefreshMode()
         self:InteractionChanged()
-        if UI.expanded or self.profile.format=="eta" then UI:Update() end
+        if changed or UI.expanded or self.profile.format=="eta" or self.profile.format=="kills" then UI:Update() end
     end)
 end
 
@@ -322,6 +355,7 @@ events:SetScript("OnEvent",function(_,event,...)
         X:Clock();X.transition=true
         if X.session then ns.Played:Invalidate() end
         if UI.frame then UI:ClearHighlights() end
+        P.pet=nil -- never show the previous pet identity while unit data unloads
         if X.tracker then X.tracker.pending=nil;X.tracker.awards={};X.tracker.hints={} end
         -- Do not sample here: unit values can already be unloading/reset.
         return
@@ -339,10 +373,21 @@ events:SetScript("OnEvent",function(_,event,...)
             -- Any observed transition gain has no reliable source location.
             X:DeferSample();X:Integration()
         end
+        P:Refresh();UI:Layout(true)
         return
     end
     if not X.session then return end
-    if event=="UNIT_CONNECTION" then
+    if event=="UNIT_PET" or event=="UNIT_PET_EXPERIENCE" or event=="UNIT_LEVEL" then
+        local unit=...
+        if safe(unit) and ((event=="UNIT_LEVEL" and unit=="pet") or (event~="UNIT_LEVEL" and unit=="player")) then
+            local previous=P.pet and P.pet.guid
+            P:Pet()
+            if previous~=(P.pet and P.pet.guid) then UI:CancelStatTooltip(UI.inlineCells[1]) end
+            UI:Update()
+        end
+    elseif event=="UPDATE_FACTION" or event=="MAJOR_FACTION_RENOWN_LEVEL_CHANGED" or event=="CURRENCY_DISPLAY_UPDATE" then
+        P:PvP();UI:Update()
+    elseif event=="UNIT_CONNECTION" then
         local unit,connected=...
         if safe(unit) and unit=="player" and safe(connected) and type(connected)=="boolean" then
             X:Clock()
@@ -373,6 +418,7 @@ events:SetScript("OnEvent",function(_,event,...)
         X:DeferSample()
     elseif event=="CHAT_MSG_COMBAT_XP_GAIN" then
         if not X.online or not X.inWorld or X.loading or X.connected==false then return end
+        X:Clock() -- timestamp the original hint on the online clock, not the later reconciliation
         local text=...
         local lineID=select(11,...)
         local amount=M.ParseXP(text,X.formats)
@@ -394,6 +440,7 @@ events:SetScript("OnEvent",function(_,event,...)
 end)
 
 for _,event in ipairs({"ADDON_LOADED","TIME_PLAYED_MSG","UNIT_CONNECTION","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
+    "UNIT_PET","UNIT_PET_EXPERIENCE","UNIT_LEVEL","UPDATE_FACTION","MAJOR_FACTION_RENOWN_LEVEL_CHANGED","CURRENCY_DISPLAY_UPDATE",
     "CHAT_MSG_COMBAT_XP_GAIN","LOADING_SCREEN_ENABLED","LOADING_SCREEN_DISABLED","PLAYER_LEAVING_WORLD","PLAYER_LOGOUT","PLAYER_CAMPING","PLAYER_QUITING","LOGOUT_CANCEL",
     "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
     "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN"}) do events:RegisterEvent(event) end

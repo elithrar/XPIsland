@@ -1,5 +1,5 @@
 local _, ns = ...
-local M = ns.Model
+local M, P = ns.Model, ns.Progression
 local UI = {}
 ns.UI = UI
 local TRACK_COLOR={.14,.14,.18}
@@ -119,6 +119,7 @@ function UI.BarPiece(parent, layer, edge)
 end
 
 local labels = {"XP Remaining", "XP/hour", "Time to Level", "Rested XP", "Kill XP", "Quest XP", "Dungeon XP", "Other XP"}
+local pvpLabels={"Honor available","PvP rank","Rank Points left","Current rank cap"}
 -- Retain functional stat explanations and Blizzard tooltip styling.
 local tooltipLabels = {"XP remaining", "Session XP/hour", "Next level", "Rested XP", "Outdoor kills", "Outdoor quests", "Dungeons", "Other"}
 local explanations = {
@@ -164,6 +165,27 @@ end
 function UI:ShowStatTooltip(cell,i)
     local owner=self.owner
     GameTooltip:SetOwner(cell, "ANCHOR_BOTTOM")
+    if i>=9 then
+        if i==9 then
+            GameTooltip:AddLine("Pet XP",1,1,1)
+            local pet=P.pet
+            if pet then GameTooltip:AddLine((pet.name or "Pet").." · Level "..pet.level.." · "..M.ExactXP(pet.xp,pet.cap),.8,.65,1,true) end
+        elseif i==10 then
+            GameTooltip:AddLine("PvP rank",1,1,1)
+            GameTooltip:AddLine("Current Rank Points / next-rank requirement. Honor is a separate spendable currency.",.75,.77,.82,true)
+            self:AddPvPTooltip()
+        else
+            GameTooltip:AddLine("Kills to level",1,1,1)
+            self:AddKillTooltip()
+        end
+        GameTooltip:Show();return
+    elseif owner:Mode()=="pvp" then
+        GameTooltip:AddLine(pvpLabels[i] or "PvP progression",1,1,1)
+        GameTooltip:AddLine(i==1 and "Spendable Honor balance, not Honor earned this session. Spending does not lower PvP rank."
+            or i==4 and "Season Rank Points / cumulative ceiling currently available. This is not points earned this week."
+            or "Forever PvP rank progression uses Rank Points, separately from Honor currency.",.75,.77,.82,true)
+        self:AddPvPTooltip();GameTooltip:Show();return
+    end
     GameTooltip:AddLine(tooltipLabels[i], 1,1,1)
     if i~=3 then GameTooltip:AddLine(explanations[i], .75,.77,.82, true) end
     local s = owner.session
@@ -186,6 +208,56 @@ function UI:ShowStatTooltip(cell,i)
     end
     if i>=5 and s and s.partial then GameTooltip:AddLine("Totals include recorded XP only.",.75,.77,.82,true) end
     GameTooltip:Show()
+end
+
+function UI:AddKillTooltip()
+    local o,t=self.owner,self.owner.tracker
+    local kills,state,count,mean=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped())
+    GameTooltip:AddLine(M.KillMessages[state],.75,.77,.82,true)
+    if kills then GameTooltip:AddLine("About "..M.Compact(kills).." kills · "..M.Compact(mean).." XP/kill",.8,.65,1,true) end
+    if count and count>0 then GameTooltip:AddLine(M.Compact(count).." confirmed kills in the rolling window",.75,.77,.82,true) end
+end
+
+function UI:AddPvPTooltip()
+    local r=P.rank
+    GameTooltip:AddLine("Honor available: "..M.Compact(P.honor),.8,.65,1)
+    if not r then GameTooltip:AddLine("PvP rank information is unavailable.",.75,.77,.82,true);return end
+    GameTooltip:AddLine((r.level==0 and "Unranked" or "Rank "..r.level).." · "..P:RankText(),.8,.65,1,true)
+    if r.maximum then GameTooltip:AddLine("Maximum seasonal rank reached.",.75,.77,.82,true)
+    elseif r.weekCapped then GameTooltip:AddLine("Current rank cap reached.",.75,.77,.82,true) end
+    if r.ceiling then GameTooltip:AddLine("Season Rank Points: "..M.Compact(r.total).." / "..M.Compact(r.ceiling).." currently available",.75,.77,.82,true) end
+end
+
+-- All footer labels and values share one small font size. Measure only when
+-- text/font changes, then center the complete group rather than three cards.
+function UI:RefreshInline()
+    local o,p=self.owner,self.owner.profile
+    local xp=o:Mode()=="xp"
+    local t=o.tracker
+    local kills=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped())
+    local values={P.pet and M.Compact(P.pet.xp) or "—",P:RankText(),M.Compact(kills)}
+    local visible={p.showPet and P.pet~=nil,p.showRank and xp,p.showKills and xp}
+    local size=math.min(12,p.fontSize)
+    local font=UI.Font(p)
+    local signature=font..":"..size..":"..o:Mode()
+    for i=1,3 do signature=signature..":"..tostring(visible[i])..":"..values[i] end
+    if self.inlineSignature==signature then return false end
+    self.inlineSignature=signature
+    self.inlineWidth,self.inlineHeight,self.inlineCount=0,0,0
+    for i,c in ipairs(self.inlineCells) do
+        c.active=visible[i];c:SetShown(c.active)
+        c.title:SetFont(font,size,"");c.value:SetFont(font,size,"");c.value:SetText(values[i])
+        c.titleWidth=c.title:GetUnboundedStringWidth()
+        c.pairWidth=c.titleWidth+4+c.value:GetUnboundedStringWidth()
+        c.pairHeight=math.max(c.title:GetStringHeight(),c.value:GetStringHeight())
+        if c.active then
+            self.inlineCount=self.inlineCount+1
+            self.inlineWidth=self.inlineWidth+c.pairWidth+(self.inlineCount>1 and 18 or 0)
+            self.inlineHeight=math.max(self.inlineHeight,c.pairHeight)
+        end
+    end
+    self.cellsInteractive=nil
+    return true
 end
 
 function UI:Create(owner)
@@ -257,6 +329,19 @@ function UI:Create(owner)
         cell:SetScript("OnMouseUp", function(_,button) if button=="LeftButton" then owner:Toggle() end end)
         self.cells[i] = cell
     end
+    self.inlineGroup=CreateFrame("Frame",nil,self.details)
+    self.inlineCells={}
+    for i,title in ipairs({"Pet XP:","PvP rank:","Kills to level:"}) do
+        local c=CreateFrame("Frame",nil,self.inlineGroup)
+        c.title=UI.Text(c,12,.86,.79,.63);c.title:SetText(title)
+        c.value=UI.Text(c,12)
+        c.title:SetJustifyH("LEFT");c.value:SetJustifyH("LEFT")
+        c:SetScript("OnEnter",function() owner:InteractionChanged();self:BeginStatTooltip(c,i+8) end)
+        c:SetScript("OnLeave",function() self:CancelStatTooltip(c);owner:InteractionChanged() end)
+        c:SetScript("OnHide",function() self:CancelStatTooltip(c) end)
+        c:SetScript("OnMouseUp",function(_,button) if button=="LeftButton" then owner:Toggle() end end)
+        self.inlineCells[i]=c
+    end
     f:SetScript("OnClick", function()
         if self.dragged then self.dragged = nil; return end
         owner:Toggle()
@@ -282,12 +367,18 @@ function UI:Create(owner)
         self:CancelStatTooltip()
         owner:InteractionChanged()
         local t=owner.tracker
+        if owner:Mode()=="pvp" then
+            GameTooltip:SetOwner(f,"ANCHOR_BOTTOM");GameTooltip:AddLine("Honor & PvP · rank progression",1,1,1)
+            self:AddPvPTooltip();GameTooltip:Show();return
+        end
         if not t or not t.cap or t.cap<=0 then return end
         GameTooltip:SetOwner(f,"ANCHOR_BOTTOM")
         if owner.profile.format=="eta" then
             local rate,duration=M.Estimate(owner.session,t.xp,t.cap,owner:IsCapped())
             local state=M.ETAState(owner.session,rate,duration)
             GameTooltip:AddLine(state=="ready" and M.Duration(duration,true).." at your current rate" or M.ETAMessages[state],1,1,1,true)
+        elseif owner.profile.format=="kills" then
+            self:AddKillTooltip()
         end
         GameTooltip:AddLine(M.ExactXP(t.xp,t.cap),1,1,1)
         if not owner.db.expandedOnce then
@@ -311,7 +402,12 @@ function UI:BarLabel(rate,duration)
     local p,t=self.owner.profile,self.owner.tracker
     local text="—"
     local infinity=false
-    if t and t.cap then
+    if self.owner:Mode()=="pvp" then
+        text=P:Label(p.pvpFormat)
+    elseif p.format=="kills" then
+        local kills=M.KillsToLevel(self.owner.session,t and t.xp,t and t.cap,self.owner:IsCapped())
+        text=M.Compact(kills).." kills"
+    elseif t and t.cap then
         if p.format=="eta" then
             local state=M.ETAState(self.owner.session,rate,duration)
             infinity=state=="empty" or state=="idle"
@@ -347,16 +443,22 @@ function UI:Layout(preserveMotion)
     self.infinity:SetSize(p.fontSize*1.4,p.fontSize*.8)
     local titleHeight,valueHeight=0,0
     for i,c in ipairs(self.cells) do
+        c.fitKey=nil -- font/width changes must invalidate measurements made before Layout
         c.title:SetFont(self.font,math.max(12,math.min(14,p.fontSize-2)),"")
         c.value:SetFont(self.font,p.fontSize,"")
         titleHeight=math.max(titleHeight,c.title:GetStringHeight())
         valueHeight=math.max(valueHeight,c.value:GetStringHeight())
     end
     local cellHeight=math.max(36,titleHeight+3+valueHeight)
+    self:RefreshInline()
+    local xp=self.owner:Mode()=="xp"
+    local rowsHeight=xp and cellHeight*2+6+5 or cellHeight
+    local footerHeight=self.inlineCount>0 and 10+self.inlineHeight or 0
     local tracker=self.owner.tracker
     local rate,duration=M.Estimate(self.owner.session,tracker and tracker.xp,tracker and tracker.cap,self.owner:IsCapped())
     local _,labelWidth=self:BarLabel(rate,duration)
-    local layout=M.Placement(UIParent:GetWidth(),UIParent:GetHeight(),p,labelWidth+180,24+cellHeight*2+6+5)
+    local layout=M.Placement(UIParent:GetWidth(),UIParent:GetHeight(),p,labelWidth+180,24+rowsHeight+footerHeight)
+    layout.inlineY=rowsHeight+10
     layout.labelWidth=labelWidth;layout.font=self.font;layout.cellHeight=cellHeight
     self.layout=layout
     if not preserveMotion then self:StopAnimation();self.progress=self.expanded and 1 or 0 end
@@ -373,12 +475,26 @@ function UI:Layout(preserveMotion)
     self.divider:SetPoint(layout.up and "BOTTOMLEFT" or "TOPLEFT",14,layout.up and layout.barHeight+1 or -layout.barHeight)
     self.divider:SetHeight(1)
     for i,c in ipairs(self.cells) do
+        c:SetShown(xp or i<=4)
         c.title:SetHeight(titleHeight);c.value:SetHeight(valueHeight)
         -- Center the measured block within its row. Both outer drawer margins
         -- stay 12px; larger fonts get more height rather than a clipped last row.
         local inset=(cellHeight-titleHeight-3-valueHeight)/2
         c.title:SetPoint("TOP",0,-inset);c.value:SetPoint("TOP",0,-inset-titleHeight-3)
         c:SetHeight(cellHeight+(i>=5 and 5 or 0))
+    end
+    local inlineScale=math.min(1,(layout.expanded-40)/math.max(1,self.inlineWidth))
+    self.inlineGroup:SetScale(inlineScale)
+    self.inlineGroup:SetSize(math.max(1,self.inlineWidth),self.inlineHeight)
+    self.inlineGroup:ClearAllPoints();self.inlineGroup:SetPoint("TOP",self.details,"TOP",0,-layout.inlineY/inlineScale)
+    local inlineX=0
+    for _,c in ipairs(self.inlineCells) do
+        if c.active then
+            c:SetPoint("TOPLEFT",inlineX,0);c:SetSize(c.pairWidth,c.pairHeight)
+            c.title:SetPoint("LEFT",0,0);c.title:SetSize(c.titleWidth,c.pairHeight)
+            c.value:SetPoint("LEFT",c.titleWidth+4,0);c.value:SetSize(c.pairWidth-c.titleWidth-4,c.pairHeight)
+            inlineX=inlineX+c.pairWidth+18
+        end
     end
     self.geometryWidth=nil -- invalidate dimensions only when layout changes
     self:RenderGeometry(self.progress)
@@ -410,7 +526,7 @@ function UI:RenderGeometry(progress)
         local cellWidth=(width-76)/4
         for i,c in ipairs(self.cells) do
             c:SetPoint("TOPLEFT",20+(i-1)%4*(cellWidth+12),-math.floor((i-1)/4)*(layout.cellHeight+6))
-            c:SetWidth(cellWidth);c.title:SetWidth(cellWidth);c.value:SetWidth(cellWidth)
+            c:SetWidth(cellWidth);c.title:SetWidth(cellWidth/(c.titleScale or 1));c.value:SetWidth(cellWidth/(c.valueScale or 1))
             if c.shareTrack then
                 c.shareWidth=math.min(64,cellWidth*.65)
                 c.shareTrack:SetSize(c.shareWidth,2)
@@ -429,7 +545,8 @@ function UI:RenderGeometry(progress)
     local interactive=progress==1 and self.expanded or false
     if self.cellsInteractive~=interactive then
         self.cellsInteractive=interactive
-        for _,c in ipairs(self.cells) do c:EnableMouse(interactive) end
+        for _,c in ipairs(self.cells) do c:EnableMouse(interactive and c:IsShown()) end
+        for _,c in ipairs(self.inlineCells) do c:EnableMouse(interactive and c.active) end
     end
 end
 
@@ -475,6 +592,7 @@ function UI:ClearHighlights()
 end
 
 function UI:HighlightSegments(before,after,cap)
+    if self.owner:Mode()~="xp" then return end
     if self.owner.levelNotice or not self.frame:IsVisible() or self.dragging or cap<=0 or after<=before then return end
     local first=math.floor(before*20/cap)+1
     local last=math.min(20,math.floor(after*20/cap))
@@ -516,10 +634,13 @@ function UI:PaintBar(geometryChanged)
         self:ClearHighlights()
     end
     local t=o.tracker
-    if not t or not t.cap then return end
-    local fraction=t.cap>0 and math.min(1,math.max(0,t.xp/t.cap)) or 0
+    local rank=o:Mode()=="pvp" and P.rank
+    local cap,xp=t and t.cap or 0,t and t.xp or 0
+    if o:Mode()=="pvp" then cap=rank and rank.cap or 0;xp=rank and rank.xp or 0 end
+    local fraction=rank and rank.maximum and 1 or cap>0 and math.min(1,math.max(0,xp/cap)) or 0
     local color=(o.rested or 0)>0 and p.rested or p.normal
-    local preview=t.cap>0 and math.min(1,(t.xp+math.max(0,o.rested or 0))/t.cap) or 0
+    local preview=cap>0 and math.min(1,(xp+math.max(0,o.rested or 0))/cap) or 0
+    if o:Mode()=="pvp" then preview=0;color=p.normal end
     if preview<=fraction then preview=0 end
     local previewColor=self.restedColor
     for i=1,3 do previewColor[i]=TRACK_COLOR[i]+(p.rested[i]-TRACK_COLOR[i])*.28 end
@@ -547,8 +668,9 @@ function UI:Update()
     if not self.frame then return end
     local o, p = self.owner, self.owner.profile
     local t = o.tracker
-    if not t or not t.cap then return end
-    local xp, cap, rested = t.xp, t.cap, o.rested or 0
+    if self:RefreshInline() then self:Layout(true);return end
+    if o:Mode()=="xp" and (not t or not t.cap) then return end
+    local xp, cap, rested = t and t.xp or 0, t and t.cap or 0, o.rested or 0
     local rate,duration=M.Estimate(o.session,xp,cap,o:IsCapped())
     local text,labelWidth=self:BarLabel(rate,duration)
     if labelWidth~=self.layout.labelWidth or UI.Font(p)~=self.layout.font then self:Layout(true);return end
@@ -560,7 +682,17 @@ function UI:Update()
         M.Duration(duration), rested>0 and M.Compact(rested) or "—",
         M.Compact(s.buckets.kills), M.Compact(s.buckets.quests), M.Compact(s.buckets.dungeons), M.Compact(s.buckets.other),
     }
+    local pvp=o:Mode()=="pvp"
+    if pvp then
+        local r=P.rank
+        values[1]=M.Compact(P.honor)
+        values[2]=r and (r.level==0 and "Unranked" or tostring(r.level)) or "—"
+        values[3]=r and (r.maximum and "Maximum rank" or r.weekCapped and "Cap reached" or M.Compact(r.left)) or "—"
+        values[4]=r and r.ceiling and M.Compact(r.total).." / "..M.Compact(r.ceiling) or "—"
+    end
     for i,c in ipairs(self.cells) do
+        local title=pvp and pvpLabels[i] or labels[i]
+        if c.titleSource~=title then c.titleSource=title;c.title:SetText(title or "") end
         if i>=5 then
             local share=s.total>0 and s.buckets[SOURCE_KEYS[i-4]]/s.total or 0
             share=math.max(0,math.min(1,share))
@@ -568,13 +700,22 @@ function UI:Update()
                 c.shareFraction=share;c.shareFill:SetWidth(math.max(.001,c.shareWidth*share));c.shareFill:SetShown(share>0)
             end
         end
-        if c.sourceValue~=values[i] or c.measuredFont~=self.font or c.measuredSize~=p.fontSize or (i==1 and c.measuredWidth~=c:GetWidth()) then
+        if c.sourceValue~=values[i] or c.measuredFont~=self.font or c.measuredSize~=p.fontSize or ((i==1 or pvp) and c.measuredWidth~=c:GetWidth()) then
             c.sourceValue,c.measuredFont,c.measuredSize,c.measuredWidth=values[i],self.font,p.fontSize,c:GetWidth()
             c.value:SetText(values[i])
-            if i==1 and c.value:GetUnboundedStringWidth()>c:GetWidth() then
+            if i==1 and not pvp and c.value:GetUnboundedStringWidth()>c:GetWidth() then
                 c.value:SetText(M.Compact(left,0).." / "..M.Compact(cap,0))
             end
         end
+        local fitKey=tostring(pvp)..":"..tostring(title)..":"..values[i]..":"..self.font..":"..p.fontSize..":"..self.layout.expanded
+        if c.fitKey~=fitKey then
+            c.fitKey=fitKey
+            local width=(self.layout.expanded-76)/4
+            c.titleScale=pvp and math.min(1,width/math.max(1,c.title:GetUnboundedStringWidth())) or 1
+            c.valueScale=pvp and math.min(1,width/math.max(1,c.value:GetUnboundedStringWidth())) or 1
+            c.title:SetScale(c.titleScale);c.value:SetScale(c.valueScale)
+            c.title:SetWidth(c:GetWidth()/c.titleScale);c.value:SetWidth(c:GetWidth()/c.valueScale)
+        end
     end
-    self.frame:SetShown(not o:IsCapped() and cap>0)
+    self.frame:SetShown(o:CanShow())
 end

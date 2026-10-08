@@ -14,13 +14,13 @@ No other addon is required. Existing addon files and settings do not need modifi
 ## Use
 
 - Click the capsule or its expanded cells to expand/collapse. Configure **Expand / collapse XPIsland** in WoW Keybindings, accessible from XPIsland's Options page. No key is claimed by default.
-- Twenty segments show exact level progress with a partially filled final segment. The right label defaults to earned percentage. Alternatives are Current / Total XP, XP Remaining, XP Remaining (%), and Time to Next Level.
+- Twenty segments show exact level progress with a partially filled final segment. The right label defaults to earned percentage. Alternatives are Current / Total XP, XP Remaining, XP Remaining (%), Time to Next Level, and Kills to Level (`24 kills`).
 - The bar hover shows exact current/total XP with the client’s number grouping and earned percentage. A short expand hint appears only until the first deliberate expansion by click, keybinding or settings. `XPIslandDB.expandedOnce` persists account-wide across reload/login, character changes and profile copies; automatic level-up previews do not dismiss it.
 - Normal XP is purple, rested XP blue. Color pickers preview changes and support cancel. The rested cell shows the remaining rested pool, including any amount beyond this level, or a dash.
 - Auto-collapse is enabled by default with a 15-second interval. Its adjacent slider offers 5, 10 or 15 seconds. The capsule remains visible. Hovering the island, dragging it, or keeping its settings open suspends the timeout; leaving restarts the full interval. Pointer events react immediately, with the existing one-second ticker reconciling child-frame/geometry changes.
 - A level-up opens a preview when enabled, even if ordinary auto-collapse is disabled. Its slider offers 5, 10 or 15 seconds, defaulting to 10. Repeated level-ups restart the selected interval. Manual toggling takes over: closing cancels the timer; opening uses the auto-collapse slider. Profile/settings changes preserve which action opened the island and apply that action's configured interval. Hover/settings/dragging suspend the level-up collapse timeout too.
 - Collapse when combat starts is enabled by default. Combat entry cancels the pending timeout and closes the details, even while hovered or configuring. Combat exit never reopens them. Automatic level-up opening is suppressed during combat with this option on; an explicit manual toggle remains available. Hiding at cap cancels animation and timeout, and returning starts collapsed. These toggles default on for existing profiles without changing saved false values.
-- The island is locked initially. Top is the default position and expands down; Bottom expands up. Unlock it to drag to a Custom position, which expands into the side with more space. Reset to top restores the default. It hides at the client's effective XP cap or when XP is disabled. Cap visibility takes precedence over the level-up expansion.
+- The island is locked initially. Top is the default position and expands down; Bottom expands up. Unlock it to drag to a Custom position, which expands into the side with more space. Reset to top restores the default. In XP mode it hides at the client's effective XP cap or when XP is disabled. Honor & PvP mode stays visible; the optional automatic switch checks the actual level cap, not disabled XP. Cap visibility takes precedence over the level-up expansion.
 - `/xpisland reset` explicitly starts a fresh session. There is no pause control.
 
 ## Responsive sizing
@@ -33,7 +33,7 @@ The default is bounded, not a percentage of an ultrawide screen. The following a
 | 1400–1999 | 400 × 34 | 520 × ≥141 |
 | 2000 and above | 440 × 34 | 560 × ≥141 |
 
-Expanded height starts at 141 units and grows when the selected font needs more room. The drawer measures the text block, centers each row, and uses equal 12-unit top/bottom insets with a 6-unit row gap. The source row includes five units for a three-unit gap and a two-unit share fill beneath each value.
+The original two XP rows use at least 141 units including the capsule. Enabled inline details add one compact row; height also grows when the selected font needs more room. The drawer measures the text block, centers each row, and uses equal 12-unit top/bottom insets with a 6-unit row gap. The source row includes five units for a three-unit gap and a two-unit share fill beneath each value.
 
 The independent island scale defaults to 100%. Its slider and numeric field both accept 50–150%. These multiply WoW's effective UI scale; maximum unscaled widths remain 440/560 even on larger screens. A final fit-to-screen limit keeps the expanded panel inside the available viewport. The collapsed width may grow within its 440-unit maximum for a wide custom font. Labels use unbounded text measurements and compact K/M numbers. A useful bar width is preserved without shrinking the selected text size. The header keeps its vertical position and horizontal centre while its width grows with the island. Segments fill the available header width and the measured label stays 14 units from its right edge. The two rows of four stat cells have centred labels/values and equal 20-unit outer margins. Custom anchors reserve the complete expanded footprint even while collapsed. Global WoW UI scale and graphics settings are never changed.
 
@@ -88,7 +88,7 @@ Sessions belong to a character, independently of settings profiles. Connected se
 
 ## Options and profiles
 
-`/xpisland` opens one Options page and one Profiles page in a restrained dark panel with thin grouped borders, small tabs, 12-point labels, colour swatches and compact action buttons. The native dropdown selected-text box is anchored left/right, vertically centered in the full 24-unit control, and bounded before the arrow; it does not inherit the Classic template’s 10-unit TOP anchors. Native WowStyle1DropdownTemplate menus supply radio selections, dismissal, keyboard behavior and scrolling; native checkboxes, input fields and slider retain familiar controls. Settings are 620 × 462 UI units and fit smaller viewports without changing the island scale. Game Tooltip (default) reads the current tooltip body font without modifying it. For an unskinned roman client this is Friz Quadrata; other locales and installed tooltip skins may supply another face. Default island text is 14, with 12-point headings and a subtle shadow instead of a heavy outline. The user can explicitly choose Arial, Friz Quadrata, or a registered LibSharedMedia font. A missing external font falls back to the current tooltip face. The selected face also applies to settings.
+`/xpisland` opens Options, Profiles and Tracking pages in a restrained dark panel with thin grouped borders, small tabs, 12-point labels, colour swatches and compact action buttons. The native dropdown selected-text box is anchored left/right, vertically centered in the full 24-unit control, and bounded before the arrow; it does not inherit the Classic template’s 10-unit TOP anchors. Native WowStyle1DropdownTemplate menus supply radio selections, dismissal, keyboard behavior and scrolling; native checkboxes, input fields and slider retain familiar controls. Settings are 620 × 462 UI units and fit smaller viewports without changing the island scale. Game Tooltip (default) reads the current tooltip body font without modifying it. For an unskinned roman client this is Friz Quadrata; other locales and installed tooltip skins may supply another face. Default island text is 14, with 12-point headings and a subtle shadow instead of a heavy outline. The user can explicitly choose Arial, Friz Quadrata, or a registered LibSharedMedia font. A missing external font falls back to the current tooltip face. The selected face also applies to settings.
 
 Settings schema 2 migrates unmarked Arial/12 defaults to the new face/size while preserving other choices and dragged positions. Version 0.1 did not record whether selecting Arial/12 was intentional, so that ambiguous old-default case follows the new default. Explicit choices are recorded from this version onward. Profile copies preserve those choices.
 
@@ -145,3 +145,37 @@ Primary API/source evidence: [RequestTimePlayed](https://github.com/Gethe/wow-ui
 Two native `UISliderTemplate` controls sit in the existing Behavior rows. Each snaps to 5, 10 or 15 seconds, shows the current value with `s`, and dims/disables with its related toggle. Reduced checkbox and slider hit rectangles keep those controls and neighboring rows separate. Settings typography and panel dimensions are unchanged. `levelUpDuration` and `autoCollapseDuration` are optional profile fields normalized to their existing 10/15 defaults when missing or invalid; valid values survive switching, copying, character profiles and reload. No manual SavedVariables migration is needed.
 
 Changing a duration reconciles its active timers. A header notice retains its original display start: shortening below elapsed time expires it immediately, and unrelated appearance changes cannot restart it. Canceled callbacks cannot expire a newer timer. Hover still restarts a full collapse interval on departure; it does not pause header expiry. Disabling level-up presentation clears its notice; disabling manual auto-collapse removes that timeout without changing the level-up policy. The per-cell tooltip delay stays 750 ms.
+
+## Inline progression details and PvP mode
+
+The existing two XP rows remain. A centered third row uses the same small font
+for every label and value: `Pet XP: 1.2K`, `PvP rank: 600 / 1,000`, and
+`Kills to level: 24`. Each can be disabled in Tracking. Pet XP is contextual and
+shows the active leveling pet's current XP; its tooltip gives the level and full
+XP requirement. The rank pair shows Rank Points, not Honor currency. Its tooltip
+also shows Honor available. There is no second expansion, chevron or separate pet
+bar. Footers have the same delayed tooltip/collapse interaction as the other cells.
+
+Kills to level divides remaining XP by mean XP per confirmed kill over up to one
+hour. The newest 20 minutes count twice in both XP and kill count; this is not a
+kill-rate time estimate. The first five window-equivalent kills are needed before
+a number appears. Missing, stale or insufficient history shows a dash with an
+explanation. The existing all-source XP/hour and time-to-level formulas are
+unchanged. Solo, group, dungeon, rested and level transitions keep kill history;
+new rewards gradually dominate. The estimate assumes similar future rewards.
+
+Tracking offers explicit Experience or Honor & PvP mode, plus an off-by-default
+switch at the actual player level cap. Selecting a mode disables automatic
+switching. Mode changes start collapsed, clear stale tooltips and level notices,
+and preserve XP session history. Honor mode's bar represents PvP rank progression;
+its label can show Honor available or Rank Points to next. The summary shows the
+spendable Honor balance, current rank, points remaining, and cumulative progress
+toward the currently available rank cap. XP source rows and kill estimates are
+omitted in this mode; a leveling pet may still appear.
+
+Valid zero Honor is 0; missing/restricted data is a dash. Rank-cap and maximum-rank
+states stay visible. Currency balance is not session earnings, and the weekly
+rank ceiling is not points earned this week. No Honor/hour or rank ETA is inferred.
+
+See [API and state contract](PROGRESSION-CONTRACT.md) for the versioned bounded
+history, duplicate identity lifetime, reload/reset behavior and live-client checks.
