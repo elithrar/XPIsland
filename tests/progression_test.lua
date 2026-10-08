@@ -1,17 +1,23 @@
 local W=dofile('tests/wow_mock.lua')
 local playerLevel=UnitLevel
 function UnitLevel(unit) return unit=='pet' and (W.petLevel or 0) or playerLevel() end
-function UnitExists(unit) return unit=='pet' and W.petGUID~=nil end
+function UnitExists(unit)
+ if W.petExists~=nil then return W.petExists end
+ return unit=='pet' and W.petGUID~=nil
+end
 function UnitGUID(unit) return unit=='pet' and W.petGUID or 'Player-1' end
-function UnitName(unit) return unit=='pet' and 'Wolf' or 'Test' end
+function UnitName(unit) return unit=='pet' and (W.petName or 'Wolf') or 'Test' end
 function GetPetExperience() return W.petXP,W.petCap end
 function GetCurrentArenaSeason() return W.season or 1 end
 Constants={CurrencyConsts={HONOR_CURRENCY_ID=1792}}
 C_CurrencyInfo={GetCurrencyInfo=function(id) assert(id==1792);return W.honor~=nil and {quantity=W.honor} or nil end}
 C_MajorFactions={GetMajorFactionProgressionInfo=function(id) assert(id==2800);return W.rank end,
  GetTotalReputationForRenownLevel=function(_,level) return level*1000 end}
-local secret={}
-function issecretvalue(v) return v==secret end
+-- Fail loudly if a guarded snapshot leaks into formatting or numeric operations.
+-- This is a sentinel, not an emulation of the client's secret-value runtime.
+local function secretUsed() error('restricted sentinel consumed') end
+local secret=setmetatable({},{__tostring=secretUsed,__add=secretUsed,__lt=secretUsed,__le=secretUsed})
+function issecretvalue(v) return rawequal(v,secret) end
 local ns=W.load();local X,UI,O,M,P=ns.owner,ns.UI,ns.Options,ns.Model,ns.Progression
 local n=0
 local function eq(a,b,why) n=n+1;assert(a==b,(why or 'check')..': '..tostring(a)..' ~= '..tostring(b)) end
@@ -42,6 +48,14 @@ W.petLevel=10;W.event('UNIT_LEVEL','pet');eq(P.pet.level,10)
 W.petCap=0;W.event('UNIT_PET_EXPERIENCE','player');eq(P.pet,nil);eq(UI.inlineCells[1]:IsShown(),false)
 W.petCap=2000;W.petXP=secret;W.event('UNIT_PET','player');eq(P.pet,nil)
 W.petXP=1200;W.event('UNIT_PET','player');eq(P.pet.xp,1200)
+for _,field in ipairs({'petExists','petGUID','petLevel','petCap'}) do
+ local previous=W[field];W[field]=secret;W.event('UNIT_PET_EXPERIENCE')
+ eq(P.pet,nil,'restricted pet field hides snapshot: '..field)
+ W[field]=previous;W.event('UNIT_PET_EXPERIENCE');eq(P.pet.xp,1200,'snapshot recovers')
+end
+W.petName=secret;W.event('UNIT_PET_EXPERIENCE');eq(P.pet.name,nil,'restricted name omitted')
+UI:ShowStatTooltip(UI.inlineCells[1],9);eq(W.tooltip.lines[2][1]:find('Pet · Level',1,true),1)
+GameTooltip:Hide();W.petName=nil
 W.petGUID=nil;W.event('UNIT_PET','player');eq(P.pet,nil)
 -- Independent spendable balance and rank points; no fabricated currency earnings.
 W.honor=0;W.rank=rank(3,600,1000,6)
@@ -53,6 +67,14 @@ W.honor=secret;W.event('CURRENCY_DISPLAY_UPDATE',1792);eq(P.honor,nil)
 W.rank=secret;W.event('UPDATE_FACTION');eq(P.rank,nil)
 W.rank=rank(3,secret,1000,6);W.event('UPDATE_FACTION');eq(P.rank,nil)
 W.rank=rank(3,600,1000,6);W.honor=400;W.event('UPDATE_FACTION')
+for _,field in ipairs({'renownLevel','renownLevelThreshold','maxLevel'}) do
+ local previous=W.rank[field];W.rank[field]=secret;W.event('UPDATE_FACTION')
+ eq(P.rank,nil,'restricted rank field hides snapshot: '..field)
+ W.rank[field]=previous;W.event('UPDATE_FACTION');eq(P.rank.level,3)
+end
+W.rank.currentWeekProgressiveMaxLevel=secret;W.event('UPDATE_FACTION')
+eq(P.rank.ceiling,nil,'unreadable optional ceiling does not erase rank');eq(P.rank.xp,600)
+W.rank.currentWeekProgressiveMaxLevel=6;W.event('UPDATE_FACTION')
 -- Original hint clock, even between ticks; one delta can confirm five messages.
 W.advance(.2)
 for i=1,5 do W.event('CHAT_MSG_COMBAT_XP_GAIN','Wolf dies, you gain 20 experience.',nil,nil,nil,nil,nil,nil,nil,nil,nil,i) end
@@ -135,6 +157,11 @@ W.choose(O.mode,'pvp')
 W.petGUID='Pet-D';W.petXP=100;W.event('UNIT_PET','player');UI:SetExpanded(true,true)
 W.hover=UI.inlineCells[1];UI.inlineCells[1].scripts.OnEnter();W.advance(.75);eq(W.tooltip.shown,true)
 W.petGUID='Pet-E';W.event('UNIT_PET','player');eq(W.tooltip.shown,false)
+-- An optional detail disappearing must invalidate even an already-dispatched hover.
+W.hover=UI.inlineCells[1];UI.inlineCells[1].scripts.OnEnter();local stale=UI.tooltipTimer
+X.profile.showPet=false;X:ApplyProfile();stale.callback()
+eq(W.tooltip.shown,false);eq(UI.tooltipTimer,nil);eq(UI.inlineCells[1]:IsShown(),false)
+X.profile.showPet=true;X:ApplyProfile()
 -- World transition clears the pet; the accepted new baseline restores it even
 -- when unit reads were not ready at the initial world-entry notification.
 W.event('LOADING_SCREEN_ENABLED');eq(P.pet,nil)

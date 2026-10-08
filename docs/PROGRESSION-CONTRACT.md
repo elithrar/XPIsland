@@ -2,6 +2,9 @@
 
 Implementation target: official Forever interface 16001. API source checked at
 Blizzard UI snapshot `15666a6e67938a1ab5caf041406464251db111ca` (1.60.1.70245).
+Rechecked against `9465cb273b5513495d8ecc12fbb19930dd6b8957` (1.60.1.70291):
+the relevant pet/rank consumers and major-faction, currency, unit and chat API
+definitions are unchanged.
 This is source verification, not observed in-game behavior. Retail and Classic
 remain unsupported.
 

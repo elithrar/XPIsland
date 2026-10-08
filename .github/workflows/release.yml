@@ -48,6 +48,7 @@ jobs:
           luajit tests/rate_test.lua
           luajit tests/kills_test.lua
           luajit tests/progression_test.lua
+          luajit tests/progression_events_test.lua
           luajit tests/motion_test.lua
           luajit tests/recovery_test.lua
           luajit tests/polish_test.lua

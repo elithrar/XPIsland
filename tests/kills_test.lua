@@ -59,6 +59,15 @@ eq(healed.total,s.total);eq(next(healed.killHistory.buckets),nil,'invalid extens
 local old=M.Copy(s);old.killHistory=nil;eq(next(M.Resume(old,'kills',10001,true).killHistory.buckets),nil)
 eq(M.Resume(s,'different',10001,true).killHistory,nil,'wrong character starts empty')
 eq(session().killHistory,nil,'new session clears history')
+-- Malformed optional data must be rejected without resetting valid XP totals.
+for _,history in ipairs({false,1,'bad',{version=1,buckets=false},
+ {version=1,buckets={[0]={index=0,xp=100,count=5}}},
+ {version=1,buckets={[1]={index=0,xp=100,count=1.5}}},
+ {version=1,buckets={[1]={index=61,xp=100,count=5}}}}) do
+ local saved=session();saved.total=100;saved.buckets.other=100;saved.reason='reload';saved.killHistory=history
+ local clean,ok=M.Resume(saved,'kills',10,true)
+ eq(ok,true);eq(clean.total,100);eq(next(clean.killHistory.buckets),nil)
+end
 for _,badValue in ipairs({0/0,math.huge,-1}) do
  local h={version=1,buckets={[1]={index=0,xp=badValue,count=5}}}
  eq(M.ValidKillHistory(h,100),false)

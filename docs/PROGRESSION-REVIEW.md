@@ -31,11 +31,19 @@ The implementation contract was written before the code changes; see
    `UNIT_PET_EXPERIENCE` refresh. A regression test failed with the old player-only
    filter and passes for player, pet, unrelated, restricted and missing payloads.
    The current pet is always read; `UNIT_PET` and `UNIT_LEVEL` keep their filters.
+7. PR review follow-up: persisted focused adversarial cases, without changing
+   addon runtime code. New event-entry tests cover synthetic reordered locale
+   strings, split awards, XP-before-chat, chat-before-XP, argument-11 identities,
+   late duplicates, missing identities, and PvP/Ellesmere ownership through
+   combat deferral. Added malformed optional-history isolation, restricted
+   pet/rank field recovery, and stale footer-hover cancellation. Early returns
+   for newer settings and a missing player GUID were reproduced as safe.
+   Rechecked the relevant contracts against Forever 1.60.1.70291; unchanged.
 
 ## Executed checks
 
-- 65,000 assertions across 15 Lua assertion suites, including 45 new kill-model
-  and 1,933 new progression/runtime/layout assertions.
+- 65,066 assertions across 16 Lua assertion suites, including 66 kill-model,
+  1,954 progression/runtime/layout and 24 progression-event assertions.
 - Existing stress suite: 6,000 UI/profile/timer cycles; 100,000 XP awards/hints;
   fixed frame/font/event counts; one recurring ticker; kill history <=61 buckets
   and ID cache <=8192 entries; zero bar geometry redraws across 600 idle seconds.
@@ -48,6 +56,9 @@ The implementation contract was written before the code changes; see
   These use a mock and substitute font metrics/artwork, not the game renderer.
   They show `24 kills` and the single inline footer with the approved labels.
 - `git diff --check` passed.
+- The new event suite rejects two in-memory mutations: using argument 12 for
+  chat identity and removing the full-window duplicate guard. Tracked addon
+  files were not modified for these checks.
 
 The LuaJIT executable was built in a temporary directory because this executor
 had no preinstalled Lua runtime. No test/build dependencies were added to the
@@ -64,6 +75,11 @@ A running Forever client is still required to verify real currency 1792 values,
 pet and rank event ordering, localized kill award strings, restricted values in
 actual PvP/combat, font rasterization, native menus, tooltip hit regions and taint
 alongside Ellesmere/Blizzard bars. Source and mock checks do not establish these.
+The owner's Mac was offline during the PR follow-up. All live checks remain
+unrun; use the [executable acceptance checklist](PROGRESSION-LIVE-CHECKLIST.md)
+to record build, locale, steps and evidence when the client becomes available.
+The restricted sentinels and synthetic locale fixtures are explicitly offline
+checks, not a simulation of the engine's secret-value or translation contracts.
 The 20-minute/one-hour kill estimator is deliberately a heuristic with minute
 resolution; rewards changing with rested, group or mob mix can temporarily bias
 it. It is not a forecast of rested exhaustion or a second time-to-level model.
