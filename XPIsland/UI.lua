@@ -97,35 +97,26 @@ function UI.AnchorText(text,point,parent,relativePoint,x,y)
     text:SetPoint(point,parent,relativePoint,(x or 0)/fit,(y or 0)/fit)
 end
 
--- Expressway (including Bold/CAPS) lacks U+221E. A font glyph can silently use
--- a different face even when SetFont succeeds. Draw a bounded, symmetric mark
--- at the same nominal value size/color/shadow; never depend on glyph fallback
--- or stretch a square raster into a different aspect ratio.
+-- Expressway lacks U+221E. Use a packaged alpha mask with a matching shadow;
+-- the line-based symbol remained blank on the target client.
 function UI.Infinity(parent)
     local f=CreateFrame("Frame",nil,parent)
-    f.lines={}
-    if not f.CreateLine then return f,false end
-    for layer=1,2 do
-        for i=1,48 do
-            local line=f:CreateLine(nil,layer==1 and "ARTWORK" or "OVERLAY")
-            line:SetColorTexture(layer==1 and 0 or .93,layer==1 and 0 or .94,layer==1 and 0 or .97,layer==1 and .8 or 1)
-            f.lines[#f.lines+1]=line
-        end
-    end
+    local path="Interface\\AddOns\\XPIsland\\media\\infinity.tga"
+    f.shadow=f:CreateTexture(nil,"ARTWORK")
+    f.symbol=f:CreateTexture(nil,"OVERLAY")
+    local shadowLoaded=f.shadow:SetTexture(path)
+    local symbolLoaded=f.symbol:SetTexture(path)
+    if shadowLoaded==false or symbolLoaded==false then return f,false end
+    f.shadow:SetVertexColor(0,0,0,.8);f.symbol:SetVertexColor(.93,.94,.97,1)
+    f.shadow:SetPoint("CENTER",f,"CENTER",1,-1)
+    f.symbol:SetAllPoints(f)
+    f.shadow:Show();f.symbol:Show()
     function f:Layout(size)
         if self.symbolSize==size then return end
         self.symbolSize=size
-        local width,height=size*1.15,size*.6
-        self:SetSize(width,height)
-        for index,line in ipairs(self.lines) do
-            local i=(index-1)%48
-            local shadow=index<=48
-            local dx,dy=shadow and 1 or 0,shadow and -1 or 0
-            local a,b=i*math.pi*2/48,(i+1)*math.pi*2/48
-            line:SetThickness(size*.12)
-            line:SetStartPoint("CENTER",self,width*.5*math.cos(a)+dx,height*.5*math.sin(2*a)+dy)
-            line:SetEndPoint("CENTER",self,width*.5*math.cos(b)+dx,height*.5*math.sin(2*b)+dy)
-        end
+        -- Keep the 128x64 mask's 2:1 aspect. Its stroke is .12 font units.
+        local width,height=size*1.5,size*.75
+        self:SetSize(width,height);self.shadow:SetSize(width,height)
     end
     return f,true
 end

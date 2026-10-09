@@ -28,9 +28,11 @@ bindings = ET.parse(addon / "Bindings.xml").getroot()
 assert bindings.find("Binding").attrib["name"] == "XPISLAND_TOGGLE"
 for asset in ["rounded.tga", "cap.tga", "infinity.tga"]:
     data = (addon / "media" / asset).read_bytes()
-    assert len(data) == 18 + 64 * 64 * 4
-    assert struct.unpack_from("<HH", data, 12) == (64, 64)
+    width, height = (128, 64) if asset == "infinity.tga" else (64, 64)
+    assert len(data) == 18 + width * height * 4
+    assert struct.unpack_from("<HH", data, 12) == (width, height)
     assert data[16] == 32
+subprocess.run([sys.executable, str(root / "tests/infinity_asset_test.py")], check=True)
 version = re.search(r"^## Version: (" + VERSION + r")$", toc, re.M).group(1)
 assert f'version="{version}"' in (addon / "Core.lua").read_text()
 out = root / "dist" / f"XPIsland-{version}.zip"

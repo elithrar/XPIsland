@@ -45,20 +45,28 @@ native family, hidden options and direct profile application, lazy initializatio
 and menu/copy-confirm preservation. Review caught missing pre-initialization
 guards and unnecessary menu regeneration; both were corrected and rechecked.
 
-## Infinity placement
+## Infinity rendering
 
-The symbol was anchored to the label FontString that is cleared while infinity
-is visible. It now anchors directly to the header frame at the numeric slot's
-center. This removes the empty-text geometry dependency while preserving the
-proportional stroke, nominal size, color and shadow.
+The header anchor correction did not resolve the missing symbol: fresh-boot
+feedback still reported a blank slot. No invalid endpoint API, clipping ancestor,
+or logged Lua error was found. The native reason the line-based symbol failed
+remains unconfirmed; short segments are a risk, not an established cause.
 
-The regression makes an empty label's geometry unavailable, then exercises
-85/90/100% and collapsed/expanded states. The previous anchor fails; the direct
-header anchor retains the expected center and visibility. This models a failure
-condition, not an observed native bounds readback. Native visibility, optical
-weight and antialiasing still need confirmation. If the mark remains absent,
-its native line rendering needs further investigation; an offline visibility
-flag is insufficient evidence.
+The symbol now uses a packaged 128x64 antialiased alpha mask and an identical
+shadow. Its display canvas preserves the asset's 2:1 aspect and scales with the
+numeric font size. The centered curve has a .12-font-unit stroke, the same nominal
+value color, and a 1/-1 shadow offset. This removes both native Line rendering and
+selected-font glyph coverage from the symbol path. It retains the direct header
+anchor and shows `n/a` if native texture loading returns false.
+
+The asset is generated reproducibly without dependencies. Validation checks its
+actual bytes, nonempty alpha, antialiased edges, symmetric unclipped margins, one
+connected stroke and two enclosed lobes. Offline previews now draw the actual
+packaged alpha mask rather than substituting a Unicode font glyph. Runtime tests
+check the textures, load failure, color/shadow, geometry and 85/90/100% scaling at
+10/14/18-point sizes in both expansion states. These tests do not prove native
+visibility or optical quality; that still requires checking the replacement in
+client. The previous frame-visibility assertions were insufficient.
 
 ## Validation boundary
 

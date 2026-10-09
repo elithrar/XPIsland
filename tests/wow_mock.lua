@@ -374,7 +374,17 @@ function W.svg(path,root)
         elseif o.parent and o.parent.Arrow==o then
             f:write(string.format('<path d="M %f %f l 8 0 l -4 5 Z" fill="#d5b74c"/>',x+5,y+h/2-2))
         elseif o.texture and o.texture:find("infinity.tga",1,true) then
-            f:write(string.format('<text x="%f" y="%f" font-family="Arial" font-size="%f" fill="%s">∞</text>',x,y+h,h*1.4,color(c)))
+            -- Render the actual alpha mask instead of substituting a font glyph.
+            local file=assert(io.open('XPIsland/media/infinity.tga','rb'))
+            local data=file:read('*a');file:close()
+            local tw=data:byte(13)+data:byte(14)*256
+            local th=data:byte(15)+data:byte(16)*256
+            for py=0,th-1 do for px=0,tw-1 do
+                local a=data:byte(22+(py*tw+px)*4)/255
+                if a>0 then
+                    f:write(string.format('<rect x="%f" y="%f" width="%f" height="%f" fill="%s" fill-opacity="%f"/>',x+px*w/tw,y+py*h/th,w/tw,h/th,color(c),a*(c[4] or 1)))
+                end
+            end end
         elseif o.texture and o.texture:find("cap.tga",1,true) then
             local co=o.coords
             f:write(string.format('<defs><clipPath id="cap%d"><rect x="%f" y="%f" width="%f" height="%f"/></clipPath></defs><circle cx="%f" cy="%f" r="%f" fill="%s" clip-path="url(#cap%d)"/>',i,x,y,w,h,x+h*(.5-co[1]),y+h/2,h/2,color(c),i))
