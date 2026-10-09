@@ -18,6 +18,8 @@ local X,UI,O=ns.owner,ns.UI,ns.Options
 local assertions=0
 local function eq(a,b,why) assertions=assertions+1;assert(a==b,(why or "assertion")..": "..tostring(a).." ~= "..tostring(b)) end
 W.event("ADDON_LOADED","XPIsland");W.event("PLAYER_ENTERING_WORLD",true,false)
+W.event("UPDATE_BINDINGS");W.event("PLAYER_REGEN_ENABLED")
+eq(O.frame,nil,"events before first options open preserve lazy construction")
 SlashCmdList.XPISLAND("")
 local tooltipFont=GameTooltipText:GetFont()
 local function islandChild(o)
@@ -65,7 +67,7 @@ W.choose(O.font,"Expressway")
 UI.cells[1].title:SetFont(fonts["Friz Quadrata TT"],12,"")
 O.menuFont:SetFont(fonts["Friz Quadrata TT"],18,"")
 O.font.Text:SetFont(fonts["Friz Quadrata TT"],12,"")
-X:ApplyProfile();O:Refresh();allSurfaces(fonts.Expressway)
+X:ApplyProfile();allSurfaces(fonts.Expressway)
 local _,menuSize=O.menuFont:GetFont()
 eq(menuSize,12,"refresh repairs externally changed cached menu font size")
 for _,scale in ipairs({.5,.85,.95,1,1.5}) do
@@ -95,18 +97,85 @@ W.fontFailures[fonts["Missing font"]]=true
 W.choose(O.font,"Missing font")
 allSurfaces(tooltipFont)
 eq(X.profile.font,"Missing font","fallback does not destroy saved choice")
-W.fontFailures[fonts["2002"]]=true;UI.ResetFonts()
+W.fontFailures[fonts["2002"]]=true
 W.choose(O.font,"2002");allSurfaces(tooltipFont)
 eq(X.profile.font,"2002","registered but unavailable 2002 retains preference")
-W.fontFailures[fonts["2002"]]=nil;UI.ResetFonts()
-X:ApplyProfile();O:Refresh();allSurfaces(fonts["2002"])
+W.fontFailures[fonts["2002"]]=nil
+W.choose(O.font,"2002");allSurfaces(fonts["2002"])
 W.choose(O.font,"Expressway");allSurfaces(fonts.Expressway)
-W.fontFailures[fonts["2002 Bold"]]=true;UI.ResetFonts()
+W.fontFailures[fonts["2002 Bold"]]=true
 W.choose(O.font,"2002 Bold");allSurfaces(tooltipFont)
 eq(X.profile.font,"2002 Bold","failed screenshot family retains preference")
 eq(O.font.Text:GetText(),"2002 Bold","failed family keeps a readable selection")
-W.fontFailures[fonts["2002 Bold"]]=nil;UI.ResetFonts()
-X:ApplyProfile();O:Refresh();allSurfaces(fonts["2002 Bold"])
+W.fontFailures[fonts["2002 Bold"]]=nil
+W.choose(O.font,"Expressway");W.choose(O.font,"2002 Bold");allSurfaces(fonts["2002 Bold"])
+-- A probe can succeed while a particular native object rejects the face.
+-- Fail main, options and menu objects in turn, including a late native fallback.
+for _,target in ipairs({UI.cells[1].title,O.font.Text,O.menuFont}) do
+    W.choose(O.font,"Arial")
+    local original=target.SetFont
+    target.SetFont=function(self,path,...)
+        if path==fonts.Expressway then return false end
+        return original(self,path,...)
+    end
+    W.choose(O.font,"Expressway");allSurfaces(tooltipFont)
+    eq(UI.layout.font,tooltipFont,"layout reflects common fallback after late rejection")
+    eq(X.profile.font,"Expressway","object failure retains requested family")
+    target.SetFont=original
+    W.choose(O.font,"Expressway");allSurfaces(fonts.Expressway)
+end
+local originalMenuSetter=O.menuFont.SetFont
+O.menuFont.SetFont=function() return false end
+W.choose(O.font,"Arial")
+allSurfaces((GameFontNormal or GameTooltipText):GetFont())
+eq(UI.layout.font,(GameFontNormal or GameTooltipText):GetFont(),"native fallback also reflows island")
+O.menuFont.SetFont=originalMenuSetter
+W.choose(O.font,"Arial");allSurfaces("Fonts\\ARIALN.TTF")
+-- A rejection discovered late in pass one can expose a second rejection in
+-- pass two. Distinct families prove the bounded replay reaches native fallback.
+local previousNormal=GameFontNormal
+GameFontNormal=CreateFont("XPIslandTestNativeFallback")
+GameFontNormal:SetFont("Fonts\\NativeFallback.TTF",15,"")
+local title=UI.cells[1].title
+local originalTitleSetter,originalOptionsSetter=title.SetFont,O.font.Text.SetFont
+local originalLayout,passes=UI.LayoutContents,0
+UI.LayoutContents=function(self,...) passes=passes+1;return originalLayout(self,...) end
+title.SetFont=function(self,path,...)
+    if path==tooltipFont then return false end
+    return originalTitleSetter(self,path,...)
+end
+O.font.Text.SetFont=function(self,path,...)
+    if path==fonts.Expressway then return false end
+    return originalOptionsSetter(self,path,...)
+end
+X.profile.font="Expressway";X:ApplyProfile()
+allSurfaces(GameFontNormal:GetFont())
+eq(UI.layout.font,GameFontNormal:GetFont(),"late two-stage failure reflows final family")
+eq(passes,3,"three passes settle selected, default and native fallback")
+eq(X.refreshingAppearance,nil,"refresh guard clears after fallback replay")
+title.SetFont=originalTitleSetter;O.font.Text.SetFont=originalOptionsSetter
+UI.LayoutContents=originalLayout
+W.choose(O.font,"Expressway");allSurfaces(fonts.Expressway)
+GameFontNormal=previousNormal
+-- Applying a profile is the shared refresh boundary, including hidden options.
+O.frame:Hide()
+X.profile.font="Expressway";X:ApplyProfile();allSurfaces(fonts.Expressway)
+O.frame:Show();allSurfaces(fonts.Expressway)
+-- Dynamic layout repairs font objects without clearing an in-progress action.
+O.confirmCopy=true
+O.menuFont:SetFont(tooltipFont,18,"")
+UI:Layout(true);allSurfaces(fonts.Expressway)
+eq(O.confirmCopy,true,"layout-only refresh preserves copy confirmation")
+O.confirmCopy=nil
+local menuRebuilds=0
+for _,dropdown in ipairs(O.dropdowns) do
+    local generate=dropdown.GenerateMenu
+    dropdown.GenerateMenu=function(self,...)
+        menuRebuilds=menuRebuilds+1;return generate(self,...)
+    end
+end
+for _=1,10 do UI:Layout(true) end
+eq(menuRebuilds,0,"unchanged model layout does not regenerate native menus")
 -- Fonts from embedded/late-loaded SharedMedia providers become available
 -- without reselecting a setting or leaving options on the old fallback face.
 X.profile.font="Late font";X:ApplyProfile();O:Refresh();allSurfaces(tooltipFont)

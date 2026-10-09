@@ -24,6 +24,27 @@ three. This case also fails before the correction.
 These are reproduced code defects. They do not establish which native changes
 caused every mixed-font surface in the reported session.
 
+## Shared refresh and failure recovery
+
+Font reselection and profile application now invalidate failed resolutions and
+refresh both the island and options through `RefreshAppearance`. A family
+rejected by any owned text object downgrades the shared resolution. The refresh
+repeats layout and options, at most three passes, until all text and measured
+geometry use the selected family, tooltip fallback, or inherited native fallback.
+The saved selection is preserved, so choosing it again retries without a reload.
+
+Layout-only updates refresh fonts without resetting options controls or copy
+confirmation. Native dropdown rows still use only the shared `SetFontObject`.
+Menus rebuild for control changes or changed font readback, not ordinary model
+layout. Font work remains outside animation frames; repair occurs at refresh
+boundaries rather than continuously policing other addons' assignments.
+
+Regressions cover same-choice recovery without manually clearing caches,
+independent failures on island/options/menu text, two-stage fallback to a distinct
+native family, hidden options and direct profile application, lazy initialization,
+and menu/copy-confirm preservation. Review caught missing pre-initialization
+guards and unnecessary menu regeneration; both were corrected and rechecked.
+
 ## Infinity placement
 
 The symbol was anchored to the label FontString that is cleared while infinity

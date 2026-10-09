@@ -12,6 +12,7 @@ local MEDIA = "Interface\\AddOns\\XPIsland\\media\\rounded.tga"
 -- Keep the saved preference so a later registration can make it available.
 local fontResults={}
 local fontProbe
+UI.fontRevision=0
 function UI.ResetFonts() fontResults={} end
 
 local function setFont(text,path,size,flags)
@@ -26,20 +27,35 @@ local function setFont(text,path,size,flags)
 end
 
 function UI.ApplyFont(text,profile,size,flags)
-    local path=UI.Font(profile)
+    local path,state=UI.Font(profile)
     local key=path..":"..size..":"..(flags or "")
     -- Native controls and global font passes can replace a previously assigned
     -- face. Compare with the last native readback, not the requested height.
     local actual,actualSize,actualFlags=text:GetFont()
-    if text.xpFontKey~=key or actual~=text.xpFontPath or actualSize~=text.xpFontSize or actualFlags~=text.xpFontFlags then
+    local changed=actual~=text.xpFontPath or actualSize~=text.xpFontSize or actualFlags~=text.xpFontFlags
+    if state.native then
+        if text.xpNativeFont~=state.native or changed then text:SetFontObject(state.native) end
+        text.xpNativeFont=state.native;text.xpFontKey=nil
+        text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
+        return path
+    end
+    text.xpNativeFont=nil
+    if text.xpFontKey~=key or changed then
         if not setFont(text,path,size,flags) then
-            path=UI.Font({font="Game tooltip"})
+            -- Downgrade the shared resolution, not just this object. The owner
+            -- replays layout/options after a downgrade so earlier objects and
+            -- their measurements settle on the same family before returning.
+            path=state.default
+            state.path=path;UI.fontRevision=UI.fontRevision+1
             if not setFont(text,path,size,flags) then
                 -- A font preference must never abort addon construction. A
                 -- native Font object supplies a usable face even if path-based
                 -- loading fails; don't cache that failed requested assignment.
-                text:SetFontObject(GameFontNormal or GameTooltipText)
+                state.native=GameFontNormal or GameTooltipText
+                state.path=state.native:GetFont()
+                text:SetFontObject(state.native);text.xpNativeFont=state.native
                 text.xpFontKey=nil
+                text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
                 return text:GetFont()
             end
         end
@@ -175,9 +191,9 @@ function UI.Font(profile)
     local key=requested..":"..default
     if not fontResults[key] then
         if not fontProbe then fontProbe=UIParent:CreateFontString(nil,"OVERLAY");fontProbe:Hide() end
-        fontResults[key]=setFont(fontProbe,requested,14,"") and requested or default
+        fontResults[key]={path=setFont(fontProbe,requested,14,"") and requested or default,default=default}
     end
-    return fontResults[key]
+    return fontResults[key].path,fontResults[key]
 end
 
 -- End caps use a fixed-radius circular texture, cropped (never compressed) at
@@ -548,6 +564,11 @@ function UI:BarLabel(rate,duration)
 end
 
 function UI:Layout(preserveMotion)
+    if not self.frame or self.dragging then return end
+    self.owner:RefreshAppearance(false,preserveMotion)
+end
+
+function UI:LayoutContents(preserveMotion)
     if not self.frame or self.dragging then return end
     if not preserveMotion then self:CancelStatTooltip();self:ClearHighlights() end
     local p,f=self.owner.profile,self.frame

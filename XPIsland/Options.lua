@@ -111,7 +111,7 @@ function O:Check(parent,text,key,x,y)
     bounded(b.text,250,24)
     b:SetHitRectInsets(0,-250,0,0)
     b:SetScript("OnClick",function()
-        self.owner.profile[key]=b:GetChecked();self.owner:ApplyProfile();self:Refresh()
+        self.owner.profile[key]=b:GetChecked();self.owner:ApplyProfile()
     end)
     self.fontObjects[#self.fontObjects+1]={object=b.text,size=12}
     self.checks[#self.checks+1]=b
@@ -154,9 +154,9 @@ function O:Color(key)
     local original=M.Copy(p[key])
     ColorPickerFrame:SetupColorPickerAndShow({r=original[1],g=original[2],b=original[3],hasOpacity=false,
         swatchFunc=function()
-            p[key]={ColorPickerFrame:GetColorRGB()};self.owner:ApplyProfile();self:Refresh()
+            p[key]={ColorPickerFrame:GetColorRGB()};self.owner:ApplyProfile()
         end,
-        cancelFunc=function() p[key]=original;self.owner:ApplyProfile();self:Refresh() end})
+        cancelFunc=function() p[key]=original;self.owner:ApplyProfile() end})
 end
 
 function O:Create(owner)
@@ -210,7 +210,7 @@ function O:Create(owner)
     self.fontSize=edit(page,230,-219,58)
     self.fontSize:SetScript("OnEnterPressed",function(e)
         owner.profile.fontSize=math.floor(math.max(10,math.min(18,tonumber(e:GetText()) or owner.profile.fontSize)))
-        owner.profile.fontSizeCustomized=true;e:ClearFocus();owner:ApplyProfile();self:Refresh()
+        owner.profile.fontSizeCustomized=true;e:ClearFocus();owner:ApplyProfile()
     end)
     label(page,"Island scale",28,-259)
     local slider=CreateFrame("Slider",nil,page,"UISliderTemplate")
@@ -223,7 +223,7 @@ function O:Create(owner)
     end)
     self.scaleEdit:SetScript("OnEnterPressed",function(e)
         owner.profile.scale=math.max(50,math.min(150,math.floor((tonumber(e:GetText()) or owner.profile.scale*100)+.5)))/100
-        e:ClearFocus();owner:ApplyProfile();self:Refresh()
+        e:ClearFocus();owner:ApplyProfile()
     end)
     label(page,"50–150%",28,-306,11):SetTextColor(.65,.65,.68)
     for i,key in ipairs({"normal","rested"}) do
@@ -246,7 +246,7 @@ function O:Create(owner)
     } end,function() return owner.profile.placement end,function(v) owner.profile.placement=v;owner:ApplyProfile() end)
     label(page,"Unlock and drag to set a custom position.",328,-377,11):SetTextColor(.7,.7,.72)
     button(page,"Reset to top",328,-401,124,function()
-        owner.profile.position={x=0,y=-8};owner.profile.placement="top";owner:ApplyProfile();self:Refresh()
+        owner.profile.position={x=0,y=-8};owner.profile.placement="top";owner:ApplyProfile()
     end)
     button(page,"Expand/collapse",464,-401,124,function() owner:Toggle() end)
     local timerHint=label(page,"Collapse waits while hovering, dragging, or using these settings.",28,-386,11)
@@ -278,7 +278,7 @@ function O:Create(owner)
         if not self.copySource then self.status:SetText("Choose a source profile first.");return end
         if not self.confirmCopy then self.confirmCopy=true;self.copyButton.text:SetText("Confirm overwrite");fitBounded(self.copyButton.text);return end
         owner.db.profiles[owner.profileName]=M.Copy(owner.db.profiles[self.copySource]);owner.profile=owner.db.profiles[owner.profileName]
-        self.confirmCopy=nil;owner:ApplyProfile();self:Refresh()
+        self.confirmCopy=nil;owner:ApplyProfile()
     end)
     label(page,"Copy replaces the active profile. Duplicate creates a separate profile.",28,-383,11):SetTextColor(.7,.7,.72)
     page=self.tracking
@@ -288,7 +288,7 @@ function O:Create(owner)
     self.mode=self:Dropdown(page,28,-125,260,function() return {
         {value="xp",label="Experience"},{value="pvp",label="Honor & PvP"}
     } end,function() return owner.profile.mode end,function(v)
-        owner.profile.mode=v;owner.profile.pvpAtCap=false;owner:ApplyProfile();self:Refresh()
+        owner.profile.mode=v;owner.profile.pvpAtCap=false;owner:ApplyProfile()
     end)
     self:Check(page,"Switch to PvP at level cap","pvpAtCap",28,-163)
     label(page,"Honor & PvP bar label",28,-207)
@@ -318,7 +318,7 @@ end
 function O:Switch(name)
     local owner=self.owner
     owner.profile=M.SelectProfile(owner.db,owner.character,name);owner.profileName=name;self.confirmCopy=nil
-    owner:ApplyProfile();self:Refresh()
+    owner:ApplyProfile()
 end
 
 function O:Page(profiles)
@@ -332,6 +332,26 @@ end
 
 function O:Refresh()
     if not self.frame then return end
+    self.owner:RefreshAppearance(false,true,true)
+end
+
+function O:RefreshFonts(regenerate)
+    if not self.frame then return end
+    local p=self.owner.profile
+    local oldPath,oldSize,oldFlags=self.menuFont:GetFont()
+    UI.ApplyFont(self.menuFont,p,12)
+    for _,entry in ipairs(self.fontObjects) do UI.ApplyFont(entry.object,p,entry.size) end
+    local path,size,flags=self.menuFont:GetFont()
+    -- Model-driven island layout must not rebuild open native menus. Rebuild
+    -- for controls/list changes or an actual change in the shared menu font.
+    if regenerate or path~=oldPath or size~=oldSize or flags~=oldFlags then
+        for _,d in ipairs(self.dropdowns) do d:GenerateMenu() end
+    end
+    for _,entry in ipairs(self.fontObjects) do fitBounded(entry.object) end
+end
+
+function O:RefreshControls()
+    if not self.frame then return end
     self.refreshing=true;self.confirmCopy=nil
     local p=self.owner.profile
     self.frame:SetScale(math.max(.3,math.min(1,(UIParent:GetWidth()-24)/620,(UIParent:GetHeight()-24)/462)))
@@ -343,13 +363,10 @@ function O:Refresh()
         slider:SetAlpha(p[slider.toggle] and 1 or .35)
         slider.valueText:SetAlpha(p[slider.toggle] and 1 or .35)
     end
-    UI.ApplyFont(self.menuFont,p,12)
-    for _,entry in ipairs(self.fontObjects) do UI.ApplyFont(entry.object,p,entry.size) end
-    for _,d in ipairs(self.dropdowns) do d:GenerateMenu() end
     self.normal.swatch:SetColorTexture(unpack(p.normal));self.rested.swatch:SetColorTexture(unpack(p.rested))
     self.binding.text:SetText("Key binding: "..(GetBindingKey("XPISLAND_TOGGLE") or "unassigned"))
     self.copyButton.text:SetText("Copy settings");self.status:SetText(self.owner.integrationMessage or "")
-    for _,entry in ipairs(self.fontObjects) do fitBounded(entry.object) end
+    self:RefreshFonts(true)
     self.refreshing=nil
 end
 

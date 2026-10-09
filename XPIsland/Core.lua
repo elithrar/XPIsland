@@ -289,6 +289,22 @@ function X:Integration()
     end
 end
 
+-- Every appearance entry point refreshes both sets of owned text. A late
+-- per-object rejection can downgrade selected -> default -> inherited native;
+-- replay after each downgrade to remeasure all earlier objects consistently.
+function X:RefreshAppearance(retryFonts,preserveMotion,refreshControls)
+    if self.refreshingAppearance then return end
+    self.refreshingAppearance=true
+    if retryFonts then UI.ResetFonts() end
+    for _=1,3 do
+        local revision=UI.fontRevision
+        UI:LayoutContents(preserveMotion)
+        if refreshControls then Options:RefreshControls() else Options:RefreshFonts() end
+        if revision==UI.fontRevision then break end
+    end
+    self.refreshingAppearance=nil
+end
+
 function X:ApplyProfile()
     self:RefreshMode()
     local kind=self.collapseKind
@@ -299,7 +315,7 @@ function X:ApplyProfile()
         if self.levelWindow then self.levelWindow.untilTime=self.levelWindow.startedAt+self.profile.levelUpDuration end
         self:ScheduleLevelNotice(self.profile.levelUpDuration)
     end
-    UI:Layout();self:Integration()
+    self:Integration();self:RefreshAppearance(true,false,true)
     if UI.expanded then
         if kind=="level" and self.profile.levelUp then self:ArmCollapse(self.profile.levelUpDuration,"level")
         elseif self.profile.autoCollapse then self:ArmCollapse(self.profile.autoCollapseDuration) end
@@ -312,8 +328,7 @@ function X:WatchFonts()
     self.fontLibrary=lsm
     self.fontChanged=self.fontChanged or function(_,kind)
         if kind~="font" or not self.profile then return end
-        UI.ResetFonts()
-        UI:Layout(true);Options:Refresh()
+        self:RefreshAppearance(true,true,true)
     end
     lsm.RegisterCallback(self,"LibSharedMedia_Registered",self.fontChanged)
     lsm.RegisterCallback(self,"LibSharedMedia_SetGlobal",self.fontChanged)
@@ -452,7 +467,7 @@ events:SetScript("OnEvent",function(_,event,...)
         if X.profile.collapseCombat then X:CancelAutoCollapse();UI:SetExpanded(false) end
     elseif event=="PLAYER_REGEN_ENABLED" then X:Integration();Options:Refresh()
     elseif event=="UI_SCALE_CHANGED" or event=="DISPLAY_SIZE_CHANGED" or event=="NOTCHED_DISPLAY_MODE_CHANGED" then
-        C_Timer.After(0,function() UI:Layout();Options:Refresh() end)
+        C_Timer.After(0,function() X:RefreshAppearance(false,false,true) end)
     elseif event=="UPDATE_BINDINGS" then Options:Refresh()
     else X:Sample() end
 end)
