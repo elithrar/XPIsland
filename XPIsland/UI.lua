@@ -56,8 +56,16 @@ function UI.FitText(text,available)
     local width=text.xpNaturalWidth
     local fit=math.min(1,available/math.max(1,width))
     text:SetScale(fit)
+    text.xpFitScale=fit
     text:SetWidth(available/fit)
     return fit
+end
+
+-- Offsets passed to a scaled FontString are in that FontString's local units.
+-- Keep the caller's inset in its parent's coordinate space when fitting text.
+function UI.AnchorText(text,point,parent,relativePoint,x,y)
+    local fit=text.xpFitScale or 1
+    text:SetPoint(point,parent,relativePoint,(x or 0)/fit,(y or 0)/fit)
 end
 
 -- Expressway (including Bold/CAPS) lacks U+221E. A font glyph can silently use
@@ -594,6 +602,7 @@ function UI:Layout(preserveMotion)
         -- Center the measured block within its row. Both outer drawer margins
         -- stay 12px; larger fonts get more height rather than a clipped last row.
         local inset=(cellHeight-titleHeight-3-valueHeight)/2
+        c.titleInset,c.valueInset=inset,inset+titleHeight+3
         c.title:SetPoint("TOP",0,-inset);c.value:SetPoint("TOP",0,-inset-titleHeight-3)
         c:SetHeight(cellHeight+(i>=5 and 5 or 0))
     end
@@ -831,6 +840,11 @@ function UI:Update()
             c.title.xpNaturalWidth=UI.Measure(c.title);c.value.xpNaturalWidth=UI.Measure(c.value)
             c.titleScale=UI.FitText(c.title,width);c.valueScale=UI.FitText(c.value,width)
             c.title:SetWidth(c:GetWidth()/c.titleScale);c.value:SetWidth(c:GetWidth()/c.valueScale)
+            -- Each role retains its row slot even when long content fits at a
+            -- smaller scale. Otherwise the TOP offset shrinks with the value,
+            -- pulling it upward into its title and disturbing row baselines.
+            UI.AnchorText(c.title,"TOP",c,"TOP",0,-c.titleInset-c.title:GetHeight()*(1-c.titleScale)/2)
+            UI.AnchorText(c.value,"TOP",c,"TOP",0,-c.valueInset-c.value:GetHeight()*(1-c.valueScale)/2)
         end
     end
     self.frame:SetShown(o:CanShow())

@@ -12,6 +12,12 @@ loadfile=originalLoad
 local count=0
 local function check(v,why) count=count+1;assert(v,why) end
 local function near(a,b,why) check(math.abs(a-b)<.001,why) end
+local function separated(cell)
+    local _,ty,_,th=cell.title:Rect();local _,vy,_,vh=cell.value:Rect()
+    local _,cy,_,ch=cell:Rect()
+    check(ty-(vy+vh)>=3*cell:GetEffectiveScale()-.001,'fitted title/value retain the row gap')
+    check(ty+th<=cy+ch+.001 and vy>=cy-.001,'fitted title/value remain in their row')
+end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 X.profile.autoCollapse=false;X.profile.fontSize=14;X.profile.scale=.85
 P.rank={level=0,xp=0,cap=75000,left=75000,total=0,ceiling=75000}
@@ -44,6 +50,7 @@ for _,rootScale in ipairs({.64,.8,1,1.25}) do
       for _,c in ipairs(UI.cells) do
        check(not c.title:IsTruncated(),'stat title fits at fractional effective scale')
        check(not c.value:IsTruncated(),'stat value fits at fractional effective scale')
+       separated(c)
       end
       for _,c in ipairs(UI.inlineCells) do
        if c.active then
@@ -68,6 +75,7 @@ for _,rootScale in ipairs({.64,.8,1,1.25}) do
         if c:IsShown() then
          check(not c.title:IsTruncated(),'XP/PvP title fits')
          check(not c.value:IsTruncated(),'XP/PvP numeric/cap/unavailable fits')
+         separated(c)
         end
        end
       end

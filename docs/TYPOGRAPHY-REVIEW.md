@@ -35,7 +35,7 @@ the release version or install files into the game.
 
 - All 18 workflow Lua suites, ten Python release guards, package validation and
   whitespace checks pass. The package remains local and unreleased.
-- The new fractional typography suite has 275,628 assertions across 50%, 75%,
+- The new fractional typography suite has 489,900 assertions across 50%, 75%,
   85%, 100%, 125% and 150%; four UIParent scales; font sizes 10/14/18; narrow,
   normal and wide advances; short/narrow/wide viewports; all eight footer
   combinations; XP/PvP, numeric/unavailable/infinity states and level notices.
@@ -51,9 +51,9 @@ the release version or install files into the game.
   level-notice clipping and wide-font control clipping. Its follow-up checked
   72 dynamic viewport cases and the actual CallbackHandler calling convention;
   no further actionable high/medium findings remained.
-- `render_typography.py` generated a 24-card proof using actual installed
+- `render_typography.py` generated a 32-card proof using actual installed
   Expressway/FiraSans outlines and hmtx advances at 50/85/100/150%, with XP,
-  infinity and PvP variants. The final PNG was inspected: full rank/kill labels
+  infinity, PvP and long PvP value variants. The final PNG was inspected: full rank/kill labels
   and values remain visible, the footer is centered and the header symbol and
   percentage use the same slot. Font data stays in ignored local `dist/`.
 
@@ -81,3 +81,37 @@ account login, forced game quit, merge or release was performed.
 The APIs used are present in the pinned Forever 1.60.1.70291 source:
 [FontString](https://github.com/Gethe/wow-ui-source/blob/9465cb273b5513495d8ecc12fbb19930dd6b8957/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleFontStringAPIDocumentation.lua),
 [Line](https://github.com/Gethe/wow-ui-source/blob/9465cb273b5513495d8ecc12fbb19930dd6b8957/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleLineAPIDocumentation.lua).
+
+## Fresh independent review after the draft PR
+
+Reviewed the immutable initial PR head `501faf7f6874e8e5551281b154c87439e7c2e5dd`
+again after the owner requested another rigorous pass.
+
+**P2 / medium: fitted values moved into title slots.** Scaling a FontString also
+scaled its TOP-anchor offsets. A fitted value could therefore move upward while
+its independently fitted title moved by a different amount. Actual installed
+Expressway advances reproduce overlapping PvP title/value boxes (about 0.64–0.71
+physical pixels at 85%, font size 18); KMT Ninja Naruto advances reproduce it in
+XP Remaining. These are geometry reproductions, not native raster observations.
+The shared `UI.AnchorText` now preserves parent-space insets, and fitted titles
+and values are centered within their assigned row slots. Options use the same
+anchor conversion. Regression coverage now checks the three-unit inter-object
+gap and row containment, not just each string's own clipping box. The expanded
+suite fails against the initial PR head and passes after this correction.
+
+The independent reviewer also swept actual hmtx advances from 23 installed fonts
+through 4,968 dynamic cell checks per revision. The initial head had 304 spacing
+failures and a minimum gap of -2.092 parent units; the corrected working tree had
+zero failures and a minimum gap of 3.000 units. No additional actionable defects
+were found in font callbacks, fallback propagation, infinity positioning, notices
+or source bars. These results verify geometry with actual advances, not native
+WoW rendering.
+
+The owner explicitly requested another screenshot retrieval attempt. Fresh
+preparation resolved all seven again, followed by one supported helper call per
+file into a new explicit directory on the consuming Mac. Every download returned
+HTTP 403; no local screenshot bytes were produced. The initial five had already
+received a fresh version-pinned retry; the two later files had a separate fresh
+latest-version retry that returned a generic download failure. No alternate URL,
+authentication bypass or raw downloader was used. Original screenshot inspection
+remains blocked, and generated font proofs are not substitutes for it.

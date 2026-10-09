@@ -36,7 +36,7 @@ for index, path in enumerate(args.font):
     coverage.append({'font': path.name, 'infinity_glyph': 0x221E in cmap, 'em_dash_glyph': 0x2014 in cmap})
     encoded = base64.b64encode(path.read_bytes()).decode('ascii')
     for scale in (.5, .85, 1, 1.5):
-        for mode in ('percent', 'eta', 'pvp'):
+        for mode in ('percent', 'eta', 'pvp', 'pvp-wide'):
             target = out / f'{index}-{scale}-{mode}.svg'
             subprocess.run(['luajit', 'tests/typography_preview.lua', str(metrics_path), str(scale), mode, str(target)], cwd=root, check=True)
             svg = target.read_text().replace('font-family="Georgia"', f'font-family="Proof{index}"')
@@ -56,7 +56,8 @@ proof.write_text('<!doctype html><meta charset="utf-8"><style>body{background:#1
 with tempfile.TemporaryDirectory(prefix='xpisland-type-chrome-') as profile:
     image=out/'proof.png'
     image.unlink(missing_ok=True)
-    process=subprocess.Popen([args.chrome, '--headless', '--disable-gpu', '--no-first-run', '--disable-background-networking', '--disable-component-update', '--hide-scrollbars', '--run-all-compositor-stages-before-draw', '--virtual-time-budget=3000', '--force-device-scale-factor=1', f'--user-data-dir={profile}', f'--screenshot={image}', '--window-size=1870,3400', proof.as_uri()], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    height=150+280*((len(cards)+1)//2)
+    process=subprocess.Popen([args.chrome, '--headless', '--disable-gpu', '--no-first-run', '--disable-background-networking', '--disable-component-update', '--hide-scrollbars', '--run-all-compositor-stages-before-draw', '--virtual-time-budget=3000', '--force-device-scale-factor=1', f'--user-data-dir={profile}', f'--screenshot={image}', f'--window-size=1870,{height}', proof.as_uri()], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         deadline=time.monotonic()+35
         while not image.exists() and time.monotonic()<deadline:

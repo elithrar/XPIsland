@@ -22,7 +22,7 @@ local function fitBounded(text)
     -- A local text scale also scales offsets. Preserve control-space insets.
     if text.xpOptionsAnchor then
         local a=text.xpOptionsAnchor
-        text:SetPoint(a[1],a[2],a[3],a[4]/scale,a[5]/scale)
+        UI.AnchorText(text,a[1],a[2],a[3],a[4],a[5])
     end
 end
 

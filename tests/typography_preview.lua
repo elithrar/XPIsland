@@ -9,7 +9,11 @@ X.profile.showPet=false;X.profile.showRank=true;X.profile.showKills=true
 P.rank={level=0,xp=0,cap=75000,left=75000,total=0,ceiling=75000}
 X.rested=8700;X.tracker.xp=11400;X.tracker.cap=14400
 X.profile.format=arg[3];UI:SetExpanded(true,true)
-if arg[3]=='pvp' then X.profile.mode='pvp';UI:SetExpanded(true,true) end
+if arg[3]=='pvp-wide' then
+ X.profile.fontSize=18
+ P.rank={level=14,xp=0,cap=75000,left=75000,total=123456789,ceiling=987654321,maximum=true}
+end
+if arg[3]:find('^pvp') then X.profile.mode='pvp';UI:SetExpanded(true,true) end
 W.svg(arg[4],UI.frame)
 for _,c in ipairs(UI.inlineCells) do
  if c.active then assert(not c.title:IsTruncated() and not c.value:IsTruncated(),'real font advance footer clipping') end
