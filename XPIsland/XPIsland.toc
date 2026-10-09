@@ -8,6 +8,7 @@
 ## SavedVariablesPerCharacter: XPIslandSession, XPIslandPlayed
 ## OptionalDeps: LibSharedMedia-3.0
 Model.lua
+Progression.lua
 Played.lua
 UI.lua
 Options.lua

@@ -42,7 +42,7 @@ W.advance(5);eq(UI.expanded,false,"replacement timer expires after ten seconds")
 
 SlashCmdList.XPISLAND("")
 eq(O.frame:IsShown(),true,"slash opens options")
-eq(#O.checks,5)
+eq(#O.checks,9)
 O.scaleEdit:SetText("125");O.scaleEdit.scripts.OnEnterPressed(O.scaleEdit)
 eq(X.profile.scale,1.25,"numeric scale updates model")
 eq(O.scale.value,125,"numeric scale updates slider")

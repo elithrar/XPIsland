@@ -144,12 +144,14 @@ function O:Create(owner)
     self.close:SetScript("OnClick",function() f:Hide() end)
     self.optionsTab=button(content,"Options",20,-42,86,function() self:Page(false) end)
     self.profilesTab=button(content,"Profiles",110,-42,86,function() self:Page(true) end)
-    for _,b in ipairs({self.optionsTab,self.profilesTab}) do
+    self.trackingTab=button(content,"Tracking",200,-42,86,function() self:Page("tracking") end)
+    for _,b in ipairs({self.optionsTab,self.profilesTab,self.trackingTab}) do
         b.activeLine=UI.Solid(b,"ARTWORK",1,.82,.2,.8)
         b.activeLine:SetPoint("BOTTOMLEFT",4,0);b.activeLine:SetPoint("BOTTOMRIGHT",-4,0);b.activeLine:SetHeight(1)
     end
     self.options=CreateFrame("Frame",nil,content);self.options:SetAllPoints()
     self.profiles=CreateFrame("Frame",nil,content);self.profiles:SetAllPoints()
+    self.tracking=CreateFrame("Frame",nil,content);self.tracking:SetAllPoints()
     local page=self.options
     section(page,"Appearance",16,-80,288,278)
     section(page,"Behavior",316,-80,288,218)
@@ -157,7 +159,8 @@ function O:Create(owner)
     label(page,"Bar label",28,-105)
     self.format=self:Dropdown(page,28,-125,260,function() return {
         {value="percent",label="Percentage"},{value="fraction",label="Current / Total XP"},
-        {value="left",label="XP Remaining"},{value="leftPercent",label="XP Remaining (%)"},{value="eta",label="Time to Next Level"}
+        {value="left",label="XP Remaining"},{value="leftPercent",label="XP Remaining (%)"},{value="eta",label="Time to Next Level"},
+        {value="kills",label="Kills to level"}
     } end,function() return owner.profile.format end,function(v) owner.profile.format=v;owner:ApplyProfile() end)
     label(page,"Font",28,-163)
     self.font=self:Dropdown(page,28,-183,260,function()
@@ -243,6 +246,29 @@ function O:Create(owner)
         self.confirmCopy=nil;owner:ApplyProfile();self:Refresh()
     end)
     label(page,"Copy replaces the active profile. Duplicate creates a separate profile.",28,-383,11):SetTextColor(.7,.7,.72)
+    page=self.tracking
+    section(page,"Primary bar",16,-80,288,340)
+    section(page,"Expanded XP details",316,-80,288,340)
+    label(page,"Mode",28,-105)
+    self.mode=self:Dropdown(page,28,-125,260,function() return {
+        {value="xp",label="Experience"},{value="pvp",label="Honor & PvP"}
+    } end,function() return owner.profile.mode end,function(v)
+        owner.profile.mode=v;owner.profile.pvpAtCap=false;owner:ApplyProfile();self:Refresh()
+    end)
+    self:Check(page,"Switch to PvP at level cap","pvpAtCap",28,-163)
+    label(page,"Honor & PvP bar label",28,-207)
+    self.pvpFormat=self:Dropdown(page,28,-227,260,function() return {
+        {value="honor",label="Honor available"},{value="rankLeft",label="Rank Points to next"}
+    } end,function() return owner.profile.pvpFormat end,function(v) owner.profile.pvpFormat=v;owner:ApplyProfile() end)
+    local modeHint=label(page,"PvP mode stays visible at max level. Its bar shows rank progress; Honor is a separate spendable balance. Selecting a mode turns off automatic switching.",28,-271,12)
+    modeHint:SetWidth(260);modeHint:SetWordWrap(true)
+    self:Check(page,"Pet XP when available","showPet",328,-105)
+    self:Check(page,"PvP rank progress","showRank",328,-139)
+    self:Check(page,"Estimated kills to level","showKills",328,-173)
+    local killHint=label(page,"Kill estimates use up to one hour of confirmed outdoor and dungeon kills. The latest 20 minutes count twice. Rested and group rewards affect the estimate.",328,-221,12)
+    killHint:SetWidth(260);killHint:SetWordWrap(true)
+    local inlineHint=label(page,"Details appear together in one compact row. No extra expansion is needed.",328,-328,12)
+    inlineHint:SetWidth(260);inlineHint:SetWordWrap(true)
     f:SetScript("OnHide",function() self:CloseMenu();self.confirmCopy=nil;owner:InteractionChanged() end)
     f:SetScript("OnShow",function() self:Refresh();owner:InteractionChanged() end)
     UISpecialFrames[#UISpecialFrames+1]="XPIslandOptions"
@@ -262,10 +288,10 @@ end
 
 function O:Page(profiles)
     self:CloseMenu();self.confirmCopy=nil
-    self.profiles:SetShown(profiles);self.options:SetShown(not profiles)
-    self.optionsTab.activeLine:SetShown(not profiles);self.profilesTab.activeLine:SetShown(profiles)
-    self.optionsTab.text:SetTextColor(1,profiles and .82 or 1,profiles and .2 or 1)
-    self.profilesTab.text:SetTextColor(1,profiles and 1 or .82,profiles and 1 or .2)
+    self.profiles:SetShown(profiles==true);self.options:SetShown(not profiles);self.tracking:SetShown(profiles=="tracking")
+    for _,entry in ipairs({{self.optionsTab,not profiles},{self.profilesTab,profiles==true},{self.trackingTab,profiles=="tracking"}}) do
+        entry[1].activeLine:SetShown(entry[2]);entry[1].text:SetTextColor(1,entry[2] and 1 or .82,entry[2] and 1 or .2)
+    end
     self:Refresh()
 end
 
