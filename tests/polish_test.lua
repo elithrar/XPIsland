@@ -58,7 +58,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
   O.frame:SetScale(scale)
   for _,d in ipairs(O.dropdowns) do
    local dx,dy,dw,dh=d:Rect();local tx,ty,tw,th=d.Text:Rect();local ax=d.Arrow:Rect()
-   eq(#d.Text.points,2);eq(d.Text.points[1][1],'LEFT');eq(d.Text.points[2][1],'RIGHT')
+   eq(#d.Text.points,1);eq(d.Text.points[1][1],'LEFT')
    near(ty+th/2,dy+dh/2,'dropdown vertical center');near(tx,dx+9*scale)
    near(tx+tw,ax-3*scale,'text stops before arrow');eq(d.Text.justifyV,'MIDDLE');eq(d.Text.wrap,false)
    eq(ty>=dy and ty+th<=dy+dh,true,'selected text box inside border')

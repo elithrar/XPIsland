@@ -306,6 +306,21 @@ function X:ApplyProfile()
     end
 end
 
+function X:WatchFonts()
+    local lsm=LibStub and LibStub("LibSharedMedia-3.0",true)
+    if not lsm or self.fontLibrary==lsm or not lsm.RegisterCallback then return end
+    self.fontLibrary=lsm
+    self.fontChanged=self.fontChanged or function(_,kind)
+        if kind~="font" or not self.profile then return end
+        UI.ResetFonts()
+        UI:Layout(true);Options:Refresh()
+    end
+    lsm.RegisterCallback(self,"LibSharedMedia_Registered",self.fontChanged)
+    lsm.RegisterCallback(self,"LibSharedMedia_SetGlobal",self.fontChanged)
+    -- The library itself may have arrived after our initial fallback.
+    self.fontChanged(nil,"font")
+end
+
 function X:Initialize(reloading)
     local db,err=M.Database(XPIslandDB)
     if not db then say(err);return end
@@ -332,6 +347,7 @@ function X:Initialize(reloading)
     ns.Played:Initialize(self,XPIslandPlayed)
     P:Refresh();self:RefreshMode()
     UI:Create(self);self:Sample();self:Integration()
+    self:WatchFonts()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
         if self.online and (self.transition or self.tracker.pending or self.levelPending) then self:Sample() end
@@ -347,7 +363,7 @@ events:SetScript("OnEvent",function(_,event,...)
     if event=="ADDON_LOADED" then
         if ...==addon then
             events:RegisterEvent("PLAYER_ENTERING_WORLD")
-        elseif X.session then X:Integration() end
+        elseif X.session then X:Integration();X:WatchFonts() end
         return
     end
     if event=="LOADING_SCREEN_ENABLED" or event=="PLAYER_LEAVING_WORLD" then

@@ -29,7 +29,13 @@ function CreateFrame(kind,name,parent,template)
     return o
 end
 function methods:CreateTexture(name,layer) local t=object("Texture",name,self);t.layer=layer;return t end
+function methods:CreateLine(name,layer) local t=object("Line",name,self);t.layer=layer;return t end
+function methods:SetThickness(value) self.thickness=value end
+function methods:SetStartPoint(point,relative,x,y) self.lineStart={point,relative,x,y} end
+function methods:SetEndPoint(point,relative,x,y) self.lineEnd={point,relative,x,y} end
 function methods:CreateFontString(name,layer) local t=object("FontString",name,self);t.layer=layer;return t end
+function CreateFont(name) return object("Font",name) end
+function methods:SetFontObject(font) self.fontObject=font;self.fontPath,self.fontSize,self.fontFlags=font:GetFont() end
 function methods:SetSize(w,h) assert(w>=0 and h>=0);self.width,self.height=w,h end
 function methods:SetWidth(w) assert(w>=0);self.width=w end
 function methods:SetHeight(h) assert(h>=0);self.height=h end
@@ -110,15 +116,30 @@ function methods:SetTexture(t) self.texture=t;return not W.textureMissing end
 function methods:SetColorTexture(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:SetVertexColor(r,g,b,a) self.tint={r,g,b,a or 1} end
 function methods:SetTexCoord(...) self.coords={...} end
-function methods:SetFont(path,size,flags) self.fontPath,self.fontSize,self.fontFlags=path,size,flags;return true end
+function methods:SetFont(path,size,flags)
+    if W.fontFailures and W.fontFailures[path] then return false end
+    self.fontPath,self.fontSize,self.fontFlags=path,size,flags;return true
+end
 function methods:SetText(text) self.text=tostring(text);if self.fontString then self.fontString:SetText(text) end end
 function methods:GetText() return self.text or "" end
 function methods:SetTextColor(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:GetStringWidth()
     local longest=0;for line in ((self.text or "").."\n"):gmatch("([^\n]*)\n") do longest=math.max(longest,#line) end
-    return longest*(self.fontSize or 12)*.52
+    if W.missingInfinity and self.text=="∞" then return 0 end
+    local width=longest*(self.fontSize or 12)*(W.fontWidths and W.fontWidths[self.fontPath] or .52)
+    if W.fontAdvances then
+        width=0
+        for char in (self.text or ''):gmatch('[%z\1-\127\194-\244][\128-\191]*') do
+            width=width+(W.fontAdvances[char] or .6)*(self.fontSize or 12)
+        end
+    end
+    return W.pixelMetrics and math.floor(width*self:GetEffectiveScale())/self:GetEffectiveScale() or width
 end
 methods.GetUnboundedStringWidth=methods.GetStringWidth
+function methods:IsTruncated()
+    local required=self:GetUnboundedStringWidth()+(W.pixelMetrics and 1/self:GetEffectiveScale() or 0)
+    return self:GetWidth()+.00001<required or self:GetHeight()+.00001<self:GetStringHeight()
+end
 function methods:GetStringHeight()
     local _,breaks=(self.text or ""):gsub("\n","")
     return (breaks+1)*(self.fontSize or 12)*1.25
@@ -253,7 +274,7 @@ COMBATLOG_XPGAIN_EXHAUSTION1="%s dies, you gain %d experience. (%s exp %s bonus)
 COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED="You gain %d experience."
 
 -- Count requested native-UI operations, not CPU/GPU duration.
-local counted={"SetPoint","ClearAllPoints","SetSize","SetWidth","SetHeight","SetScale","SetFont","SetText","GetUnboundedStringWidth","GetStringHeight","SetColorTexture","SetVertexColor","SetTexCoord","SetTexture","SetAlpha","SetShown","EnableMouse","CreateTexture","CreateFontString"}
+local counted={"SetPoint","ClearAllPoints","SetSize","SetWidth","SetHeight","SetScale","SetFont","SetText","GetUnboundedStringWidth","GetStringHeight","SetColorTexture","SetVertexColor","SetTexCoord","SetTexture","SetAlpha","SetShown","EnableMouse","CreateTexture","CreateFontString","CreateLine","SetThickness","SetStartPoint","SetEndPoint"}
 for _,name in ipairs(counted) do
     local original=methods[name]
     methods[name]=function(self,...)
@@ -284,7 +305,7 @@ function W.svg(path,root)
     for _,o in ipairs(W.objects) do
         local p=o;local include=not root
         while p do if p==root then include=true end;p=p.parent end
-        if include and o:IsVisible() and (o.kind=="Texture" or o.kind=="FontString" or o.kind=="EditBox" or o.template) then ordered[#ordered+1]=o end
+        if include and o:IsVisible() and (o.kind=="Line" or o.kind=="Texture" or o.kind=="FontString" or o.kind=="EditBox" or o.template) then ordered[#ordered+1]=o end
     end
     local layers={BACKGROUND=0,ARTWORK=1,OVERLAY=2}
     table.sort(ordered,function(a,b)
@@ -307,7 +328,11 @@ function W.svg(path,root)
             parent=parent.parent
         end
         f:write(string.format('<defs><clipPath id="object%d"><rect x="%f" y="%f" width="%f" height="%f"/></clipPath></defs><g opacity="%f" clip-path="url(#object%d)">',i,cx,cy,cw,ch,alpha,i))
-        if o.template and o.kind~="EditBox" then
+        if o.kind=="Line" then
+            local ax,ay=o.parent:GetCenter();local scale=o:GetEffectiveScale()
+            local a,b=o.lineStart,o.lineEnd
+            f:write(string.format('<line x1="%f" y1="%f" x2="%f" y2="%f" stroke="%s" stroke-opacity="%f" stroke-width="%f" stroke-linecap="round"/>',ax*scale+a[3]*scale,rh-ay*scale-a[4]*scale,ax*scale+b[3]*scale,rh-ay*scale-b[4]*scale,color(c),c[4] or 1,o.thickness*scale))
+        elseif o.template and o.kind~="EditBox" then
             -- Layout-only stand-ins: Blizzard's native art is not bundled here.
             local fill=o.backdropColor and color(o.backdropColor) or o.template=="UIPanelButtonTemplate" and "#681a16" or "#151515"
             local stroke=o.backdropBorder and color(o.backdropBorder) or "#66605a"
