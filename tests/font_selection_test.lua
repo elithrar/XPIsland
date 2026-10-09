@@ -2,7 +2,8 @@
 -- Font loading here is simulated; real client glyph/raster validation is separate.
 local W=dofile("tests/wow_mock.lua")
 local fonts={Expressway="Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway.TTF",
-    ["2002"]="Fonts\\2002.TTF",["Missing font"]="Interface\\AddOns\\Missing\\font.ttf"}
+    ["2002"]="Fonts\\2002.TTF",["2002 Bold"]="Fonts\\2002B.TTF",
+    ["Missing font"]="Interface\\AddOns\\Missing\\font.ttf"}
 local lsm={callbacks={},registrations=0}
 function lsm:HashTable(kind) assert(kind=="font");return fonts end
 function lsm:IsValid(kind,name) return kind=="font" and fonts[name]~=nil end
@@ -49,15 +50,24 @@ local function allSurfaces(expected)
         end
     end
 end
-for _,scale in ipairs({.5,.85,1,1.5}) do
+for _,scale in ipairs({.5,.85,.95,1,1.5}) do
     X.profile.scale=scale
-    for _,name in ipairs({"Expressway","2002","Arial","Game tooltip","Expressway"}) do
+    for _,name in ipairs({"Expressway","2002","2002 Bold","Arial","Game tooltip","Expressway"}) do
         W.choose(O.font,name)
         local expected=fonts[name] or (name=="Arial" and "Fonts\\ARIALN.TTF" or tooltipFont)
         UI:SetExpanded(true,true)
         allSurfaces(expected)
         eq(X.profile.font,name,"preserve selected preference")
         eq(X.profile.scale,scale,"font selection preserves scale")
+        eq(O.profilesTab.text:GetText(),"Profiles","previously blank Profiles caption survives font selection")
+        eq(O.rested.text:GetText(),"Rested XP","previously blank color caption survives font selection")
+        eq(O.format.Text:GetText(),"Percentage","previously blank bar format survives menu regeneration")
+        eq(O.font.Text:GetText(),name=="Game tooltip" and "Game Tooltip (default)" or name,"selected font remains visible")
+        local fontCaption
+        for _,entry in ipairs(O.fontObjects) do
+            if entry.object:GetText()=="Font" then fontCaption=entry.object end
+        end
+        eq(fontCaption~=nil and fontCaption:IsVisible(),true,"Font caption remains visible")
     end
 end
 -- A valid LSM registration is not evidence the client loaded the font. A
@@ -73,6 +83,12 @@ eq(X.profile.font,"2002","registered but unavailable 2002 retains preference")
 W.fontFailures[fonts["2002"]]=nil;UI.ResetFonts()
 X:ApplyProfile();O:Refresh();allSurfaces(fonts["2002"])
 W.choose(O.font,"Expressway");allSurfaces(fonts.Expressway)
+W.fontFailures[fonts["2002 Bold"]]=true;UI.ResetFonts()
+W.choose(O.font,"2002 Bold");allSurfaces(tooltipFont)
+eq(X.profile.font,"2002 Bold","failed screenshot family retains preference")
+eq(O.font.Text:GetText(),"2002 Bold","failed family keeps a readable selection")
+W.fontFailures[fonts["2002 Bold"]]=nil;UI.ResetFonts()
+X:ApplyProfile();O:Refresh();allSurfaces(fonts["2002 Bold"])
 -- Fonts from embedded/late-loaded SharedMedia providers become available
 -- without reselecting a setting or leaving options on the old fallback face.
 X.profile.font="Late font";X:ApplyProfile();O:Refresh();allSurfaces(tooltipFont)

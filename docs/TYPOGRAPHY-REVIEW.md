@@ -35,13 +35,13 @@ the release version or install files into the game.
 
 - All 18 workflow Lua suites, ten Python release guards, package validation and
   whitespace checks pass. The package remains local and unreleased.
-- The new fractional typography suite has 489,900 assertions across 50%, 75%,
+- The new fractional typography suite has 490,000 assertions across 50%, 75%,
   85%, 100%, 125% and 150%; four UIParent scales; font sizes 10/14/18; narrow,
   normal and wide advances; short/narrow/wide viewports; all eight footer
   combinations; XP/PvP, numeric/unavailable/infinity states and level notices.
   Its first 85% footer assertion fails against v0.6.0. Rounding is deliberately
   adversarial, not claimed to emulate the proprietary text engine.
-- 5,201 font/menu assertions execute the native row initializer under a guard
+- 6,965 font/menu assertions execute the native row initializer under a guard
   that forbids even looking up SetFont, and cover Expressway/2002/default/Arial,
   fallback/recovery, late registration, global overrides and wide controls.
 - Existing stress coverage retains bounded objects/events/timers, 6,000 UI
@@ -65,11 +65,12 @@ python3 tests/render_typography.py --font '/absolute/path/to/Expressway.TTF'
 
 ## Evidence limits and remaining acceptance
 
-All seven supplied screenshot references resolved in Library, but the supported
-consumer-local transfer helper returned HTTP 403 for every file, including fresh
-version-pinned retries of the first five. No readable screenshot PNGs were
-produced, so their pixels were not inspected. OCR was not used as visual proof.
-The exact Lua error evidence above came from the existing local log instead.
+The original Library transfers failed, but the owner subsequently supplied seven
+absolute local PNG paths. Every image was opened and inspected as pixels on the
+Mac. The screenshot-access blocker is resolved. [The per-image review](SCREENSHOT-REVIEW-PR2.md)
+records the 85/90/100% clipping differences, the thin/right-aligned infinity,
+and the incomplete 2002 Bold options state. These are existing-client images,
+not evidence that the draft fix has run in WoW.
 
 The generated proof uses Chrome and a mocked WoW frame hierarchy, not the game
 renderer. Native line antialiasing/optical weight, font loading (especially 2002),
@@ -113,5 +114,17 @@ file into a new explicit directory on the consuming Mac. Every download returned
 HTTP 403; no local screenshot bytes were produced. The initial five had already
 received a fresh version-pinned retry; the two later files had a separate fresh
 latest-version retry that returned a generic download failure. No alternate URL,
-authentication bypass or raw downloader was used. Original screenshot inspection
-remains blocked, and generated font proofs are not substitutes for it.
+authentication bypass or raw downloader was used. That transfer route remained blocked at the time. The later direct local-file
+inspection above supersedes the screenshot-access limitation; generated font
+proofs still do not establish native post-fix rendering.
+
+## Local screenshot follow-up
+
+Added the exact bottom-placement `0 / 750` cases at 85/90/95/100%, including a
+return to 85% after scaling. Tests retain full label/value strings and check
+clipping and shared numeric/infinity centers. Font propagation now explicitly
+includes `2002 Bold` (`Fonts\2002B.TTF`), previously blank Profiles/Font/selected
+format captions, and successful as well as rejected-family recovery. No further
+runtime code changes were needed from `ff080b7`. A separate 16-card proof renders
+the screenshot cases with actual local Expressway/FiraSans outlines and was
+inspected as pixels. It is still an offline mock.

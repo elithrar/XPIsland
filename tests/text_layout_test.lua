@@ -30,6 +30,32 @@ for _,c in ipairs(UI.inlineCells) do
 end
 -- Same role font size and family, including a font-size change with footer off.
 check(UI.inlineCells[2].title.fontSize==UI.cells[2].title.fontSize,'footer shares stat-title role')
+-- Exact old-client screenshot cases: bottom drawer, 0 / 750 rank, and the
+-- transition through 85/90/95/100%. These checks preserve full source strings
+-- as well as their clipping boxes, so an ellipsis cannot count as a fix.
+X.profile.placement='bottom';X.profile.showPet=false
+X.profile.showRank=true;X.profile.showKills=true
+P.rank={level=0,xp=0,cap=750,left=750,total=0,ceiling=750}
+for _,scale in ipairs({.85,.9,.95,1,.85}) do
+ X.profile.scale=scale
+ for _,format in ipairs({'percent','eta'}) do
+  X.profile.format=format;UI:SetExpanded(true,true)
+  check(UI.layout.up,'screenshot drawer expands upward')
+  check(UI.inlineCells[2].title:GetText()=='PvP rank:','full rank label survives scale changes')
+  check(UI.inlineCells[2].value:GetText()=='0 / 750','full screenshot rank value survives scale changes')
+  check(UI.inlineCells[3].title:GetText()=='Kills to level:','full kill label survives scale changes')
+  for _,c in ipairs(UI.inlineCells) do
+   if c.active then
+    check(not c.title:IsTruncated(),'screenshot footer title has clipping clearance')
+    check(not c.value:IsTruncated(),'screenshot footer value has clipping clearance')
+   end
+  end
+  local ix,iy=UI.infinity:GetCenter();local lx,ly=UI.label:GetCenter()
+  near(ix,lx,'bottom infinity shares numeric horizontal slot')
+  near(iy,ly,'bottom infinity shares numeric vertical slot')
+ end
+end
+X.profile.placement='top'
 local shapes={.42,.52,.7} -- narrow, standard, wide advances
 for _,rootScale in ipairs({.64,.8,1,1.25}) do
  UIParent:SetScale(rootScale)

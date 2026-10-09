@@ -29,7 +29,8 @@ Blizzard global Font objects and the global tooltip font are not modified.
 
 ## Family resolution and propagation
 
-The installed LibSharedMedia copies list `2002` as `Fonts\2002.TTF` in their
+The installed LibSharedMedia copies list `2002` as `Fonts\2002.TTF` and
+`2002 Bold` as `Fonts\2002B.TTF` in their
 built-in western font table. Their `IsValid` checks registration, not successful
 font loading. Expressway is registered by the installed EllesmereUI addon from
 its bundled `media/fonts/Expressway.TTF`; that file exists locally.
@@ -53,10 +54,10 @@ the shared update path rather than requiring the user to reselect a font.
 
 ## Regression coverage and limits
 
-`tests/font_selection_test.lua` selects Expressway, 2002, Arial, the game tooltip
-family, and Expressway again at 50%, 85%, 100%, and 150%. It checks every island
+`tests/font_selection_test.lua` selects Expressway, 2002, 2002 Bold, Arial, the game tooltip
+family, and Expressway again at 50%, 85%, 95%, 100%, and 150%. It checks every island
 FontString and registered options text surface, executes every menu initializer
-under a guard that fails even a `SetFont` lookup, and checks failed 2002/missing
+under a guard that fails even a `SetFont` lookup, and checks failed 2002/2002 Bold/missing
 font fallback and recovery without modifying saved preferences. Font object
 reuse and preservation of the global tooltip font are also checked.
 
@@ -77,7 +78,9 @@ maximum layout call depth of one.
 
 Font file loading and compositor ownership in this test are simulated. Actual
 font rasterization, glyph fallback, and error-free operation after `/reload`
-still require client validation. Both additional screenshot Library transfers
-failed before readable local PNGs were produced; no screenshot-dependent claim
-is made from those images. The game, installed addon, and SavedVariables were
+still require client validation. The owner subsequently supplied all seven original PNGs as local files; all
+were inspected as pixels. The 2002 Bold image visibly has mixed font faces and
+blank captions, and both options images show the addon error warning. The
+warning alone does not identify its source; the exact forbidden calls above
+come from the existing client log. See [the per-image review](SCREENSHOT-REVIEW-PR2.md). The game, installed addon, and SavedVariables were
 not modified during this investigation.

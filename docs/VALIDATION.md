@@ -85,4 +85,4 @@ explicitly separate and unrun; follow [the acceptance checklist](PROGRESSION-LIV
 
 ## Shared typography follow-up
 
-Both check/release workflows run the new font-selection (5,201 assertions) and fractional typography (489,900 assertions) suites. See [the combined review](TYPOGRAPHY-REVIEW.md) for the failing v0.6.0 reproduction, actual log error evidence, independent review fixes, optional real-font proof renderer and blocked screenshot/live checks.
+Both check/release workflows run the new font-selection (6,965 assertions) and fractional typography (490,000 assertions) suites. See [the combined review](TYPOGRAPHY-REVIEW.md) for the failing v0.6.0 reproduction, actual log error evidence, independent review fixes, optional real-font proof renderer and original screenshot review and remaining live checks.

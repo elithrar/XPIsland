@@ -7,6 +7,10 @@ W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 X.profile.fontSize=14;X.profile.scale=tonumber(arg[2]);X.profile.autoCollapse=false
 X.profile.showPet=false;X.profile.showRank=true;X.profile.showKills=true
 P.rank={level=0,xp=0,cap=75000,left=75000,total=0,ceiling=75000}
+if arg[5]=='screenshots' then
+ X.profile.placement='bottom'
+ P.rank={level=0,xp=0,cap=750,left=750,total=0,ceiling=750}
+end
 X.rested=8700;X.tracker.xp=11400;X.tracker.cap=14400
 X.profile.format=arg[3];UI:SetExpanded(true,true)
 if arg[3]=='pvp-wide' then
