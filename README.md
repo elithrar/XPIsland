@@ -1,5 +1,7 @@
 # XPIsland
 
+💾 **[Download the latest version](https://www.curseforge.com/wow/addons/xpisland) on CurseForge**
+
 A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sources of XP during your current session.
 
 - A segmented XP bar that shows rested XP and can be configured to show XP remaining or time to next level based on your current leveling pace.
