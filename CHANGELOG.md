@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0
+
+XPIsland 0.6.0 for World of Warcraft: Forever 1.60.1 only (Interface 16001).
+
+- Add a compact inline row for pet XP, PvP rank progress and estimated kills to level, with individual Tracking visibility controls.
+- Add optional Honor & PvP tracking with separate Honor balance and Rank Points, native rank ceilings and an opt-in switch at the player level cap. Experience remains the default.
+- Estimate kills to level from confirmed rewards over the last hour, weighting the newest 20 minutes twice and requiring at least five comparable kills. The estimate does not forecast rested XP exhaustion.
+- Preserve existing profiles, XP accounting and played-time data. Valid kill history survives reloads and short reconnects; explicit session reset clears it.
+
+Offline regression, release-guard and deterministic package checks cover the new progression paths. Live-client validation remains NOT RUN: native rendering, real event ordering, localized kill messages, restricted values and taint alongside other addons remain acceptance checks. See [the live checklist](docs/PROGRESSION-LIVE-CHECKLIST.md).
+
 ## 0.5.2
 
 XPIsland 0.5.2 for World of Warcraft: Forever 1.60.1 only.
