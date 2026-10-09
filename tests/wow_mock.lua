@@ -118,7 +118,9 @@ function methods:SetVertexColor(r,g,b,a) self.tint={r,g,b,a or 1} end
 function methods:SetTexCoord(...) self.coords={...} end
 function methods:SetFont(path,size,flags)
     if W.fontFailures and W.fontFailures[path] then return false end
-    self.fontPath,self.fontSize,self.fontFlags=path,size,flags;return true
+    self.fontPath,self.fontSize,self.fontFlags=path,size,flags
+    if self.kind=="Font" then return end -- native Font:SetFont has no return
+    return true
 end
 function methods:SetText(text) self.text=tostring(text);if self.fontString then self.fontString:SetText(text) end end
 function methods:GetText() return self.text or "" end
@@ -145,7 +147,11 @@ function methods:GetStringHeight()
     return (breaks+1)*(self.fontSize or 12)*1.25
 end
 function methods:SetJustifyV(v) self.justifyV=v end
-function methods:GetFont() return self.fontPath,self.fontSize,self.fontFlags end
+function methods:GetFont()
+    local size=self.fontSize
+    if size and W.fontHeightReadback then size=W.fontHeightReadback(size) end
+    return self.fontPath,size,self.fontFlags
+end
 function methods:SetShadowColor() end
 function methods:SetShadowOffset() end
 function methods:GetFontString() return self.fontString end

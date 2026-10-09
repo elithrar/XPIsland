@@ -20,7 +20,9 @@ local function setFont(text,path,size,flags)
     local actual,actualSize=text:GetFont()
     local same=actual==path or (type(actual)=="string" and type(path)=="string"
         and actual:gsub("/","\\"):lower()==path:gsub("/","\\"):lower())
-    return same and actualSize==size
+    -- GetFont returns a native uiUnit, not an exact echo of the requested
+    -- height. Height conversion/float round trips must not reject a loaded font.
+    return same and type(actualSize)=="number" and actualSize>0
 end
 
 function UI.ApplyFont(text,profile,size,flags)
@@ -29,7 +31,14 @@ function UI.ApplyFont(text,profile,size,flags)
     if text.xpFontKey~=key then
         if not setFont(text,path,size,flags) then
             path=UI.Font({font="Game tooltip"})
-            assert(setFont(text,path,size,flags),"XPIsland could not load the game font")
+            if not setFont(text,path,size,flags) then
+                -- A font preference must never abort addon construction. A
+                -- native Font object supplies a usable face even if path-based
+                -- loading fails; don't cache that failed requested assignment.
+                text:SetFontObject(GameFontNormal or GameTooltipText)
+                text.xpFontKey=nil
+                return text:GetFont()
+            end
         end
         text.xpFontKey=path..":"..size..":"..(flags or "")
     end

@@ -25,6 +25,8 @@ jobs:
           luajit tests/progression_test.lua
           luajit tests/progression_events_test.lua
           luajit tests/font_selection_test.lua
+          luajit tests/font_startup_test.lua
+          luajit tests/font_startup_test.lua --fail-paths
           luajit tests/text_layout_test.lua
           luajit tests/motion_test.lua
           luajit tests/recovery_test.lua
