@@ -15,6 +15,25 @@ fresh();local lines=hover()
 eq(lines[1][1],'No XP activity in this session yet.')
 eq(lines[2][1],'12,345 / 95,000 (13.0%)');eq(#lines,3)
 eq(UI.infinity:IsShown(),true);eq(UI.label:GetText(),'')
+-- A native empty FontString can have no drawable bounds. The symbol must be
+-- positioned from the header slot even when the cleared label cannot resolve.
+local labelRect=UI.label.Rect
+UI.label.Rect=function(self)
+ assert(self:GetText()~='', 'infinity must not resolve anchors through an empty label')
+ return labelRect(self)
+end
+for _,scale in ipairs({.85,.9,1}) do
+ X.profile.scale=scale
+ for _,expanded in ipairs({false,true}) do
+  UI:SetExpanded(expanded,true)
+  local ix,iy=UI.infinity:GetCenter()
+  local hx,hy,hw,hh=UI.header:Rect();local effective=UI.header:GetEffectiveScale()
+  near(ix,(hx+hw)/effective-14-UI.layout.labelWidth/2,'infinity occupies numeric slot without label bounds')
+  near(iy,(hy+hh/2)/effective,'infinity remains vertically centered')
+  eq(UI.infinity:IsVisible(),true,'idle infinity survives scale and expansion changes')
+ end
+end
+UI.label.Rect=nil;X.profile.scale=1;UI:SetExpanded(false,true)
 -- Automatic previews do not teach the interaction; actual clicks do.
 X:LevelUp();W.advance(.3);eq(X.db.expandedOnce,false)
 X:Toggle();eq(X.db.expandedOnce,false,'closing automatic preview is not deliberate expansion')

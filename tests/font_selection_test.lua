@@ -2,6 +2,7 @@
 -- Font loading here is simulated; real client glyph/raster validation is separate.
 local W=dofile("tests/wow_mock.lua")
 local fonts={Expressway="Interface\\AddOns\\EllesmereUI\\media\\fonts\\Expressway.TTF",
+    ["Friz Quadrata TT"]="Fonts\\FRIZQT__.TTF",
     ["2002"]="Fonts\\2002.TTF",["2002 Bold"]="Fonts\\2002B.TTF",
     ["Missing font"]="Interface\\AddOns\\Missing\\font.ttf"}
 local lsm={callbacks={},registrations=0}
@@ -50,6 +51,23 @@ local function allSurfaces(expected)
         end
     end
 end
+-- An explicit family must not follow another addon's global default override.
+local originalStandard=STANDARD_TEXT_FONT
+STANDARD_TEXT_FONT=fonts.Expressway
+W.choose(O.font,"Friz Quadrata TT");allSurfaces(fonts["Friz Quadrata TT"])
+W.choose(O.font,"Expressway")
+W.choose(O.font,"Friz Quadrata");allSurfaces(fonts["Friz Quadrata TT"])
+eq(X.profile.font,"Friz Quadrata","explicit built-in choice keeps its identity")
+STANDARD_TEXT_FONT=originalStandard
+-- Cached assignment metadata is not proof the native object kept its font:
+-- global font passes and native controls can replace an object's current face.
+W.choose(O.font,"Expressway")
+UI.cells[1].title:SetFont(fonts["Friz Quadrata TT"],12,"")
+O.menuFont:SetFont(fonts["Friz Quadrata TT"],18,"")
+O.font.Text:SetFont(fonts["Friz Quadrata TT"],12,"")
+X:ApplyProfile();O:Refresh();allSurfaces(fonts.Expressway)
+local _,menuSize=O.menuFont:GetFont()
+eq(menuSize,12,"refresh repairs externally changed cached menu font size")
 for _,scale in ipairs({.5,.85,.95,1,1.5}) do
     X.profile.scale=scale
     for _,name in ipairs({"Expressway","2002","2002 Bold","Arial","Game tooltip","Expressway"}) do

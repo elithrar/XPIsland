@@ -28,7 +28,10 @@ end
 function UI.ApplyFont(text,profile,size,flags)
     local path=UI.Font(profile)
     local key=path..":"..size..":"..(flags or "")
-    if text.xpFontKey~=key then
+    -- Native controls and global font passes can replace a previously assigned
+    -- face. Compare with the last native readback, not the requested height.
+    local actual,actualSize,actualFlags=text:GetFont()
+    if text.xpFontKey~=key or actual~=text.xpFontPath or actualSize~=text.xpFontSize or actualFlags~=text.xpFontFlags then
         if not setFont(text,path,size,flags) then
             path=UI.Font({font="Game tooltip"})
             if not setFont(text,path,size,flags) then
@@ -41,6 +44,7 @@ function UI.ApplyFont(text,profile,size,flags)
             end
         end
         text.xpFontKey=path..":"..size..":"..(flags or "")
+        text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
     end
     return path
 end
@@ -164,7 +168,7 @@ function UI.Font(profile)
     local requested=default
     local lsm = LibStub and LibStub("LibSharedMedia-3.0", true)
     if profile.font=="Arial" then requested="Fonts\\ARIALN.TTF"
-    elseif profile.font=="Friz Quadrata" then requested=STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+    elseif profile.font=="Friz Quadrata" then requested="Fonts\\FRIZQT__.TTF"
     elseif profile.font~="Game tooltip" then
         requested=(lsm and lsm:IsValid("font",profile.font) and lsm:Fetch("font",profile.font)) or default
     end
@@ -596,7 +600,9 @@ function UI:Layout(preserveMotion)
     self.outer:Radius(17);self.inner:Radius(16)
     self.label:ClearAllPoints();self.label:SetPoint("RIGHT",self.header,"RIGHT",-14,0)
     self.label:SetSize(labelWidth,layout.barHeight)
-    self.infinity:ClearAllPoints();self.infinity:SetPoint("CENTER",self.label,"CENTER")
+    -- Empty FontStrings need not provide drawable bounds. Keep the symbol in
+    -- the numeric slot without anchoring it to the label we clear for infinity.
+    self.infinity:ClearAllPoints();self.infinity:SetPoint("CENTER",self.header,"RIGHT",-14-labelWidth/2,0)
     self.header:ClearAllPoints()
     local point=layout.up and "BOTTOM" or "TOP"
     self.header:SetPoint(point,self.content,point)
