@@ -19,7 +19,7 @@ Tags themselves do not belong to branches. The workflow fetches `origin/main` an
 | `v0.5.0-alpha.1` | Prerelease | Alpha |
 | `v0.5.0-beta.1` or `v0.5.0-rc.1` | Prerelease | Beta |
 
-The read-only validation job runs all addon and release tests, verifies Forever 1.60.1/interface 16001, then creates a reproducible ZIP containing exactly the eleven addon files under `XPIsland/`. It publishes a build artifact. A separate job uses the standard job-scoped `GITHUB_TOKEN` with `contents: write` to attach that ZIP, SHA256SUMS and release metadata to GitHub. No new PAT is needed. Checkout/artifact actions are pinned to full commit IDs; checkout does not persist credentials. Concurrent releases of the same tag are serialized. Reruns verify an existing ZIP instead of replacing different bytes.
+The read-only validation job runs all addon and release tests, verifies Forever 1.60.1/interface 16001, then creates a reproducible ZIP containing exactly the thirteen addon files under `XPIsland/`. It publishes a build artifact. A separate job uses the standard job-scoped `GITHUB_TOKEN` with `contents: write` to attach that ZIP, SHA256SUMS and release metadata to GitHub. No new PAT is needed. Checkout/artifact actions are pinned to full commit IDs; checkout does not persist credentials. Concurrent releases of the same tag are serialized. Reruns verify an existing ZIP instead of replacing different bytes.
 
 ## CurseForge setup
 

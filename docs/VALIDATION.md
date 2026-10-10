@@ -85,4 +85,6 @@ explicitly separate and unrun; follow [the acceptance checklist](PROGRESSION-LIV
 
 ## Shared typography follow-up
 
-Both check/release workflows run the new font-selection (6,965 assertions) and fractional typography (490,000 assertions) suites. See [the combined review](TYPOGRAPHY-REVIEW.md) for the failing v0.6.0 reproduction, actual log error evidence, independent review fixes, optional real-font proof renderer and original screenshot review and remaining live checks.
+Both check/release workflows run focused font-selection and fractional typography suites. They cover native compositor restrictions, explicit and late-loaded font families, shared fallback, startup recovery, named scale/viewport/font boundaries, valid PvP formats, all footer visibility combinations, and the reported scale transitions. Redundant Cartesian combinations and unused Line mocks were removed during final review. A menu callback regression verifies that a font selection refreshes each native menu once; copy-source caption and duration behavior remain covered. See [the combined review](TYPOGRAPHY-REVIEW.md) for the failing v0.6.0 reproduction, actual log error evidence, independent review fixes, optional real-font proof renderer and original screenshot review and remaining live checks.
+
+The user subsequently confirmed that the packaged infinity looks good in client. That is user-observed acceptance of its appearance, not an automated native-rendering result. Full live font-switching and fresh post-release error-log acceptance remain separate.

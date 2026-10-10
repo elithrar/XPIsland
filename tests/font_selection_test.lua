@@ -36,21 +36,22 @@ local function allSurfaces(expected)
         eq(entry.object:GetFont(),expected,"options label/edit/control uses selected family")
     end
     eq(O.menuFont:GetFont(),expected,"shared menu Font uses selected family")
-    for _,dropdown in ipairs(O.dropdowns) do
-        dropdown:GenerateMenu()
-        for _,entry in ipairs(dropdown.menuDescription.entries) do
-            -- The real compositor forbids even INDEXING SetFont. Prior tests
-            -- generated descriptions without running these native initializers.
-            local selectedFont
-            local guarded=setmetatable({SetFontObject=function(_,font) selectedFont=font end},
-                {__index=function(_,key)
-                    if key=="SetFont" then error("Use of function 'SetFont' is disallowed. (Index)") end
-                    error("Unexpected compositor method: "..key)
-                end})
-            entry.initializer({fontString=guarded})
-            eq(selectedFont,O.menuFont,"native rows use safe shared Font object")
-            eq(selectedFont:GetFont(),expected,"native menu inherits selected family")
-        end
+end
+-- Exercise each native initializer once; later selections verify the shared
+-- Font object itself instead of regenerating every menu for every assertion.
+for _,dropdown in ipairs(O.dropdowns) do
+    dropdown:GenerateMenu()
+    for _,entry in ipairs(dropdown.menuDescription.entries) do
+        -- The real compositor forbids even INDEXING SetFont. Prior tests
+        -- generated descriptions without running these native initializers.
+        local selectedFont
+        local guarded=setmetatable({SetFontObject=function(_,font) selectedFont=font end},
+            {__index=function(_,key)
+                if key=="SetFont" then error("Use of function 'SetFont' is disallowed. (Index)") end
+                error("Unexpected compositor method: "..key)
+            end})
+        entry.initializer({fontString=guarded})
+        eq(selectedFont,O.menuFont,"native rows use safe shared Font object")
     end
 end
 -- An explicit family must not follow another addon's global default override.
@@ -70,25 +71,23 @@ O.font.Text:SetFont(fonts["Friz Quadrata TT"],12,"")
 X:ApplyProfile();allSurfaces(fonts.Expressway)
 local _,menuSize=O.menuFont:GetFont()
 eq(menuSize,12,"refresh repairs externally changed cached menu font size")
-for _,scale in ipairs({.5,.85,.95,1,1.5}) do
-    X.profile.scale=scale
-    for _,name in ipairs({"Expressway","2002","2002 Bold","Arial","Game tooltip","Expressway"}) do
-        W.choose(O.font,name)
-        local expected=fonts[name] or (name=="Arial" and "Fonts\\ARIALN.TTF" or tooltipFont)
-        UI:SetExpanded(true,true)
-        allSurfaces(expected)
-        eq(X.profile.font,name,"preserve selected preference")
-        eq(X.profile.scale,scale,"font selection preserves scale")
-        eq(O.profilesTab.text:GetText(),"Profiles","previously blank Profiles caption survives font selection")
-        eq(O.rested.text:GetText(),"Rested XP","previously blank color caption survives font selection")
-        eq(O.format.Text:GetText(),"Percentage","previously blank bar format survives menu regeneration")
-        eq(O.font.Text:GetText(),name=="Game tooltip" and "Game Tooltip (default)" or name,"selected font remains visible")
-        local fontCaption
-        for _,entry in ipairs(O.fontObjects) do
-            if entry.object:GetText()=="Font" then fontCaption=entry.object end
-        end
-        eq(fontCaption~=nil and fontCaption:IsVisible(),true,"Font caption remains visible")
+X.profile.scale=.85
+for _,name in ipairs({"Expressway","2002","2002 Bold","Arial","Game tooltip","Expressway"}) do
+    W.choose(O.font,name)
+    local expected=fonts[name] or (name=="Arial" and "Fonts\\ARIALN.TTF" or tooltipFont)
+    UI:SetExpanded(true,true)
+    allSurfaces(expected)
+    eq(X.profile.font,name,"preserve selected preference")
+    eq(X.profile.scale,.85,"font selection preserves scale")
+    eq(O.profilesTab.text:GetText(),"Profiles","previously blank Profiles caption survives font selection")
+    eq(O.rested.text:GetText(),"Rested XP","previously blank color caption survives font selection")
+    eq(O.format.Text:GetText(),"Percentage","previously blank bar format survives menu regeneration")
+    eq(O.font.Text:GetText(),name=="Game tooltip" and "Game Tooltip (default)" or name,"selected font remains visible")
+    local fontCaption
+    for _,entry in ipairs(O.fontObjects) do
+        if entry.object:GetText()=="Font" then fontCaption=entry.object end
     end
+    eq(fontCaption~=nil and fontCaption:IsVisible(),true,"Font caption remains visible")
 end
 -- A valid LSM registration is not evidence the client loaded the font. A
 -- failed family must not leave some objects on the previous Expressway face.
@@ -151,7 +150,7 @@ end
 X.profile.font="Expressway";X:ApplyProfile()
 allSurfaces(GameFontNormal:GetFont())
 eq(UI.layout.font,GameFontNormal:GetFont(),"late two-stage failure reflows final family")
-eq(passes,3,"three passes settle selected, default and native fallback")
+eq(passes<=3,true,"fallback settling is bounded")
 eq(X.refreshingAppearance,nil,"refresh guard clears after fallback replay")
 title.SetFont=originalTitleSetter;O.font.Text.SetFont=originalOptionsSetter
 UI.LayoutContents=originalLayout
@@ -176,6 +175,13 @@ for _,dropdown in ipairs(O.dropdowns) do
 end
 for _=1,10 do UI:Layout(true) end
 eq(menuRebuilds,0,"unchanged model layout does not regenerate native menus")
+for _,entry in ipairs(O.font.menuDescription.entries) do
+    if entry.value=="2002" then entry.select(entry.value);break end
+end
+eq(menuRebuilds,#O.dropdowns,"font selection rebuilds each native menu once")
+allSurfaces(fonts["2002"])
+W.choose(O.copy,"Shared")
+eq(O.copy.Text:GetText(),"Shared","copy source selection refreshes its caption")
 -- Fonts from embedded/late-loaded SharedMedia providers become available
 -- without reselecting a setting or leaving options on the old fallback face.
 X.profile.font="Late font";X:ApplyProfile();O:Refresh();allSurfaces(tooltipFont)

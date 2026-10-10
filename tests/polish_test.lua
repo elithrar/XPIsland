@@ -20,7 +20,6 @@ eq(UI.infinity.shadow.texture,UI.infinity.symbol.texture,'shadow uses the same m
 eq(UI.infinity.symbol:IsVisible(),true,'foreground texture is explicitly visible')
 eq(UI.infinity.symbol.tint[4],1,'foreground is opaque')
 eq(UI.infinity.shadow.tint[4],.8,'shadow matches text alpha')
-for _,object in ipairs(W.objects) do eq(object.kind=='Line',false,'no native line dependency') end
 W.textureMissing=true
 local failed,supported=UI.Infinity(UI.bar)
 eq(supported,false,'failed native asset loading selects the text fallback')

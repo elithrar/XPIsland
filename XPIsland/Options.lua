@@ -85,7 +85,7 @@ function O:Dropdown(parent,x,y,width,entries,get,choose,placeholder)
         root:SetScrollMode(220)
         for _,entry in ipairs(entries()) do
             local row=root:CreateRadio(entry.label or entry.value,function(value) return get()==value end,function(value)
-                choose(value);self:Refresh()
+                choose(value)
             end,entry.value)
             row:AddInitializer(function(b)
                 -- Compositor-owned FontStrings forbid SetFont, including a
@@ -143,8 +143,9 @@ function O:Duration(parent,toggle,key,y)
         local snapped=math.max(5,math.min(15,math.floor(value/5+.5)*5))
         if self.owner.profile[key]~=snapped then
             self.owner.profile[key]=snapped;self.owner:ApplyProfile()
+        else
+            self:Refresh()
         end
-        self:Refresh()
     end)
     self.durationSliders[key]=slider
 end
@@ -272,7 +273,7 @@ function O:Create(owner)
     end)
     label(page,"Copy settings from",28,-308)
     self.copy=self:Dropdown(page,28,-330,260,function() return self:ProfileEntries() end,function() return self.copySource end,function(v)
-        self.copySource=v;self.confirmCopy=nil
+        self.copySource=v;self.confirmCopy=nil;self:Refresh()
     end,"Choose source…")
     self.copyButton=button(page,"Copy settings",328,-330,260,function()
         if not self.copySource then self.status:SetText("Choose a source profile first.");return end

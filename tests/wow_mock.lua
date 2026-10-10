@@ -29,10 +29,6 @@ function CreateFrame(kind,name,parent,template)
     return o
 end
 function methods:CreateTexture(name,layer) local t=object("Texture",name,self);t.layer=layer;return t end
-function methods:CreateLine(name,layer) local t=object("Line",name,self);t.layer=layer;return t end
-function methods:SetThickness(value) self.thickness=value end
-function methods:SetStartPoint(point,relative,x,y) self.lineStart={point,relative,x,y} end
-function methods:SetEndPoint(point,relative,x,y) self.lineEnd={point,relative,x,y} end
 function methods:CreateFontString(name,layer) local t=object("FontString",name,self);t.layer=layer;return t end
 function CreateFont(name) return object("Font",name) end
 function methods:SetFontObject(font) self.fontObject=font;self.fontPath,self.fontSize,self.fontFlags=font:GetFont() end
@@ -280,7 +276,7 @@ COMBATLOG_XPGAIN_EXHAUSTION1="%s dies, you gain %d experience. (%s exp %s bonus)
 COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED="You gain %d experience."
 
 -- Count requested native-UI operations, not CPU/GPU duration.
-local counted={"SetPoint","ClearAllPoints","SetSize","SetWidth","SetHeight","SetScale","SetFont","SetText","GetUnboundedStringWidth","GetStringHeight","SetColorTexture","SetVertexColor","SetTexCoord","SetTexture","SetAlpha","SetShown","EnableMouse","CreateTexture","CreateFontString","CreateLine","SetThickness","SetStartPoint","SetEndPoint"}
+local counted={"SetPoint","ClearAllPoints","SetSize","SetWidth","SetHeight","SetScale","SetFont","SetText","GetUnboundedStringWidth","GetStringHeight","SetColorTexture","SetVertexColor","SetTexCoord","SetTexture","SetAlpha","SetShown","EnableMouse","CreateTexture","CreateFontString"}
 for _,name in ipairs(counted) do
     local original=methods[name]
     methods[name]=function(self,...)
@@ -311,7 +307,7 @@ function W.svg(path,root)
     for _,o in ipairs(W.objects) do
         local p=o;local include=not root
         while p do if p==root then include=true end;p=p.parent end
-        if include and o:IsVisible() and (o.kind=="Line" or o.kind=="Texture" or o.kind=="FontString" or o.kind=="EditBox" or o.template) then ordered[#ordered+1]=o end
+        if include and o:IsVisible() and (o.kind=="Texture" or o.kind=="FontString" or o.kind=="EditBox" or o.template) then ordered[#ordered+1]=o end
     end
     local layers={BACKGROUND=0,ARTWORK=1,OVERLAY=2}
     table.sort(ordered,function(a,b)
@@ -334,11 +330,7 @@ function W.svg(path,root)
             parent=parent.parent
         end
         f:write(string.format('<defs><clipPath id="object%d"><rect x="%f" y="%f" width="%f" height="%f"/></clipPath></defs><g opacity="%f" clip-path="url(#object%d)">',i,cx,cy,cw,ch,alpha,i))
-        if o.kind=="Line" then
-            local ax,ay=o.parent:GetCenter();local scale=o:GetEffectiveScale()
-            local a,b=o.lineStart,o.lineEnd
-            f:write(string.format('<line x1="%f" y1="%f" x2="%f" y2="%f" stroke="%s" stroke-opacity="%f" stroke-width="%f" stroke-linecap="round"/>',ax*scale+a[3]*scale,rh-ay*scale-a[4]*scale,ax*scale+b[3]*scale,rh-ay*scale-b[4]*scale,color(c),c[4] or 1,o.thickness*scale))
-        elseif o.template and o.kind~="EditBox" then
+        if o.template and o.kind~="EditBox" then
             -- Layout-only stand-ins: Blizzard's native art is not bundled here.
             local fill=o.backdropColor and color(o.backdropColor) or o.template=="UIPanelButtonTemplate" and "#681a16" or "#151515"
             local stroke=o.backdropBorder and color(o.backdropBorder) or "#66605a"

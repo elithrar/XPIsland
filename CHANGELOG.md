@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.1
+
+XPIsland 0.6.1 for World of Warcraft: Forever 1.60.1 only (Interface 16001).
+
+- Fix native font-menu errors and blank captions by using the supported shared Font object for menu rows.
+- Apply font changes consistently across the island and settings, including Expressway, 2002 Bold, explicit Friz choices, late-loaded fonts and unavailable-font fallbacks.
+- Fit labels at fractional scales and recover from native fractional font heights without aborting startup.
+- Use a centered, antialiased infinity texture with consistent weight across font families. The updated appearance was confirmed in client by the user.
+- Avoid duplicate settings/menu rebuilds after selecting a font or changing a duration. Existing profiles and session data are preserved.
+
+Validation covers native menu restrictions, font propagation and fallback, clipping boundaries, startup recovery, animation work, packaged infinity pixels, release guards and deterministic packaging. Redundant test combinations were replaced with focused boundary cases. Independent source review found no remaining defects.
+
+Automated layout checks use mocks; they do not prove native rendering. User feedback confirmed the infinity appearance and previously reported scaling/kills behavior. A complete live font-switching matrix and fresh post-release Lua-error check remain manual acceptance steps. Reload the UI after updating an already loaded addon.
+
 ## 0.6.0
 
 XPIsland 0.6.0 for World of Warcraft: Forever 1.60.1 only (Interface 16001).

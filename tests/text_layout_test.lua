@@ -56,64 +56,74 @@ for _,scale in ipairs({.85,.9,.95,1,.85}) do
  end
 end
 X.profile.placement='top'
-local shapes={.42,.52,.7} -- narrow, standard, wide advances
-for _,rootScale in ipairs({.64,.8,1,1.25}) do
- UIParent:SetScale(rootScale)
- for _,scale in ipairs({.5,.75,.85,1,1.25,1.5}) do
-  for _,size in ipairs({10,14,18}) do
-   for _,shape in ipairs(shapes) do
-    W.fontWidths={['Fonts\\FRIZQT__.TTF']=shape}
-    -- Flush synthetic metric changes through a different family key.
-    for _,o in ipairs(W.objects) do o.xpMeasureKey=nil end
-    for _,viewport in ipairs({{800,220},{800,600},{1920,1080},{3440,1440}}) do
-     UIParent:SetSize(unpack(viewport))
-     X.profile.scale=scale;X.profile.fontSize=size
-     for mask=0,7 do
-      X.profile.showPet=mask%2==1;X.profile.showRank=math.floor(mask/2)%2==1;X.profile.showKills=mask>=4
-      P.pet={xp=123456,cap=500000,level=9,name='Wolf'}
-      P.rank={level=0,xp=0,cap=75000,left=75000,total=123456789,ceiling=987654321}
-      UI:SetExpanded(true,true)
-      for _,c in ipairs(UI.cells) do
-       check(not c.title:IsTruncated(),'stat title fits at fractional effective scale')
-       check(not c.value:IsTruncated(),'stat value fits at fractional effective scale')
-       separated(c)
-      end
-      for _,c in ipairs(UI.inlineCells) do
-       if c.active then
-        check(not c.title:IsTruncated(),'all optional footer titles fit')
-        check(not c.value:IsTruncated(),'all optional footer values fit')
-       end
-      end
-      local gx,_,gw=UI.inlineGroup:Rect();local dx,_,dw=UI.details:Rect()
-      near(gx+gw/2,dx+dw/2,'optional group centered')
-      check(gw<=dw+.001,'full group stays inside drawer')
-     end
-     for _,mode in ipairs({'xp','pvp'}) do
-      X.profile.mode=mode
-      for _,format in ipairs({'percent','fraction','left','eta','kills'}) do
-       X.profile.format=format;X.profile.pvpFormat='remaining'
-       UI:SetExpanded(true,true)
-       check(not UI.label:IsTruncated(),'header number/unavailable text fits shared slot')
-       local ix,iy=UI.infinity:GetCenter();local lx,ly=UI.label:GetCenter()
-       near(ix, lx,'infinity and number share horizontal slot center')
-       near(iy, ly,'infinity and number share vertical slot center')
-       for _,c in ipairs(UI.cells) do
-        if c:IsShown() then
-         check(not c.title:IsTruncated(),'XP/PvP title fits')
-         check(not c.value:IsTruncated(),'XP/PvP numeric/cap/unavailable fits')
-         separated(c)
-        end
-       end
-      end
-     end
-     X.profile.mode='xp'
-     X.levelNotice={seconds=3600};UI:Layout()
-     check(not UI.levelText:IsTruncated(),'level-up notice has shared width and height clearance')
-     X.levelNotice=nil;UI:Layout()
-    end
+-- Named boundary cases replace a Cartesian product of independent inputs.
+-- Keep the reported scales, scale/font extremes and cramped/ultrawide screens.
+local cases={
+ {"default",1,1,14,.52,1920,1080},
+ {"reported 85%",.64,.85,14,.52,1920,1080},
+ {"reported 90%",.8,.9,14,.7,1920,1080},
+ {"reported 100%",.64,1,14,.7,1920,1080},
+ {"smallest text",.64,.5,10,.42,800,600},
+ {"short viewport",1.25,1.5,18,.7,800,220},
+ {"wide text",1,.85,18,.7,800,600},
+ {"ultrawide",1.25,1.5,18,.52,3440,1440},
+ {"narrow text",.8,.75,14,.42,800,600},
+ {"scaled parent",1.25,1.25,10,.7,1920,1080},
+}
+local headers={
+ {"xp","percent"},{"xp","fraction"},{"xp","left"},
+ {"xp","leftPercent"},{"xp","eta"},{"xp","kills"},
+ {"pvp","honor"},{"pvp","rankLeft"},
+}
+P.pet={xp=123456,cap=500000,level=9,name='Wolf'}
+P.rank={level=0,xp=0,cap=75000,left=75000,total=123456789,ceiling=987654321}
+for _,case in ipairs(cases) do
+ local name,rootScale,scale,size,shape,vw,vh=unpack(case)
+ UIParent:SetScale(rootScale);UIParent:SetSize(vw,vh)
+ X.profile.scale=scale;X.profile.fontSize=size
+ W.fontWidths={['Fonts\\FRIZQT__.TTF']=shape}
+ for _,o in ipairs(W.objects) do o.xpMeasureKey=nil end
+ -- Cover all visibility combinations once at the tight wide-text boundary.
+ -- Other cases retain all footer items, the largest geometry requirement.
+ local masks=name=='wide text' and {0,1,2,3,4,5,6,7} or {7}
+ X.profile.mode='xp'
+ for _,mask in ipairs(masks) do
+  X.profile.showPet=mask%2==1;X.profile.showRank=math.floor(mask/2)%2==1;X.profile.showKills=mask>=4
+  UI:SetExpanded(true,true)
+  for _,c in ipairs(UI.cells) do
+   check(not c.title:IsTruncated(),name..': stat title fits')
+   check(not c.value:IsTruncated(),name..': stat value fits')
+   separated(c)
+  end
+  for _,c in ipairs(UI.inlineCells) do
+   if c.active then
+    check(not c.title:IsTruncated(),name..': footer title fits')
+    check(not c.value:IsTruncated(),name..': footer value fits')
+   end
+  end
+  local gx,_,gw=UI.inlineGroup:Rect();local dx,_,dw=UI.details:Rect()
+  near(gx+gw/2,dx+dw/2,name..': footer group centered')
+  check(gw<=dw+.001,name..': footer stays inside drawer')
+ end
+ for _,header in ipairs(headers) do
+  X.profile.mode=header[1]
+  if header[1]=='xp' then X.profile.format=header[2] else X.profile.pvpFormat=header[2] end
+  UI:SetExpanded(true,true)
+  check(not UI.label:IsTruncated(),name..': '..header[2]..' header fits')
+  local ix,iy=UI.infinity:GetCenter();local lx,ly=UI.label:GetCenter()
+  near(ix,lx,name..': infinity shares horizontal slot')
+  near(iy,ly,name..': infinity shares vertical slot')
+  for _,c in ipairs(UI.cells) do
+   if c:IsShown() then
+    check(not c.title:IsTruncated(),name..': XP/PvP title fits')
+    check(not c.value:IsTruncated(),name..': XP/PvP value fits')
+    separated(c)
    end
   end
  end
+ X.profile.mode='xp';X.levelNotice={seconds=3600};UI:Layout()
+ check(not UI.levelText:IsTruncated(),name..': level notice fits')
+ X.levelNotice=nil;UI:Layout()
 end
 -- No font/measurement/symbol geometry work is introduced on animation frames.
 UIParent:SetScale(1);UIParent:SetSize(1920,1080)
@@ -121,7 +131,7 @@ X.profile.scale=.85;X.profile.fontSize=14;X.profile.format='eta'
 X.profile.showRank=true;X.profile.showKills=true;X.profile.showPet=false
 UI:SetExpanded(false,true);UI:SetExpanded(true)
 W.beginWork();while UI.animation do UI:Animate(1/60) end;local work=W.endWork()
-for _,name in ipairs({'SetFont','GetUnboundedStringWidth','GetStringHeight','CreateLine','SetThickness','SetStartPoint','SetEndPoint'}) do
+for _,name in ipairs({'SetFont','GetUnboundedStringWidth','GetStringHeight'}) do
  check(not work[name],'no '..name..' work in animation')
 end
 W.svg('dist/preview-text-85.svg',UI.frame)

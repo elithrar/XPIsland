@@ -86,3 +86,11 @@ Quadrata, Friz Quadrata TT and 2002 Bold, including reopening the menu. At
 Select idle Time to Next Level and verify a visible, centered infinity with
 appropriate weight in collapsed and expanded states. Reload and check for the
 first Lua error, if any. Kills and scaling should retain their reported behavior.
+
+## Final review and user acceptance
+
+The user confirmed that the replacement infinity looks good in client. Its approved geometry, color, shadow and asset bytes remain unchanged. The complete live font-switching matrix and post-release Lua-log check have not been observed by this review.
+
+Final review found a duplicate settings refresh after native dropdown selections and duration changes. The profile refresh already updates every control; removing the second pass avoids rebuilding all seven native menus twice. Copy-source selection retains its own refresh because it does not apply a profile. Focused regression checks cover menu rebuild ownership and copy-source captions.
+
+Test review replaced the large typography Cartesian product with named clipping boundaries, retained all footer masks in a wide-text case, and corrected PvP coverage to use `honor` and `rankLeft`. Font-family transitions run at one fractional scale, compositor row restrictions are checked once per native row, and unused Line mock code was removed. Startup recovery, shared fallback, late media, geometry, animation ownership and actual infinity-pixel tests remain.
