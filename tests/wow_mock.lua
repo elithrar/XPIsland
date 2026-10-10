@@ -30,6 +30,8 @@ function CreateFrame(kind,name,parent,template)
 end
 function methods:CreateTexture(name,layer) local t=object("Texture",name,self);t.layer=layer;return t end
 function methods:CreateFontString(name,layer) local t=object("FontString",name,self);t.layer=layer;return t end
+function CreateFont(name) return object("Font",name) end
+function methods:SetFontObject(font) self.fontObject=font;self.fontPath,self.fontSize,self.fontFlags=font:GetFont() end
 function methods:SetSize(w,h) assert(w>=0 and h>=0);self.width,self.height=w,h end
 function methods:SetWidth(w) assert(w>=0);self.width=w end
 function methods:SetHeight(h) assert(h>=0);self.height=h end
@@ -110,21 +112,42 @@ function methods:SetTexture(t) self.texture=t;return not W.textureMissing end
 function methods:SetColorTexture(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:SetVertexColor(r,g,b,a) self.tint={r,g,b,a or 1} end
 function methods:SetTexCoord(...) self.coords={...} end
-function methods:SetFont(path,size,flags) self.fontPath,self.fontSize,self.fontFlags=path,size,flags;return true end
+function methods:SetFont(path,size,flags)
+    if W.fontFailures and W.fontFailures[path] then return false end
+    self.fontPath,self.fontSize,self.fontFlags=path,size,flags
+    if self.kind=="Font" then return end -- native Font:SetFont has no return
+    return true
+end
 function methods:SetText(text) self.text=tostring(text);if self.fontString then self.fontString:SetText(text) end end
 function methods:GetText() return self.text or "" end
 function methods:SetTextColor(r,g,b,a) self.color={r,g,b,a or 1} end
 function methods:GetStringWidth()
     local longest=0;for line in ((self.text or "").."\n"):gmatch("([^\n]*)\n") do longest=math.max(longest,#line) end
-    return longest*(self.fontSize or 12)*.52
+    if W.missingInfinity and self.text=="∞" then return 0 end
+    local width=longest*(self.fontSize or 12)*(W.fontWidths and W.fontWidths[self.fontPath] or .52)
+    if W.fontAdvances then
+        width=0
+        for char in (self.text or ''):gmatch('[%z\1-\127\194-\244][\128-\191]*') do
+            width=width+(W.fontAdvances[char] or .6)*(self.fontSize or 12)
+        end
+    end
+    return W.pixelMetrics and math.floor(width*self:GetEffectiveScale())/self:GetEffectiveScale() or width
 end
 methods.GetUnboundedStringWidth=methods.GetStringWidth
+function methods:IsTruncated()
+    local required=self:GetUnboundedStringWidth()+(W.pixelMetrics and 1/self:GetEffectiveScale() or 0)
+    return self:GetWidth()+.00001<required or self:GetHeight()+.00001<self:GetStringHeight()
+end
 function methods:GetStringHeight()
     local _,breaks=(self.text or ""):gsub("\n","")
     return (breaks+1)*(self.fontSize or 12)*1.25
 end
 function methods:SetJustifyV(v) self.justifyV=v end
-function methods:GetFont() return self.fontPath,self.fontSize,self.fontFlags end
+function methods:GetFont()
+    local size=self.fontSize
+    if size and W.fontHeightReadback then size=W.fontHeightReadback(size) end
+    return self.fontPath,size,self.fontFlags
+end
 function methods:SetShadowColor() end
 function methods:SetShadowOffset() end
 function methods:GetFontString() return self.fontString end
@@ -343,7 +366,17 @@ function W.svg(path,root)
         elseif o.parent and o.parent.Arrow==o then
             f:write(string.format('<path d="M %f %f l 8 0 l -4 5 Z" fill="#d5b74c"/>',x+5,y+h/2-2))
         elseif o.texture and o.texture:find("infinity.tga",1,true) then
-            f:write(string.format('<text x="%f" y="%f" font-family="Arial" font-size="%f" fill="%s">∞</text>',x,y+h,h*1.4,color(c)))
+            -- Render the actual alpha mask instead of substituting a font glyph.
+            local file=assert(io.open('XPIsland/media/infinity.tga','rb'))
+            local data=file:read('*a');file:close()
+            local tw=data:byte(13)+data:byte(14)*256
+            local th=data:byte(15)+data:byte(16)*256
+            for py=0,th-1 do for px=0,tw-1 do
+                local a=data:byte(22+(py*tw+px)*4)/255
+                if a>0 then
+                    f:write(string.format('<rect x="%f" y="%f" width="%f" height="%f" fill="%s" fill-opacity="%f"/>',x+px*w/tw,y+py*h/th,w/tw,h/th,color(c),a*(c[4] or 1)))
+                end
+            end end
         elseif o.texture and o.texture:find("cap.tga",1,true) then
             local co=o.coords
             f:write(string.format('<defs><clipPath id="cap%d"><rect x="%f" y="%f" width="%f" height="%f"/></clipPath></defs><circle cx="%f" cy="%f" r="%f" fill="%s" clip-path="url(#cap%d)"/>',i,x,y,w,h,x+h*(.5-co[1]),y+h/2,h/2,color(c),i))

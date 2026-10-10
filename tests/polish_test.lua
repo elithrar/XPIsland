@@ -15,6 +15,44 @@ fresh();local lines=hover()
 eq(lines[1][1],'No XP activity in this session yet.')
 eq(lines[2][1],'12,345 / 95,000 (13.0%)');eq(#lines,3)
 eq(UI.infinity:IsShown(),true);eq(UI.label:GetText(),'')
+eq(UI.infinity.symbol.texture,'Interface\\AddOns\\XPIsland\\media\\infinity.tga','visible symbol uses packaged pixels')
+eq(UI.infinity.shadow.texture,UI.infinity.symbol.texture,'shadow uses the same mask')
+eq(UI.infinity.symbol:IsVisible(),true,'foreground texture is explicitly visible')
+eq(UI.infinity.symbol.tint[4],1,'foreground is opaque')
+eq(UI.infinity.shadow.tint[4],.8,'shadow matches text alpha')
+W.textureMissing=true
+local failed,supported=UI.Infinity(UI.bar)
+eq(supported,false,'failed native asset loading selects the text fallback')
+failed:Hide();W.textureMissing=nil
+-- A native empty FontString can have no drawable bounds. The symbol must be
+-- positioned from the header slot even when the cleared label cannot resolve.
+local labelRect=UI.label.Rect
+UI.label.Rect=function(self)
+ assert(self:GetText()~='', 'infinity must not resolve anchors through an empty label')
+ return labelRect(self)
+end
+for _,scale in ipairs({.85,.9,1}) do
+ X.profile.scale=scale
+ for _,size in ipairs({10,14,18}) do
+  X.profile.fontSize=size
+ for _,expanded in ipairs({false,true}) do
+  UI:SetExpanded(expanded,true)
+  UI:Layout(true)
+  local ix,iy=UI.infinity:GetCenter()
+  local hx,hy,hw,hh=UI.header:Rect();local effective=UI.header:GetEffectiveScale()
+  near(ix,(hx+hw)/effective-14-UI.layout.labelWidth/2,'infinity occupies numeric slot without label bounds')
+  near(iy,(hy+hh/2)/effective,'infinity remains vertically centered')
+  eq(UI.infinity:IsVisible(),true,'idle infinity survives scale and expansion changes')
+  local sw,sh=UI.infinity.symbol:GetSize()
+  near(sw/sh,2,'asset and display keep identical aspect ratio')
+  near(sw,size*1.5,'symbol scales proportionally with numeric text')
+  local sx,sy=UI.infinity.shadow:GetCenter()
+  near(sx,ix+1,'shadow matches text horizontal offset')
+  near(sy,iy-1,'shadow matches text vertical offset')
+ end
+ end
+end
+UI.label.Rect=nil;X.profile.scale=1;X.profile.fontSize=14;UI:SetExpanded(false,true)
 -- Automatic previews do not teach the interaction; actual clicks do.
 X:LevelUp();W.advance(.3);eq(X.db.expandedOnce,false)
 X:Toggle();eq(X.db.expandedOnce,false,'closing automatic preview is not deliberate expansion')
@@ -58,7 +96,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
   O.frame:SetScale(scale)
   for _,d in ipairs(O.dropdowns) do
    local dx,dy,dw,dh=d:Rect();local tx,ty,tw,th=d.Text:Rect();local ax=d.Arrow:Rect()
-   eq(#d.Text.points,2);eq(d.Text.points[1][1],'LEFT');eq(d.Text.points[2][1],'RIGHT')
+   eq(#d.Text.points,1);eq(d.Text.points[1][1],'LEFT')
    near(ty+th/2,dy+dh/2,'dropdown vertical center');near(tx,dx+9*scale)
    near(tx+tw,ax-3*scale,'text stops before arrow');eq(d.Text.justifyV,'MIDDLE');eq(d.Text.wrap,false)
    eq(ty>=dy and ty+th<=dy+dh,true,'selected text box inside border')

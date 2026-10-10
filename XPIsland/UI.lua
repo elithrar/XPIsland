@@ -7,12 +7,127 @@ local FLASH_COLOR={1,1,1}
 local SOURCE_KEYS={"kills","quests","dungeons","other"}
 local MEDIA = "Interface\\AddOns\\XPIsland\\media\\rounded.tga"
 
+-- Resolve one usable family before applying it anywhere. SharedMedia can list
+-- locale-only or missing files; SetFont then fails and retains the old font.
+-- Keep the saved preference so a later registration can make it available.
+local fontResults={}
+local fontProbe
+UI.fontRevision=0
+function UI.ResetFonts() fontResults={} end
+
+local function setFont(text,path,size,flags)
+    local ok,result=pcall(text.SetFont,text,path,size,flags or "")
+    if not ok or result==false then return false end
+    local actual,actualSize=text:GetFont()
+    local same=actual==path or (type(actual)=="string" and type(path)=="string"
+        and actual:gsub("/","\\"):lower()==path:gsub("/","\\"):lower())
+    -- GetFont returns a native uiUnit, not an exact echo of the requested
+    -- height. Height conversion/float round trips must not reject a loaded font.
+    return same and type(actualSize)=="number" and actualSize>0
+end
+
+function UI.ApplyFont(text,profile,size,flags)
+    local path,state=UI.Font(profile)
+    local key=path..":"..size..":"..(flags or "")
+    -- Native controls and global font passes can replace a previously assigned
+    -- face. Compare with the last native readback, not the requested height.
+    local actual,actualSize,actualFlags=text:GetFont()
+    local changed=actual~=text.xpFontPath or actualSize~=text.xpFontSize or actualFlags~=text.xpFontFlags
+    if state.native then
+        if text.xpNativeFont~=state.native or changed then text:SetFontObject(state.native) end
+        text.xpNativeFont=state.native;text.xpFontKey=nil
+        text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
+        return path
+    end
+    text.xpNativeFont=nil
+    if text.xpFontKey~=key or changed then
+        if not setFont(text,path,size,flags) then
+            -- Downgrade the shared resolution, not just this object. The owner
+            -- replays layout/options after a downgrade so earlier objects and
+            -- their measurements settle on the same family before returning.
+            path=state.default
+            state.path=path;UI.fontRevision=UI.fontRevision+1
+            if not setFont(text,path,size,flags) then
+                -- A font preference must never abort addon construction. A
+                -- native Font object supplies a usable face even if path-based
+                -- loading fails; don't cache that failed requested assignment.
+                state.native=GameFontNormal or GameTooltipText
+                state.path=state.native:GetFont()
+                text:SetFontObject(state.native);text.xpNativeFont=state.native
+                text.xpFontKey=nil
+                text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
+                return text:GetFont()
+            end
+        end
+        text.xpFontKey=path..":"..size..":"..(flags or "")
+        text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
+    end
+    return path
+end
+
+-- Native glyph advances and clipping boxes round independently at fractional
+-- effective scales. Give every role symmetric physical-pixel breathing room,
+-- and include effective scale in the cache rather than measuring at old scale.
+function UI.Measure(text)
+    local path,size,flags=text:GetFont()
+    local scale=text:GetEffectiveScale()
+    local key=tostring(path)..":"..size..":"..tostring(flags)..":"..scale..":"..(text:GetText() or "")
+    if text.xpMeasureKey~=key then
+        text.xpMeasureKey=key
+        text.xpTextWidth=(math.ceil(text:GetUnboundedStringWidth()*scale)+4)/scale
+        text.xpTextHeight=(math.ceil(text:GetStringHeight()*scale)+2)/scale
+    end
+    return text.xpTextWidth,text.xpTextHeight
+end
+
+function UI.FitText(text,available)
+    -- Measure without a previous fit scale feeding back into its own result.
+    local width=text.xpNaturalWidth
+    local fit=math.min(1,available/math.max(1,width))
+    text:SetScale(fit)
+    text.xpFitScale=fit
+    text:SetWidth(available/fit)
+    return fit
+end
+
+-- Offsets passed to a scaled FontString are in that FontString's local units.
+-- Keep the caller's inset in its parent's coordinate space when fitting text.
+function UI.AnchorText(text,point,parent,relativePoint,x,y)
+    local fit=text.xpFitScale or 1
+    text:SetPoint(point,parent,relativePoint,(x or 0)/fit,(y or 0)/fit)
+end
+
+-- Expressway lacks U+221E. Use a packaged alpha mask with a matching shadow;
+-- the line-based symbol remained blank on the target client.
+function UI.Infinity(parent)
+    local f=CreateFrame("Frame",nil,parent)
+    local path="Interface\\AddOns\\XPIsland\\media\\infinity.tga"
+    f.shadow=f:CreateTexture(nil,"ARTWORK")
+    f.symbol=f:CreateTexture(nil,"OVERLAY")
+    local shadowLoaded=f.shadow:SetTexture(path)
+    local symbolLoaded=f.symbol:SetTexture(path)
+    if shadowLoaded==false or symbolLoaded==false then return f,false end
+    f.shadow:SetVertexColor(0,0,0,.8);f.symbol:SetVertexColor(.93,.94,.97,1)
+    f.shadow:SetPoint("CENTER",f,"CENTER",1,-1)
+    f.symbol:SetAllPoints(f)
+    f.shadow:Show();f.symbol:Show()
+    function f:Layout(size)
+        if self.symbolSize==size then return end
+        self.symbolSize=size
+        -- Keep the 128x64 mask's 2:1 aspect. Its stroke is .12 font units.
+        local width,height=size*1.5,size*.75
+        self:SetSize(width,height);self.shadow:SetSize(width,height)
+    end
+    return f,true
+end
+
 function UI.Text(parent, size, r, g, b)
     local text = parent:CreateFontString(nil, "OVERLAY")
-    text:SetFont(UI.Font({font="Game tooltip"}), size, "")
+    UI.ApplyFont(text,UI.owner and UI.owner.profile or {font="Game tooltip"},size)
     text:SetShadowColor(0,0,0,.8); text:SetShadowOffset(1,-1)
     text:SetTextColor(r or 0.93, g or 0.94, b or 0.97)
     text:SetJustifyH("LEFT")
+    text:SetJustifyV("MIDDLE")
     text:SetWordWrap(false)
     return text
 end
@@ -57,11 +172,19 @@ end
 function UI.Font(profile)
     local tooltip = GameTooltipTextLeft2 or GameTooltipText
     local default = tooltip and tooltip:GetFont() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
-    if profile.font == "Game tooltip" then return default end
-    if profile.font == "Arial" then return "Fonts\\ARIALN.TTF" end
-    if profile.font == "Friz Quadrata" then return STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF" end
+    local requested=default
     local lsm = LibStub and LibStub("LibSharedMedia-3.0", true)
-    return (lsm and lsm:IsValid("font", profile.font) and lsm:Fetch("font", profile.font)) or default
+    if profile.font=="Arial" then requested="Fonts\\ARIALN.TTF"
+    elseif profile.font=="Friz Quadrata" then requested="Fonts\\FRIZQT__.TTF"
+    elseif profile.font~="Game tooltip" then
+        requested=(lsm and lsm:IsValid("font",profile.font) and lsm:Fetch("font",profile.font)) or default
+    end
+    local key=requested..":"..default
+    if not fontResults[key] then
+        if not fontProbe then fontProbe=UIParent:CreateFontString(nil,"OVERLAY");fontProbe:Hide() end
+        fontResults[key]={path=setFont(fontProbe,requested,14,"") and requested or default,default=default}
+    end
+    return fontResults[key].path,fontResults[key]
 end
 
 -- End caps use a fixed-radius circular texture, cropped (never compressed) at
@@ -237,19 +360,21 @@ function UI:RefreshInline()
     local kills=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped())
     local values={P.pet and M.Compact(P.pet.xp) or "—",P:RankText(),M.Compact(kills)}
     local visible={p.showPet and P.pet~=nil,p.showRank and xp,p.showKills and xp}
-    local size=math.min(12,p.fontSize)
+    local size=math.max(12,math.min(14,p.fontSize-2))
     local font=UI.Font(p)
-    local signature=font..":"..size..":"..o:Mode()
+    local signature=font..":"..size..":"..o:Mode()..":"..self.frame:GetEffectiveScale()
     for i=1,3 do signature=signature..":"..tostring(visible[i])..":"..values[i] end
     if self.inlineSignature==signature then return false end
     self.inlineSignature=signature
     self.inlineWidth,self.inlineHeight,self.inlineCount=0,0,0
     for i,c in ipairs(self.inlineCells) do
         c.active=visible[i];c:SetShown(c.active)
-        c.title:SetFont(font,size,"");c.value:SetFont(font,size,"");c.value:SetText(values[i])
-        c.titleWidth=c.title:GetUnboundedStringWidth()
-        c.pairWidth=c.titleWidth+4+c.value:GetUnboundedStringWidth()
-        c.pairHeight=math.max(c.title:GetStringHeight(),c.value:GetStringHeight())
+        UI.ApplyFont(c.title,p,size);UI.ApplyFont(c.value,p,size);c.value:SetText(values[i])
+        local titleWidth,titleHeight=UI.Measure(c.title)
+        local valueWidth,valueHeight=UI.Measure(c.value)
+        c.titleWidth=titleWidth
+        c.pairWidth=titleWidth+4+valueWidth
+        c.pairHeight=math.max(titleHeight,valueHeight)
         if c.active then
             self.inlineCount=self.inlineCount+1
             self.inlineWidth=self.inlineWidth+c.pairWidth+(self.inlineCount>1 and 18 or 0)
@@ -283,13 +408,9 @@ function UI:Create(owner)
     self.levelText=UI.Text(self.header,14)
     self.levelText:SetPoint("CENTER",self.header,"CENTER");self.levelText:Hide()
     self.label = UI.Text(self.bar, 14)
-    self.label:SetJustifyH("RIGHT")
-    -- A bundled symbol avoids guessing arbitrary SharedMedia font coverage.
-    -- If the client cannot load it, the label uses the ASCII fallback "n/a".
-    self.infinity=self.bar:CreateTexture(nil,"OVERLAY")
-    self.infinitySupported=self.infinity:SetTexture("Interface\\AddOns\\XPIsland\\media\\infinity.tga")
-    self.infinity:SetVertexColor(.93,.94,.97,1)
-    self.infinity:SetPoint("RIGHT",self.header,"RIGHT",-14,0);self.infinity:Hide()
+    self.label:SetJustifyH("CENTER")
+    self.infinity,self.infinitySupported=UI.Infinity(self.bar)
+    self.infinity:Hide()
     self.segments = {}
     for i=1,20 do
         local edge=i==1 and "left" or i==20 and "right" or nil
@@ -418,46 +539,71 @@ function UI:BarLabel(rate,duration)
         self.showInfinity=infinity and self.infinitySupported
         self.infinity:SetShown(self.showInfinity)
     end
-    if text==self.labelSource and p.fontSize==self.labelSize and self.font==self.labelFont then
+    if text==self.labelSource and p.fontSize==self.labelSize and self.font==self.labelFont and self.frame:GetEffectiveScale()==self.labelScale then
         return self.label:GetText(),self.labelWidth
     end
     self.labelSource,self.labelSize,self.labelFont=text,p.fontSize,self.font
+    self.labelScale=self.frame:GetEffectiveScale()
     self.label:SetText(text)
-    local width=self.label:GetUnboundedStringWidth()+8
+    local width=UI.Measure(self.label)
     if width>200 then
         text=text:gsub(" XP","");self.label:SetText(text)
-        width=self.label:GetUnboundedStringWidth()+8
+        width=UI.Measure(self.label)
     end
-    self.labelWidth=math.max(46,width)
+    self.labelWidth=math.max(46,width,self.infinityWidth or 0)
     return text,self.labelWidth
 end
 
 function UI:Layout(preserveMotion)
     if not self.frame or self.dragging then return end
+    self.owner:RefreshAppearance(false,preserveMotion)
+end
+
+function UI:LayoutContents(preserveMotion)
+    if not self.frame or self.dragging then return end
     if not preserveMotion then self:CancelStatTooltip();self:ClearHighlights() end
     local p,f=self.owner.profile,self.frame
     self.font=UI.Font(p)
-    self.label:SetFont(self.font,p.fontSize,"")
-    self.levelText:SetFont(self.font,p.fontSize,"")
+    -- Install the parent scale before measuring; stale 100% metrics must not
+    -- size the 85% boxes. Reset only the optional footer's content-fit scale.
+    local _,_,scale=M.Layout(UIParent:GetWidth(),p.scale)
+    UI.ApplyFont(self.label,p,p.fontSize)
+    UI.ApplyFont(self.levelText,p,p.fontSize)
     self.levelTextSource=nil
-    self.infinity:SetSize(p.fontSize*1.4,p.fontSize*.8)
-    local titleHeight,valueHeight=0,0
-    for i,c in ipairs(self.cells) do
-        c.fitKey=nil -- font/width changes must invalidate measurements made before Layout
-        c.title:SetFont(self.font,math.max(12,math.min(14,p.fontSize-2)),"")
-        c.value:SetFont(self.font,p.fontSize,"")
-        titleHeight=math.max(titleHeight,c.title:GetStringHeight())
-        valueHeight=math.max(valueHeight,c.value:GetStringHeight())
-    end
-    local cellHeight=math.max(36,titleHeight+3+valueHeight)
-    self:RefreshInline()
+    if self.infinity.Layout then self.infinity:Layout(p.fontSize) end
+    self.infinityWidth=p.fontSize*1.4+4
+    local titleHeight,valueHeight,cellHeight,rowsHeight,labelWidth,layout
     local xp=self.owner:Mode()=="xp"
-    local rowsHeight=xp and cellHeight*2+6+5 or cellHeight
-    local footerHeight=self.inlineCount>0 and 10+self.inlineHeight or 0
     local tracker=self.owner.tracker
     local rate,duration=M.Estimate(self.owner.session,tracker and tracker.xp,tracker and tracker.cap,self.owner:IsCapped())
-    local _,labelWidth=self:BarLabel(rate,duration)
-    local layout=M.Placement(UIParent:GetWidth(),UIParent:GetHeight(),p,labelWidth+180,24+rowsHeight+footerHeight)
+    -- A short viewport can also lower scale. Resolve that feedback here before
+    -- Update, not by recursively restarting layout at the old requested scale.
+    local placementProfile=setmetatable({},{__index=p})
+    for pass=1,8 do
+        f:SetScale(scale);self.inlineGroup:SetScale(1)
+        self.labelSource=nil
+        titleHeight,valueHeight=0,0
+        for _,c in ipairs(self.cells) do
+            c.fitKey=nil
+            c.title:SetScale(1);c.value:SetScale(1)
+            UI.ApplyFont(c.title,p,math.max(12,math.min(14,p.fontSize-2)))
+            UI.ApplyFont(c.value,p,p.fontSize)
+            local _,th=UI.Measure(c.title);local _,vh=UI.Measure(c.value)
+            titleHeight=math.max(titleHeight,th)
+            valueHeight=math.max(valueHeight,vh)
+        end
+        cellHeight=math.max(36,titleHeight+3+valueHeight)
+        self.inlineSignature=nil;self:RefreshInline()
+        rowsHeight=xp and cellHeight*2+6+5 or cellHeight
+        local footerHeight=self.inlineCount>0 and 10+self.inlineHeight or 0
+        _,labelWidth=self:BarLabel(rate,duration)
+        placementProfile.scale=scale
+        layout=M.Placement(UIParent:GetWidth(),UIParent:GetHeight(),placementProfile,labelWidth+180,24+rowsHeight+footerHeight)
+        if layout.scale>=scale-.000001 then break end
+        -- One percent of headroom absorbs the next physical-pixel rounding
+        -- boundary; it applies only when the viewport already forces a fit.
+        scale=math.max(.01,layout.scale*.99)
+    end
     layout.inlineY=rowsHeight+10
     layout.labelWidth=labelWidth;layout.font=self.font;layout.cellHeight=cellHeight
     self.layout=layout
@@ -465,7 +611,10 @@ function UI:Layout(preserveMotion)
     f:SetScale(layout.scale);f:ClearAllPoints()
     self.outer:Radius(17);self.inner:Radius(16)
     self.label:ClearAllPoints();self.label:SetPoint("RIGHT",self.header,"RIGHT",-14,0)
-    self.label:SetSize(labelWidth,p.fontSize+4)
+    self.label:SetSize(labelWidth,layout.barHeight)
+    -- Empty FontStrings need not provide drawable bounds. Keep the symbol in
+    -- the numeric slot without anchoring it to the label we clear for infinity.
+    self.infinity:ClearAllPoints();self.infinity:SetPoint("CENTER",self.header,"RIGHT",-14-labelWidth/2,0)
     self.header:ClearAllPoints()
     local point=layout.up and "BOTTOM" or "TOP"
     self.header:SetPoint(point,self.content,point)
@@ -480,6 +629,7 @@ function UI:Layout(preserveMotion)
         -- Center the measured block within its row. Both outer drawer margins
         -- stay 12px; larger fonts get more height rather than a clipped last row.
         local inset=(cellHeight-titleHeight-3-valueHeight)/2
+        c.titleInset,c.valueInset=inset,inset+titleHeight+3
         c.title:SetPoint("TOP",0,-inset);c.value:SetPoint("TOP",0,-inset-titleHeight-3)
         c:SetHeight(cellHeight+(i>=5 and 5 or 0))
     end
@@ -491,8 +641,8 @@ function UI:Layout(preserveMotion)
     for _,c in ipairs(self.inlineCells) do
         if c.active then
             c:SetPoint("TOPLEFT",inlineX,0);c:SetSize(c.pairWidth,c.pairHeight)
-            c.title:SetPoint("LEFT",0,0);c.title:SetSize(c.titleWidth,c.pairHeight)
-            c.value:SetPoint("LEFT",c.titleWidth+4,0);c.value:SetSize(c.pairWidth-c.titleWidth-4,c.pairHeight)
+            c.title:SetPoint("LEFT",0,0);c.title:SetSize(c.titleWidth,c.pairHeight);c.title:SetJustifyH("CENTER")
+            c.value:SetPoint("LEFT",c.titleWidth+4,0);c.value:SetSize(c.pairWidth-c.titleWidth-4,c.pairHeight);c.value:SetJustifyH("CENTER")
             inlineX=inlineX+c.pairWidth+18
         end
     end
@@ -625,8 +775,10 @@ function UI:PaintBar(geometryChanged)
     if text~=self.levelTextSource then
         self.levelTextSource=text
         self.levelText:SetText(text or "")
-        self.levelTextWidth=self.levelText:GetUnboundedStringWidth()
-        self.levelText:SetSize(math.max(1,self.levelTextWidth),p.fontSize+4)
+        self.levelText:SetScale(1)
+        local width,height=UI.Measure(self.levelText)
+        self.levelTextWidth=width
+        self.levelText:SetSize(width,height)
     end
     self.levelText:SetShown(notice~=nil);self.bar:SetShown(notice==nil)
     if notice then
@@ -707,14 +859,19 @@ function UI:Update()
                 c.value:SetText(M.Compact(left,0).." / "..M.Compact(cap,0))
             end
         end
-        local fitKey=tostring(pvp)..":"..tostring(title)..":"..values[i]..":"..self.font..":"..p.fontSize..":"..self.layout.expanded
+        local fitKey=tostring(pvp)..":"..tostring(title)..":"..values[i]..":"..self.font..":"..p.fontSize..":"..self.layout.expanded..":"..self.frame:GetEffectiveScale()
         if c.fitKey~=fitKey then
             c.fitKey=fitKey
             local width=(self.layout.expanded-76)/4
-            c.titleScale=pvp and math.min(1,width/math.max(1,c.title:GetUnboundedStringWidth())) or 1
-            c.valueScale=pvp and math.min(1,width/math.max(1,c.value:GetUnboundedStringWidth())) or 1
-            c.title:SetScale(c.titleScale);c.value:SetScale(c.valueScale)
+            c.title:SetScale(1);c.value:SetScale(1)
+            c.title.xpNaturalWidth=UI.Measure(c.title);c.value.xpNaturalWidth=UI.Measure(c.value)
+            c.titleScale=UI.FitText(c.title,width);c.valueScale=UI.FitText(c.value,width)
             c.title:SetWidth(c:GetWidth()/c.titleScale);c.value:SetWidth(c:GetWidth()/c.valueScale)
+            -- Each role retains its row slot even when long content fits at a
+            -- smaller scale. Otherwise the TOP offset shrinks with the value,
+            -- pulling it upward into its title and disturbing row baselines.
+            UI.AnchorText(c.title,"TOP",c,"TOP",0,-c.titleInset-c.title:GetHeight()*(1-c.titleScale)/2)
+            UI.AnchorText(c.value,"TOP",c,"TOP",0,-c.valueInset-c.value:GetHeight()*(1-c.valueScale)/2)
         end
     end
     self.frame:SetShown(o:CanShow())
