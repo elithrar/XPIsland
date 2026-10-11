@@ -42,7 +42,6 @@ W.advance(5);eq(UI.expanded,false,"replacement timer expires after ten seconds")
 
 SlashCmdList.XPISLAND("")
 eq(O.frame:IsShown(),true,"slash opens options")
-eq(#O.checks,9)
 O.scaleEdit:SetText("125");O.scaleEdit.scripts.OnEnterPressed(O.scaleEdit)
 eq(X.profile.scale,1.25,"numeric scale updates model")
 eq(O.scale.value,125,"numeric scale updates slider")
@@ -61,23 +60,6 @@ W.click(O.copyButton);eq(X.profile.normal[1],.27,"confirmed copy applies source"
 X.profile.normal[1]=.14;eq(X.db.profiles.Solo.normal[1],.27,"UI copy owns independent nested color data")
 X.profile.normal[1]=.64
 O:Page(false)
-
-local original=StatusTrackingBarManager.CanShowBar
-X.profile.hideBlizzard=true;X:ApplyProfile()
-eq(StatusTrackingBarManager:CanShowBar(1),false,"XP filter")
-eq(StatusTrackingBarManager:CanShowBar(2),true,"reputation preserved")
-eq(StatusTrackingBarManager:CanShowBar(3),true,"honor preserved")
-X.profile.hideBlizzard=false;X:ApplyProfile();eq(StatusTrackingBarManager.CanShowBar,original,"filter reversal")
-W.combat=true;X.profile.hideBlizzard=true;X:ApplyProfile()
-eq(StatusTrackingBarManager.CanShowBar,original,"defer stock UI changes in combat")
-W.combat=false;W.event("PLAYER_REGEN_ENABLED");eq(StatusTrackingBarManager:CanShowBar(1),false)
-W.combat=true;X.profile.hideBlizzard=false;X:ApplyProfile()
-eq(StatusTrackingBarManager:CanShowBar(1),false,"disabling also waits for combat to end")
-W.combat=false;W.event("PLAYER_REGEN_ENABLED");eq(StatusTrackingBarManager:CanShowBar(1),true)
-X.profile.hideBlizzard=true;X:ApplyProfile()
-EllesmereUI={Lite={GetAddon=function() return {db={profile={useBlizzardDataBars=false}}} end}}
-X:Integration();eq(StatusTrackingBarManager.CanShowBar,original,"Ellesmere ownership wins")
-EllesmereUI=nil;X.profile.hideBlizzard=false;X:ApplyProfile()
 
 W.capped=true;W.event("PLAYER_MAX_LEVEL_UPDATE");eq(UI.frame:IsShown(),false,"hide at cap")
 W.capped=false;W.event("PLAYER_MAX_LEVEL_UPDATE");eq(UI.frame:IsShown(),true)

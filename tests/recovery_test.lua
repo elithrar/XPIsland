@@ -127,5 +127,28 @@ eq(Y.tracker.level,nil);W2.advance(5)
 W2.level=10;W2.xp=200;W2.cap=1000;W2.event('LOADING_SCREEN_DISABLED');W2.advance(.1)
 eq(Y.tracker.xp,200);eq(Y.session.total,0);eq(Y.session.incomplete,false)
 eq(ns2.UI.frame:IsShown(),true)
+-- Unreadable API data defers accounting and played-time requests. This sentinel
+-- detects numeric/string consumption; it does not emulate WoW's taint engine.
+local function secretUsed() error('restricted value consumed') end
+local secret=setmetatable({},{__lt=secretUsed,__le=secretUsed,__concat=secretUsed,__tostring=secretUsed})
+function issecretvalue(v) return rawequal(v,secret) end
+local played=ns2.Played
+played:Sync();W2.level=secret;W2.xp=250
+W2.event('PLAYER_XP_UPDATE','player');W2.advance(2)
+eq(Y:IsCapped(),nil);eq(Y:AtLevelCap(),nil)
+eq(Y.tracker.xp,200);eq(Y.session.total,0);eq(played.attempts,0,'unreadable level does not consume request budget')
+W2.level=10
+for _,field in ipairs({'capped','experienceDisabled'}) do
+ W2[field]=secret;W2.event('PLAYER_XP_UPDATE','player');W2.advance(0)
+ eq(Y:IsCapped(),nil,'unreadable XP eligibility is not a fabricated cap')
+ eq(Y.tracker.xp,200);eq(Y.session.total,0)
+ W2[field]=false
+end
+W2.event('PLAYER_XP_UPDATE','player');W2.advance(2)
+eq(Y.tracker.xp,250);eq(Y.session.total,50,'recovery records the actual gain once')
+W2.event('TIME_PLAYED_MSG',secret,100);eq(played.saved.current,nil,'unreadable counter cannot create an anchor')
+W2.advance(3);W2.event('TIME_PLAYED_MSG',1000,100)
+eq(played.saved.current.start,900)
+issecretvalue=nil
 print('PASS: '
 ..n..' recovery assertions (hearth/loading time, source boundaries, delayed rollover, correction, legacy migration)')

@@ -6,6 +6,7 @@ A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sou
 - An expandable island that shows time to level, session XP sources, and a compact inline row for pet XP, PvP rank progress, and estimated kills to level.
 - Optional Honor & PvP mode stays useful at max level, with separate Honor balance and Rank Points. Choose it in Tracking settings, or opt into switching at the player level cap.
 - Per-character profiles, customizable fonts, and automatic scaling based on your UI size, with widths that stay compact on ultrawide screens.
+- Optional stock-bar hiding covers Blizzard XP, reputation and Honor bars together. Other addons retain their own bar controls.
 
 For World of Warcraft: Forever. This is a fun experiment to better show the pace of leveling.
 
@@ -23,7 +24,7 @@ Open an issue first. PRs that just throw code over the wall without a discussion
 
 In a source checkout, run `luajit tests/model_test.lua`, `luajit tests/runtime_test.lua`, `luajit tests/revision_test.lua`, `luajit tests/rate_test.lua`, `luajit tests/kills_test.lua`, `luajit tests/progression_test.lua`, `luajit tests/motion_test.lua`, `luajit tests/recovery_test.lua`, `luajit tests/polish_test.lua`, `luajit tests/frame_work_test.lua`, `luajit tests/stress_test.lua`, `python3 tests/release_test.py`, and `python3 tests/package.py` from the repository root. The package is written to `dist/`.
 
-See [behavior details](https://github.com/elithrar/XPIsland/blob/main/docs/BEHAVIOR.md) and [validation coverage](https://github.com/elithrar/XPIsland/blob/main/docs/VALIDATION.md), including the in-game checks still needed.
+See [behavior details](https://github.com/elithrar/XPIsland/blob/main/docs/BEHAVIOR.md) and [validation coverage](https://github.com/elithrar/XPIsland/blob/main/docs/VALIDATION.md), including API contract checks and historical client observations.
 
 ## License
 

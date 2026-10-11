@@ -1,41 +1,84 @@
--- Exercise the actual reviewed Blizzard selection algorithm when its pinned source is available.
+-- Frame ownership and protected visibility, optionally checked against Blizzard's
+-- exported Forever 1.60.1.70338 source (943764493e6b16d63ded3ab304150d1f05e58b57).
 local W=dofile("tests/wow_mock.lua")
-function CreateFromMixins(...)
-    local out={}
-    for _,mixin in ipairs({...}) do for key,value in pairs(mixin) do out[key]=value end end
-    return out
+local selectBar=StatusTrackingBarManager.CanShowBar
+if arg[1] then
+    local functions={}
+    APIDocumentation={AddDocumentationTable=function(_,doc)
+        for _,enum in ipairs(doc.Tables or {}) do
+            if enum.Type=="Enumeration" then
+                Enum[enum.Name]={}
+                for _,field in ipairs(enum.Fields) do Enum[enum.Name][field.Name]=field.EnumValue end
+            end
+        end
+        for _,f in ipairs(doc.Functions or {}) do functions[f.Name]=f end
+    end}
+    for _,name in ipairs({"SecretAspectConstants","ForbiddenAspectConstants","SimpleFrameAPI"}) do
+        assert(loadfile(arg[1].."/Blizzard_APIDocumentationGenerated/"..name.."Documentation.lua"))()
+    end
+    for _,name in ipairs({"Show","Hide"}) do
+        local f=assert(functions[name])
+        assert(#f.Arguments==0 and not f.Returns and f.IsProtectedFunction)
+    end
+    local f=assert(functions.IsShown)
+    assert(#f.Arguments==0 and #f.Returns==1 and f.Returns[1].Type=="bool")
+    assert(f.SecretReturnsForAspect[1]==Enum.SecretAspect.Shown)
+    function CreateFromMixins(...)
+        local out={}
+        for _,mixin in ipairs({...}) do for key,value in pairs(mixin) do out[key]=value end end
+        return out
+    end
+    assert(loadfile(arg[1].."/Blizzard_StatusTrackingBar/Shared/StatusTrackingManager.lua"))()
+    assert(loadfile(arg[1].."/Blizzard_StatusTrackingBar/Mainline/StatusTrackingManagerOverrides.lua"))()
+    C_Reputation={GetWatchedFactionData=function() return {name="Stormwind"} end}
+    function IsWatchingHonorAsXP() return true end
+    selectBar=StatusTrackingManagerMixin.CanShowBar
 end
-local root=arg[1] or "/tmp/xpisland-forever-source/Interface/AddOns/Blizzard_StatusTrackingBar/"
-local source=assert(loadfile(root.."Shared/StatusTrackingManager.lua"),"Provide the pinned Blizzard source path")
-source()
-assert(loadfile(root.."Mainline/StatusTrackingManagerOverrides.lua"))()
-function tContains(t,v) for _,item in pairs(t) do if item==v then return true end end;return false end
-StatusTrackingBarInfo={BarsEnum={None=0,Experience=1,Reputation=2,Honor=3},BarPriorities={[1]=0,[2]=2,[3]=3}}
-C_Reputation={GetWatchedFactionData=function() return {name="Stormwind"} end}
-function IsWatchingHonorAsXP() return false end
-C_PvP={IsActiveBattlefield=function() return false end}
-function IsInActiveWorldPVP() return false end
-local function container()
-    return {IsAnimating=function() return false end,SetShownBar=function(self,index) self.index=index end,SubscribeToOnFinishedAnimating=function() end}
-end
-StatusTrackingBarManager=setmetatable({barContainers={container(),container()},shownBarIndices={},UpdateBarVisuals=function() end},{__index=StatusTrackingManagerMixin})
+local function forbidden() error("XPIsland changed a stock callback, layout or event subscription") end
+local shown=true
+local methods={CanShowBar=selectBar,UpdateBarsShown=forbidden,SetParent=forbidden,
+    RegisterEvent=forbidden,RegisterUnitEvent=forbidden,UnregisterEvent=forbidden,
+    UnregisterAllEvents=forbidden,RegisterAllEvents=forbidden,
+    IsShown=function(_,...) assert(select('#',...)==0);return shown end,
+    Hide=function(_,...) assert(select('#',...)==0 and not W.combat);shown=false end,
+    Show=function(_,...) assert(select('#',...)==0 and not W.combat);shown=true end}
+-- Trap even temporary callback writes. Frame visibility is held outside Lua fields.
+StatusTrackingBarManager=setmetatable({},{__index=methods,__newindex=forbidden})
+local manager=StatusTrackingBarManager
+local callbacks={}
+EventRegistry={RegisterCallback=function(_,event,callback,owner)
+    assert(not callbacks[event]);callbacks[event]=function() callback(owner) end
+end}
+EditModeManagerFrame={IsEditModeActive=function() return W.editing end}
+XPIslandDB={version=2,profiles={Shared={hideBlizzard=true,scale=1.25,showPet=false}}}
 local ns=W.load();local X=ns.owner
-X.profile={hideBlizzard=false}
-StatusTrackingBarManager:UpdateBarsShown()
-assert(StatusTrackingBarManager.shownBarIndices[1]==2)
-assert(StatusTrackingBarManager.shownBarIndices[2]==1)
-X.profile.hideBlizzard=true;X:Integration()
-assert(#StatusTrackingBarManager.shownBarIndices==1)
-assert(StatusTrackingBarManager.shownBarIndices[1]==2)
-X.profile.hideBlizzard=false;X:Integration()
-assert(StatusTrackingBarManager.shownBarIndices[2]==1)
--- A later addon owns the method. Disabling XPIsland must leave its wrapper intact.
-X.profile.hideBlizzard=true;X:Integration()
-local ours=StatusTrackingBarManager.CanShowBar
-local theirs=function(self,index) return ours(self,index) end
-StatusTrackingBarManager.CanShowBar=theirs
-X.profile.hideBlizzard=false;X:Integration()
-assert(StatusTrackingBarManager.CanShowBar==theirs)
-assert(StatusTrackingBarManager:CanShowBar(1)==true)
-assert(StatusTrackingBarManager.shownBarIndices[2]==1,"restore visible XP immediately through the current owner's policy")
-print("PASS: 8 assertions against Blizzard's pinned tracking selection source; no live taint claim")
+W.event("ADDON_LOADED","XPIsland");W.event("PLAYER_ENTERING_WORLD",true,false)
+assert(not shown and X.hiddenStockManager==manager)
+assert(X.profile.hideBlizzard and X.profile.scale==1.25 and X.profile.showPet==false)
+-- Native eligibility is unchanged even while the whole manager is hidden.
+assert(manager:CanShowBar(1) and manager:CanShowBar(2) and manager:CanShowBar(3))
+W.combat=true;X.profile.hideBlizzard=false;X:ApplyProfile()
+assert(not shown,"restoration waits for combat to end")
+W.combat=false;W.event("PLAYER_REGEN_ENABLED");assert(shown and not X.hiddenStockManager)
+W.combat=true;X.profile.hideBlizzard=true;X:ApplyProfile();assert(shown)
+W.combat=false;W.event("PLAYER_REGEN_ENABLED");assert(not shown)
+-- Edit Mode reconciliation is deferred out of the native callback stack.
+W.editing=true;callbacks["EditMode.Enter"]();assert(not shown);W.advance(0);assert(shown)
+W.editing=false;callbacks["EditMode.Exit"]();assert(shown);W.advance(0);assert(not shown)
+-- Hand ownership to Ellesmere without revealing its hidden stock UI.
+local eab={db={profile={useBlizzardDataBars=false}}}
+EllesmereUI={Lite={GetAddon=function() return eab end}}
+W.event("ADDON_LOADED","EllesmereUIActionBars")
+assert(not shown and not X.hiddenStockManager)
+X.profile.hideBlizzard=false;X:ApplyProfile();assert(not shown)
+EllesmereUI=nil;X.profile.hideBlizzard=true;X:ApplyProfile()
+X.profile.hideBlizzard=false;X:ApplyProfile()
+assert(not shown,"a frame already hidden by another owner stays hidden")
+-- Restricted IsShown results must not turn into an ownership claim or mutation.
+local secret={};function issecretvalue(v) return rawequal(v,secret) end
+shown=secret;X.profile.hideBlizzard=true;X:ApplyProfile()
+assert(rawequal(shown,secret) and not X.hiddenStockManager)
+shown=true;issecretvalue=nil;X:ApplyProfile();assert(not shown)
+X.profile.hideBlizzard=false;X:ApplyProfile();assert(shown)
+StatusTrackingBarManager=nil;X:ApplyProfile()
+print("PASS: stock frame ownership, combat/Edit Mode deferral, restricted visibility and native eligibility"..(arg[1] and " against pinned Blizzard contracts" or ""))

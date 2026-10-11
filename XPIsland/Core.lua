@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options, P = ns.Model, ns.UI, ns.Options, ns.Progression
-local X = {version="0.6.1", formats={}}
+local X = {version="0.6.2", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -21,15 +21,26 @@ local function say(message)
     DEFAULT_CHAT_FRAME:AddMessage("|cffb38aefXPIsland:|r "..message)
 end
 
+-- Forever's experience eligibility, with guards before consuming API results.
+-- nil means unavailable, distinct from both capped and still leveling.
 function X:IsCapped()
-    if GameRulesUtil and GameRulesUtil.CanShowExperienceBar then return not GameRulesUtil.CanShowExperienceBar() end
-    return IsXPUserDisabled() or UnitLevel("player") >= math.min(GetMaxPlayerLevel(),GetMaxLevelForPlayerExpansion())
+    local capped=self:AtLevelCap()
+    if capped==nil or capped then return capped end
+    local disabled=IsXPUserDisabled()
+    if not safe(disabled) or type(disabled)~="boolean" then return end
+    if disabled then return true end
+    local rule=Enum and Enum.GameRule and Enum.GameRule.ExperienceBarDisabled
+    if not M.Number(rule) or not C_GameRules or not C_GameRules.IsGameRuleActive then return end
+    disabled=C_GameRules.IsGameRuleActive(rule)
+    if safe(disabled) and type(disabled)=="boolean" then return disabled end
 end
 
 function X:AtLevelCap()
     local level=UnitLevel("player")
     local maximum,expansion=GetMaxPlayerLevel(),GetMaxLevelForPlayerExpansion()
-    return M.Number(level) and M.Number(maximum) and M.Number(expansion) and level>=math.min(maximum,expansion)
+    if not M.Number(level) or level<1 or not M.Number(maximum) or maximum<1
+        or not M.Number(expansion) or expansion<1 then return end
+    return level>=math.min(maximum,expansion)
 end
 
 function X:Mode()
@@ -37,7 +48,7 @@ function X:Mode()
 end
 
 function X:CanShow()
-    return self:Mode()=="pvp" or (not self:IsCapped() and self.tracker and M.Number(self.tracker.cap) and self.tracker.cap>0)
+    return self:Mode()=="pvp" or (self:IsCapped()==false and self.tracker and M.Number(self.tracker.cap) and self.tracker.cap>0)
 end
 
 function X:RefreshMode()
@@ -88,7 +99,7 @@ end
 function X:Toggle()
     if not self.session then return end
     self:CancelAutoCollapse()
-    if not self:CanShow() then say("XP is capped or disabled. Select Honor & PvP in Tracking settings to show PvP progression.");return end
+    if not self:CanShow() then say("XP is unavailable, capped or disabled. Select Honor & PvP in Tracking settings to show PvP progression.");return end
     if not UI.expanded then self.db.expandedOnce=true end
     UI:SetExpanded(not UI.expanded)
     if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(self.profile.autoCollapseDuration) end
@@ -118,7 +129,7 @@ end
 
 function X:PlayedLevelComplete(level,duration)
     if not self.levelWindow or self.levelWindow.level~=level+1 or GetTime()>=self.levelWindow.untilTime
-        or not UI.expanded or not UI.frame:IsShown() or not self.profile.levelUp or self:IsCapped() or self:Mode()~="xp"
+        or not UI.expanded or not UI.frame:IsShown() or not self.profile.levelUp or self:IsCapped()~=false or self:Mode()~="xp"
         or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:ShowLevelDuration(level,duration,self.profile.levelUpDuration)
     self:ArmCollapse(self.profile.levelUpDuration,"level")
@@ -150,7 +161,7 @@ end
 
 function X:LevelUp()
     self:ClearLevelNotice()
-    if not self.profile.levelUp or self:IsCapped() or self:Mode()~="xp" or (self.profile.collapseCombat and InCombatLockdown()) then return end
+    if not self.profile.levelUp or self:IsCapped()~=false or self:Mode()~="xp" or (self.profile.collapseCombat and InCombatLockdown()) then return end
     self:CancelAutoCollapse()
     UI:SetExpanded(true)
     self.levelWindow={level=self.lastLevelEvent,startedAt=GetTime(),untilTime=GetTime()+self.profile.levelUpDuration}
@@ -206,6 +217,7 @@ function X:Sample(overrideContext)
     if self.levelPending and level<self.levelPending and GetTime()-(self.levelPendingAt or 0)<1 then return end
     self.levelPending,self.levelPendingAt=nil,nil
     local capped=self:IsCapped()
+    if capped==nil then return end
     if capped and cap==0 and level==t.level then
         if self.transition then P:Refresh() end
         t.pending=nil;self.transition=nil;UI:Update();return
@@ -243,49 +255,55 @@ function X:DeferSample()
     end)
 end
 
+-- Hide the stock manager through frame APIs; never replace Blizzard's selector
+-- or unregister its events. Native selection stays current while it is hidden.
 function X:Integration()
-    local manager=StatusTrackingBarManager
+    if not self.watchingEditMode and EventRegistry then
+        self.watchingEditMode=true
+        local function changed()
+            if self.integrationPending then return end
+            self.integrationPending=true
+            C_Timer.After(0,function()
+                self.integrationPending=nil
+                self:Integration();Options:Refresh()
+            end)
+        end
+        EventRegistry:RegisterCallback("EditMode.Enter",changed,self)
+        EventRegistry:RegisterCallback("EditMode.Exit",changed,self)
+    end
     self.integrationMessage=nil
+    local manager=StatusTrackingBarManager
     if not manager then
-        if self.profile.hideBlizzard then self.integrationMessage="Blizzard XP integration is waiting for the tracking bar." end
+        if self.profile.hideBlizzard then self.integrationMessage="Blizzard tracking bars are unavailable." end
         return
     end
     local lite=EllesmereUI and EllesmereUI.Lite
     local eab=lite and lite.GetAddon and lite.GetAddon("EllesmereUIActionBars",true)
     local euiOwns=eab and eab.db and eab.db.profile and eab.db.profile.useBlizzardDataBars == false
-    if self.profile.hideBlizzard and euiOwns then
-        self.integrationMessage="Ellesmere manages data bars. Control its XP bar in Ellesmere; XPIsland leaves it alone."
-    end
-    local wanted=self.profile.hideBlizzard and not euiOwns
+    local editing=EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive()
+    if not safe(editing) then return end
+    local wanted=self.profile.hideBlizzard and not euiOwns and not editing
     if InCombatLockdown() then
-        if wanted or self.barWrapper then self.integrationMessage="Blizzard XP visibility will update after combat." end
+        if wanted or self.hiddenStockManager then self.integrationMessage="Blizzard tracking visibility will update after combat." end
         return
     end
-    if wanted and not self.barWrapper then
-        local original=manager.CanShowBar
-        if type(original)~="function" or not StatusTrackingBarInfo or not StatusTrackingBarInfo.BarsEnum then
-            self.integrationMessage="Blizzard tracking API unavailable; existing bars are unchanged.";return
+    if euiOwns then
+        -- Ellesmere has taken ownership; don't re-show its suppressed stock UI.
+        self.hiddenStockManager=nil
+        if self.profile.hideBlizzard then self.integrationMessage="Ellesmere manages data bars. Control them in Ellesmere." end
+        return
+    end
+    local shown=manager:IsShown()
+    if not safe(shown) or type(shown)~="boolean" then return end
+    if wanted then
+        -- A frame already hidden by someone else is not ours to restore.
+        if shown then
+            manager:Hide()
+            self.hiddenStockManager=manager
         end
-        local experience=StatusTrackingBarInfo.BarsEnum.Experience
-        local token={active=true}
-        local wrapper=function(frame,index,...)
-            if token.active and index==experience then return false end
-            return original(frame,index,...)
-        end
-        self.barToken=token
-        self.barOriginal,self.barWrapper=original,wrapper
-        manager.CanShowBar=wrapper
-        manager:UpdateBarsShown()
-    elseif not wanted and self.barWrapper then
-        self.barToken.active=false
-        if manager.CanShowBar==self.barWrapper then
-            manager.CanShowBar=self.barOriginal
-        end
-        if not euiOwns then manager:UpdateBarsShown() end
-        -- If another addon chained our wrapper, its disabled branch delegates.
-        self.barWrapper,self.barOriginal,self.barToken=nil,nil,nil
-    elseif wanted and self.barWrapper and manager.CanShowBar~=self.barWrapper then
-        self.integrationMessage="Another addon controls Blizzard tracking visibility; XPIsland will not overwrite it."
+    elseif self.hiddenStockManager then
+        if self.hiddenStockManager==manager and not shown then manager:Show() end
+        self.hiddenStockManager=nil
     end
 end
 
@@ -340,9 +358,13 @@ function X:Initialize(reloading)
     local db,err=M.Database(XPIslandDB)
     if not db then say(err);return end
     XPIslandDB=db;self.db=db
-    self.character=UnitGUID("player")
-    self.characterName=(UnitName("player") or "Character").." - "..GetRealmName()
-    if not self.character or not safe(self.character) then return end
+    local character=UnitGUID("player")
+    if not safe(character) or type(character)~="string" then return end
+    self.character=character
+    local name,realm=UnitName("player"),GetRealmName()
+    if not safe(name) or type(name)~="string" then name="Character" end
+    if not safe(realm) or type(realm)~="string" then realm="Unknown realm" end
+    self.characterName=name.." - "..realm
     self.profileName=db.characters[self.character]
     if not db.profiles[self.profileName] then self.profileName="Shared" end
     self.profile=M.SelectProfile(db,self.character,self.profileName)

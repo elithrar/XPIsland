@@ -207,12 +207,24 @@ function UnitName() return "Test" end
 function GetRealmName() return "Realm" end
 function UnitIsConnected() return W.connected~=false end
 function IsInInstance() return W.instance~="none",W.instance end
-function IsXPUserDisabled() return false end
+function IsXPUserDisabled() return W.capped end
 function GetMaxPlayerLevel() return 60 end
 function GetMaxLevelForPlayerExpansion() return 60 end
 function InCombatLockdown() return W.combat end
 function GetBindingKey() return nil end
-GameRulesUtil={CanShowExperienceBar=function() return not W.capped end}
+-- Forever 1.60.1.70338, 943764493e6b16d63ded3ab304150d1f05e58b57:
+-- PlayerScriptDocumentation, GameRulesDocumentation and GameRulesUtil.lua.
+-- The enum is an opaque numeric token; callers must pass that token unchanged.
+Enum={GameRule={ExperienceBarDisabled=1}}
+C_GameRules={IsGameRuleActive=function(rule)
+    assert(rule==Enum.GameRule.ExperienceBarDisabled)
+    if W.experienceDisabled~=nil then return W.experienceDisabled end
+    return false
+end}
+GameRulesUtil={CanShowExperienceBar=function()
+    return UnitLevel("player")<math.min(GetMaxPlayerLevel(),GetMaxLevelForPlayerExpansion())
+        and not IsXPUserDisabled() and not C_GameRules.IsGameRuleActive(Enum.GameRule.ExperienceBarDisabled)
+end}
 function Logout() end
 function Quit() end
 function CancelLogout() end
@@ -270,7 +282,15 @@ function W.choose(dropdown,value)
     error("No dropdown entry: "..tostring(value))
 end
 StatusTrackingBarInfo={BarsEnum={Experience=1,Reputation=2,Honor=3}}
-StatusTrackingBarManager={CanShowBar=function() return true end,UpdateBarsShown=function() W.barUpdates=(W.barUpdates or 0)+1 end}
+-- This is a frame, not a selector callback slot. Keep its state private so tests
+-- can independently reject writes to Blizzard-owned Lua fields.
+local stockShown=true
+StatusTrackingBarManager={
+    CanShowBar=function() return true end,
+    IsShown=function() return stockShown end,
+    Hide=function() assert(not W.combat);stockShown=false end,
+    Show=function() assert(not W.combat);stockShown=true end,
+}
 COMBATLOG_XPGAIN_FIRSTPERSON="%s dies, you gain %d experience."
 COMBATLOG_XPGAIN_EXHAUSTION1="%s dies, you gain %d experience. (%s exp %s bonus)"
 COMBATLOG_XPGAIN_FIRSTPERSON_UNNAMED="You gain %d experience."
@@ -291,7 +311,12 @@ function BreakUpLargeNumbers(n)
     repeat s,k=s:gsub("^(%d+)(%d%d%d)","%1,%2") until k==0
     return s
 end
-function RequestTimePlayed() W.playedRequests=(W.playedRequests or 0)+1 end
+-- PlayerScriptDocumentation declares no request arguments or synchronous result.
+-- SystemDocumentation declares TIME_PLAYED_MSG(totalTimePlayed, timePlayedThisLevel).
+function RequestTimePlayed(...)
+    assert(select('#',...)==0,'RequestTimePlayed has no silent/request-ID argument')
+    W.playedRequests=(W.playedRequests or 0)+1
+end
 function W.load()
     local ns={}
     for _,name in ipairs({"Model","Progression","Played","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
