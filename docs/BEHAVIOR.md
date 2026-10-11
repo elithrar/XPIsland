@@ -1,6 +1,6 @@
 # XPIsland
 
-A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.5.2 targets interface 16001 and was checked against Blizzard UI source for 1.60.1.70205. Retail, Classic Era, and other clients are not supported.
+A standalone experience capsule for **official World of Warcraft: Forever**. Version 0.6.2 targets interface 16001; its shared-callback and API changes were checked against Blizzard UI source for 1.60.1.70338. Retail, Classic Era, and other clients are not supported.
 
 ## Install
 
@@ -94,15 +94,19 @@ Settings schema 2 migrates unmarked Arial/12 defaults to the new face/size while
 
 **Shared** is the account-wide default. Changes affect every character selecting it. **Use character** creates an independent copy for the current character. **Duplicate and use** creates a named copy. **Copy settings** overwrites the current profile only after a second confirmation click. Session totals and WoW keybindings are not copied with a profile.
 
-## Optional Blizzard XP hiding
+## Optional Blizzard tracking-bar hiding
 
-Coexistence is the default. **Hide Blizzard XP bar** filters only the Experience entry on the stock tracking manager, preserving reputation and other tracking categories and allowing normal layout. Enabling/disabling waits until combat ends. Disabling restores XPIsland's own filter without overwriting a newer owner.
+Coexistence is the default. **Hide Blizzard tracking bars** hides the entire stock tracking manager, including XP, reputation and Honor, using the frame's `Hide()` API. The existing `hideBlizzard` preference is preserved: users who enabled XP-only hiding now get this explicitly broader scope. The native selector, layout callbacks and event subscriptions remain untouched; selected bars keep updating while hidden. Disabling uses `Show()` only when XPIsland owns the hide. Changes wait until combat ends. Edit Mode temporarily restores an owned hide, then reapplies the preference through a deferred callback after editing finishes.
 
-Ellesmere's custom data-bar mode is left alone. Its own XP bar must be controlled through Ellesmere. XPIsland does not hide the shared manager, unregister its events, mutate another addon's profiles, or try to re-show bars another addon owns. This optional integration uses Blizzard UI implementation details and still requires live combat/Edit Mode verification on the target client.
+This follows the whole-manager scope used by [Ellesmere's custom data bars](https://github.com/EllesmereGaming/EllesmereUI/blob/c2a6f460b7f5fe3d78bb68177d352307afd0f056/EllesmereUIActionBars/EllesmereUIActionBars.lua#L1959). XPIsland retains Blizzard's event subscriptions rather than unregistering and reconstructing them. It leaves an already hidden manager alone and relinquishes ownership if Ellesmere switches to custom bars. Other addons' settings remain theirs; there is no general visibility-ownership API to detect every later third-party hide of an already hidden frame.
+
+## Restricted API values
+
+Player level, XP eligibility and identity are checked before comparison, boolean branching, concatenation or saved-state indexing. Unknown eligibility defers XP accounting and estimates; it does not become a fabricated capped/uncapped result. Played-time requests wait for a readable matching player level without spending the request budget. Unreadable counters cannot create played-time anchors.
 
 ## Validation status
 
-See [validation coverage](VALIDATION.md) for exact checks. LuaJIT model and mocked-runtime tests exercise the implementation; generated SVG/PNG previews are offline layout fixtures, **not in-game screenshots**. Live network disconnects, event ordering, localized combat messages, combat taint, Edit Mode, and physical Mac notch behavior require in-game acceptance testing.
+See [validation coverage](VALIDATION.md). The current checks exercise guarded API values, frame ownership, protected-operation deferral and native chat dispatch against pinned API declarations and exported Blizzard Lua. They remove confirmed shared-callback hazards; they do not prove the precise propagation path behind the reported `oldR` and `outOfRange` errors. No live acceptance step gates this change.
 
 ## Source references
 
@@ -128,7 +132,7 @@ During the existing level-up expansion, a known completed-level duration replace
 
 ### Authoritative played time (0.5.1)
 
-`RequestTimePlayed()` returns `TIME_PLAYED_MSG(totalTimePlayed, timePlayedThisLevel)`. Their difference is the current level's start on the game's lifetime-played-time axis. Subtracting adjacent level-start anchors gives the completed level's full duration, including time played before XPIsland loaded. XPIsland stores only a version, character GUID and current `{level, start, total}` anchor in per-character `XPIslandPlayed`. It does not track another per-level clock, reconstruct wall time or extrapolate a partial duration. AFK and offline accounting follow WoW's counters. Session XP/hour has its separate existing clock and reset behavior.
+`RequestTimePlayed()` asynchronously produces `TIME_PLAYED_MSG(totalTimePlayed, timePlayedThisLevel)`. Their difference is the current level's start on the game's lifetime-played-time axis. Subtracting adjacent level-start anchors gives the completed level's full duration, including time played before XPIsland loaded. XPIsland stores only a version, character GUID and current `{level, start, total}` anchor in per-character `XPIslandPlayed`. It does not track another per-level clock, reconstruct wall time or extrapolate a partial duration. AFK and offline accounting follow WoW's counters. Session XP/hour has its separate existing clock and reset behavior.
 
 Snapshots occur at login/reload, detected reconnection and level changes, using the existing ticker, one in-flight request, an eight-second timeout and at most three attempts per synchronization. Ordinary zoning invalidates an outstanding request but does not request additional snapshots when already synchronized. Valid snapshots require stable readable level data, finite integer counters, monotonic total played, a consistent same-level anchor and a positive adjacent-level interval. Duplicate events do not restart requests or presentation. Skipped levels cannot supply a missing intermediate start.
 
@@ -136,9 +140,9 @@ Saved anchors are independent of profiles and session resets. Reload, ordinary l
 
 The event supplies no request ID, level number or native silent flag. Invalidated requests drain before replacements. Overlap or timeout requires two matching authoritative anchors before a new baseline is trusted; known previous anchors reject stale old-level replies. Arbitrarily reordered concurrent responses cannot be perfectly correlated. Genuinely missing or ambiguous data omits the notice instead of reporting partial elapsed time as complete.
 
-For normally owned replies, XPIsland temporarily composes normal chat frames' Blizzard `customEventHandler` extension. Existing handlers run first; only XPIsland's owned `TIME_PLAYED_MSG` is consumed. Restoration is deferred through the event dispatch and only touches fields still owned by XPIsland. A secure post-hook observes external `RequestTimePlayed` calls and immediately disables suppression. Known outstanding replies drain before quiet synchronization resumes. After a timeout, ownership cannot be proved, so further automatic replies remain visible for that UI session. There are no global chat-function replacements, event unregisters or native API replacements. Newly created chat windows and unusual dispatch behavior fail open; live-client coexistence remains an acceptance check.
+Automatic and manual played-time replies follow Blizzard's normal chat dispatch. XPIsland does not replace chat callbacks, unregister chat events or suppress messages. The supported secure post-hook observes external `RequestTimePlayed` calls only to invalidate ambiguous timing requests. Known outstanding replies drain before synchronization resumes; timeout/overlap still requires corroboration. Requests retain the existing three-attempt limit and never become continuous polling.
 
-Primary API/source evidence: [RequestTimePlayed](https://github.com/Gethe/wow-ui-source/blob/e3ecc27b64d30fdc735a3f6579b866858f9f9df1/Interface/AddOns/Blizzard_APIDocumentationGenerated/PlayerScriptDocumentation.lua), [TIME_PLAYED_MSG](https://github.com/Gethe/wow-ui-source/blob/e3ecc27b64d30fdc735a3f6579b866858f9f9df1/Interface/AddOns/Blizzard_APIDocumentationGenerated/SystemDocumentation.lua), [chat dispatch extension](https://github.com/Gethe/wow-ui-source/blob/e3ecc27b64d30fdc735a3f6579b866858f9f9df1/Interface/AddOns/Blizzard_ChatFrameBase/Shared/ChatFrame.lua#L3), and [Blizzard's use of that extension](https://github.com/Gethe/wow-ui-source/blob/e3ecc27b64d30fdc735a3f6579b866858f9f9df1/Interface/AddOns/Blizzard_ChatFrame/Shared/VoiceChatTranscriptionFrame.lua#L183). These are the matching Forever 1.60.1.70205 snapshot, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1`.
+The API contract was rechecked against Forever **1.60.1.70338**, commit `943764493e6b16d63ded3ab304150d1f05e58b57`: [RequestTimePlayed](https://github.com/Gethe/wow-ui-source/blob/943764493e6b16d63ded3ab304150d1f05e58b57/Interface/AddOns/Blizzard_APIDocumentationGenerated/PlayerScriptDocumentation.lua#L1583) has no arguments or synchronous return value; [TIME_PLAYED_MSG](https://github.com/Gethe/wow-ui-source/blob/943764493e6b16d63ded3ab304150d1f05e58b57/Interface/AddOns/Blizzard_APIDocumentationGenerated/SystemDocumentation.lua#L210) contains two numeric counters, with no request ID or level. Blizzard's [system event handler](https://github.com/Gethe/wow-ui-source/blob/943764493e6b16d63ded3ab304150d1f05e58b57/Interface/AddOns/Blizzard_ChatFrameBase/Mainline/ChatFrameOverrides.lua#L195) consumes this event before ordinary message filtering. There is no verified native silent request in this contract.
 
 ### Duration controls (0.5.2)
 

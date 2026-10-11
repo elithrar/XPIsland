@@ -10,7 +10,14 @@ W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 eq(XPIslandDB.version,3);eq(X.session,nil);eq(UI.frame,nil)
 local guid=UnitGUID;UnitGUID=function() return nil end;XPIslandDB=nil
 W.event('PLAYER_ENTERING_WORLD',false,false);eq(X.session,nil);eq(UI.frame,nil)
-UnitGUID=guid;W.event('PLAYER_ENTERING_WORLD',false,false);eq(UI.frame:IsShown(),true)
+local secret={}
+function issecretvalue(v) return rawequal(v,secret) end
+UnitGUID=function() return secret end
+W.event('PLAYER_ENTERING_WORLD',false,false);eq(X.session,nil,'restricted identity postpones initialization')
+local name,realm=UnitName,GetRealmName
+UnitGUID=guid;UnitName=function() return secret end;GetRealmName=function() return secret end
+W.event('PLAYER_ENTERING_WORLD',false,false);eq(UI.frame:IsShown(),true)
+UnitName,GetRealmName=name,realm;issecretvalue=nil
 local function hint(text,id)
  -- lineID is argument 11; argument 12 is the sender GUID, not a kill identity.
  W.event('CHAT_MSG_COMBAT_XP_GAIN',text,'','','','','',0,0,'',0,id,'Player-Sender')
@@ -36,15 +43,7 @@ xp(50);hint('0 bonus : Ours rapporte 50 points.');W.advance(.1)
 eq(X.session.killHistory.buckets[1].count,2);eq(X.session.buckets.kills,350)
 eq(X.session.total,470,'all observed XP retained exactly once')
 eq(select(2,M.KillsToLevel(X.session,W.xp,W.cap)),'warming')
--- Honor mode never changes which stock bar XPIsland owns, including combat deferral.
-local original=StatusTrackingBarManager.CanShowBar
-X.profile.mode='pvp';X.profile.hideBlizzard=true;X:ApplyProfile()
-eq(StatusTrackingBarManager:CanShowBar(1),false)
-eq(StatusTrackingBarManager:CanShowBar(2),true);eq(StatusTrackingBarManager:CanShowBar(3),true)
-W.combat=true
-EllesmereUI={Lite={GetAddon=function() return {db={profile={useBlizzardDataBars=false}}} end}}
-X:Integration();eq(StatusTrackingBarManager:CanShowBar(1),false,'ownership change deferred in combat')
-W.combat=false;W.event('PLAYER_REGEN_ENABLED')
-eq(StatusTrackingBarManager.CanShowBar,original,'Ellesmere ownership restored after combat')
+-- Mode changes preserve ongoing XP accounting.
+X.profile.mode='pvp';X:ApplyProfile()
 eq(X.session.total,470,'mode and integration leave XP accounting alone')
-print('PASS: '..n..' progression event assertions (initialization, synthetic locale ingestion, ordering, duplicates and PvP stock-bar ownership)')
+print('PASS: '..n..' progression event assertions (initialization, synthetic locale ingestion, ordering, duplicates and mode changes)')

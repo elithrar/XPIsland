@@ -2,18 +2,60 @@
 -- counter is used to derive level durations.
 local n=0
 local function eq(a,b,why) n=n+1;assert(a==b,(why or 'check')..': '..tostring(a)..' ~= '..tostring(b)) end
+-- Optional exported Blizzard source root (Interface/AddOns). Validate the mock
+-- protocol against executable API declarations and use native chat dispatch.
+local nativeChat
+if arg[1] then
+ local docs={}
+ APIDocumentation={AddDocumentationTable=function(_,t) docs[t.Name]=t end}
+ for _,name in ipairs({'PlayerScript','System'}) do
+  assert(loadfile(arg[1]..'/Blizzard_APIDocumentationGenerated/'..name..'Documentation.lua'))()
+ end
+ local request,event
+ for _,f in ipairs(docs.PlayerScript.Functions) do if f.Name=='RequestTimePlayed' then request=f end end
+ for _,e in ipairs(docs.SystemInfo.Events) do if e.LiteralName=='TIME_PLAYED_MSG' then event=e end end
+ assert(request and not request.Arguments and not request.Returns,'played request has no arguments or synchronous result')
+ assert(event and #event.Payload==2 and event.Payload[1].Type=='number' and event.Payload[2].Type=='number',
+  'played reply has two numeric counters, no level or request identity')
+ assert(loadfile(arg[1]..'/Blizzard_ChatFrameBase/Shared/ChatFrame.lua'))()
+ assert(loadfile(arg[1]..'/Blizzard_ChatFrameBase/Mainline/ChatFrameOverrides.lua'))()
+ nativeChat=ChatFrameMixin
+end
 local function boot(saved,chatFirst)
  XPIslandDB=nil;XPIslandSession=nil;XPIslandPlayed=saved;NUM_CHAT_WINDOWS=0;ChatFrame1=nil
  local W=dofile('tests/wow_mock.lua')
  local function chat()
   NUM_CHAT_WINDOWS=1
   local f=CreateFrame('Frame','ChatFrame1');f:RegisterEvent('TIME_PLAYED_MSG');f.messages=0;f.calls=0
-  f.customEventHandler=function(self,event) self.calls=self.calls+1;if event=='CONSUMED' then return 'original' end end
-  f.original=f.customEventHandler
-  f:SetScript('OnEvent',function(self,event,...)
-   if self.customEventHandler and self.customEventHandler(self,event,...) then return end
-   if event=='TIME_PLAYED_MSG' then self.messages=self.messages+1 end
-  end)
+  local handler=function(self,event) self.calls=self.calls+1;if event=='CONSUMED' then return 'original' end end
+  -- Model a handler owned by Blizzard/another addon. Even a temporary write
+  -- followed by restoration is a failure, not just a changed final value.
+  local mt=getmetatable(f)
+  setmetatable(f,{__index=function(self,key)
+   if key=='customEventHandler' then return handler end
+   return mt.__index(self,key)
+  end,__newindex=function(self,key,value)
+   assert(key~='customEventHandler','XPIsland changed a shared chat callback')
+   rawset(self,key,value)
+  end})
+  f.original=handler
+  if nativeChat then
+   ChatFrameUtil={DisplayTimePlayed=function(self,total,level)
+    assert(type(total)=='number' and type(level)=='number')
+    self.messages=self.messages+1
+   end}
+   f.ConfigEventHandler=function() end
+   f.SystemEventHandler=nativeChat.SystemEventHandler
+   f.MessageEventHandler=function() end
+   f:SetScript('OnEvent',nativeChat.OnEvent)
+  else
+   -- ChatFrameMixin runs customEventHandler first, then consumes TIME_PLAYED_MSG
+   -- in SystemEventHandler, before ordinary CHAT_MSG filtering.
+   f:SetScript('OnEvent',function(self,event,...)
+    if self.customEventHandler and self.customEventHandler(self,event,...) then return end
+    if event=='TIME_PLAYED_MSG' then self.messages=self.messages+1 end
+   end)
+  end
   return f
  end
  local f=chatFirst and chat()
@@ -30,7 +72,7 @@ end
 for _,first in ipairs({true,false}) do
  local W,X,P,UI,f=boot(nil,first)
  W.advance(1);eq(W.playedRequests,1);eq(f.customEventHandler(f,'CONSUMED'),'original')
- reply(W,10000,2000);eq(f.messages,0,'automatic response quiet in either event order');eq(f.customEventHandler,f.original)
+ reply(W,10000,2000);eq(f.messages,1,'automatic response follows native chat dispatch in either event order')
  eq(XPIslandPlayed.current.start,8000);eq(X.levelTiming,nil,'no per-level elapsed clock')
  W.advance(120);eq(W.playedRequests,1,'no polling')
  SlashCmdList.XPISLAND('reset');eq(XPIslandPlayed.current.start,8000,'session reset independent')
@@ -41,7 +83,8 @@ for _,first in ipairs({true,false}) do
  local timer=X.levelNoticeTimer;W.event('PLAYER_LEVEL_UP',11);eq(X.levelNoticeTimer,timer,'duplicate level event')
  UI:SetExpanded(false);UI:SetExpanded(true);eq(X.levelNotice,nil,'dismissed notice stays dismissed');eq(UI.bar:IsShown(),true)
  W.advance(20);eq(X.levelNotice,nil);eq(P.saved.current.start,11000)
- RequestTimePlayed();reply(W,11300,300);eq(f.messages,1,'manual played remains visible')
+ local messages=f.messages
+ RequestTimePlayed();reply(W,11300,300);eq(f.messages,messages+1,'manual played remains visible')
 end
 -- Saved state is a minimal per-character authoritative anchor, including old saves.
 local W,X,P,UI,f=boot();W.advance(1);reply(W,10000,2000)
@@ -103,14 +146,11 @@ for _,v in ipairs({{9999,1999},{11000,2999},{-1,0},{1,2},{0/0,0},{math.huge,0},{
  P:Sync();W.advance(2);reply(W,v[1],v[2]);eq(P.saved.current.start,8000);eq(P.saved.current.total,10000)
 end
 levelup(W,12);reply(W,12000,100);eq(P.saved.current.level,12);eq(X.levelNotice,nil,'skipped level cannot invent previous duration')
--- External calls fail open, keep other addons' handlers, and require resynchronization.
-W,X,P,UI,f=boot();W.advance(1);local wrapper=f.customEventHandler
-local other=function(frame,event,...) return wrapper(frame,event,...) end
-f.customEventHandler=other
-RequestTimePlayed();eq(f.customEventHandler,other,'never overwrite later handler owner')
+-- External calls require resynchronization without intercepting either response.
+W,X,P,UI,f=boot();W.advance(1)
+RequestTimePlayed()
 reply(W,10000,2000);eq(f.messages,1);eq(P.saved.current,nil)
 reply(W,10000,2000);eq(f.messages,2,'drain both overlapping responses')
-eq(wrapper(f,'TIME_PLAYED_MSG',10000,2000),nil,'retained wrapper deactivated')
 W.advance(2);reply(W,10002,2002);eq(P.saved.current,nil)
 W.advance(2);reply(W,10004,2004);eq(P.saved.current.start,8000)
 -- A manual request before our first request is also an outstanding owner.
@@ -118,8 +158,8 @@ W,X,P,UI,f=boot();RequestTimePlayed();W.advance(2)
 eq(W.playedRequests,1,'wait for manual reply before automatic request')
 reply(W,10000,2000);eq(f.messages,1)
 W.advance(2);reply(W,10002,2002);eq(P.saved.current,nil)
-W.advance(2);reply(W,10004,2004);eq(P.saved.current.start,8000);eq(f.messages,1,'normally drained manual request adds no chat spam')
--- Even a manual request that times out must not make its late reply quiet.
+W.advance(2);reply(W,10004,2004);eq(P.saved.current.start,8000);eq(f.messages,3,'manual and automatic responses remain visible')
+-- A manual request that times out still leaves its late reply visible.
 W,X,P,UI,f=boot();RequestTimePlayed();W.advance(9)
 reply(W,10000,2000);eq(f.messages,1);eq(P.saved.current,nil)
 -- Late authoritative replies update anchors but never reopen/restart a dismissed popup.

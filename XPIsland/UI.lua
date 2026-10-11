@@ -318,7 +318,7 @@ function UI:ShowStatTooltip(cell,i)
         GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
     elseif i == 3 and owner.tracker then
         local t=owner.tracker
-        local rate,duration=M.Estimate(s,t.xp,t.cap,owner:IsCapped())
+        local rate,duration=M.Estimate(s,t.xp,t.cap,owner:IsCapped()~=false)
         local state=M.ETAState(s,rate,duration)
         GameTooltip:AddLine(state=="ready" and explanations[i] or M.ETAMessages[state],.75,.77,.82,true)
         if duration then
@@ -335,7 +335,7 @@ end
 
 function UI:AddKillTooltip()
     local o,t=self.owner,self.owner.tracker
-    local kills,state,count,mean=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped())
+    local kills,state,count,mean=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped()~=false)
     GameTooltip:AddLine(M.KillMessages[state],.75,.77,.82,true)
     if kills then GameTooltip:AddLine("About "..M.Compact(kills).." kills · "..M.Compact(mean).." XP/kill",.8,.65,1,true) end
     if count and count>0 then GameTooltip:AddLine(M.Compact(count).." confirmed kills in the rolling window",.75,.77,.82,true) end
@@ -357,7 +357,7 @@ function UI:RefreshInline()
     local o,p=self.owner,self.owner.profile
     local xp=o:Mode()=="xp"
     local t=o.tracker
-    local kills=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped())
+    local kills=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped()~=false)
     local values={P.pet and M.Compact(P.pet.xp) or "—",P:RankText(),M.Compact(kills)}
     local visible={p.showPet and P.pet~=nil,p.showRank and xp,p.showKills and xp}
     local size=math.max(12,math.min(14,p.fontSize-2))
@@ -495,7 +495,7 @@ function UI:Create(owner)
         if not t or not t.cap or t.cap<=0 then return end
         GameTooltip:SetOwner(f,"ANCHOR_BOTTOM")
         if owner.profile.format=="eta" then
-            local rate,duration=M.Estimate(owner.session,t.xp,t.cap,owner:IsCapped())
+            local rate,duration=M.Estimate(owner.session,t.xp,t.cap,owner:IsCapped()~=false)
             local state=M.ETAState(owner.session,rate,duration)
             GameTooltip:AddLine(state=="ready" and M.Duration(duration,true).." at your current rate" or M.ETAMessages[state],1,1,1,true)
         elseif owner.profile.format=="kills" then
@@ -526,7 +526,7 @@ function UI:BarLabel(rate,duration)
     if self.owner:Mode()=="pvp" then
         text=P:Label(p.pvpFormat)
     elseif p.format=="kills" then
-        local kills=M.KillsToLevel(self.owner.session,t and t.xp,t and t.cap,self.owner:IsCapped())
+        local kills=M.KillsToLevel(self.owner.session,t and t.xp,t and t.cap,self.owner:IsCapped()~=false)
         text=M.Compact(kills).." kills"
     elseif t and t.cap then
         if p.format=="eta" then
@@ -575,7 +575,7 @@ function UI:LayoutContents(preserveMotion)
     local titleHeight,valueHeight,cellHeight,rowsHeight,labelWidth,layout
     local xp=self.owner:Mode()=="xp"
     local tracker=self.owner.tracker
-    local rate,duration=M.Estimate(self.owner.session,tracker and tracker.xp,tracker and tracker.cap,self.owner:IsCapped())
+    local rate,duration=M.Estimate(self.owner.session,tracker and tracker.xp,tracker and tracker.cap,self.owner:IsCapped()~=false)
     -- A short viewport can also lower scale. Resolve that feedback here before
     -- Update, not by recursively restarting layout at the old requested scale.
     local placementProfile=setmetatable({},{__index=p})
@@ -823,7 +823,7 @@ function UI:Update()
     if self:RefreshInline() then self:Layout(true);return end
     if o:Mode()=="xp" and (not t or not t.cap) then return end
     local xp, cap, rested = t and t.xp or 0, t and t.cap or 0, o.rested or 0
-    local rate,duration=M.Estimate(o.session,xp,cap,o:IsCapped())
+    local rate,duration=M.Estimate(o.session,xp,cap,o:IsCapped()~=false)
     local text,labelWidth=self:BarLabel(rate,duration)
     if labelWidth~=self.layout.labelWidth or UI.Font(p)~=self.layout.font then self:Layout(true);return end
     self:PaintBar()

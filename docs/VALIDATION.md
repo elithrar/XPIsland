@@ -1,6 +1,6 @@
 # Validation
 
-XPIsland 0.5.2 targets Forever interface 16001. Client contracts were checked against Blizzard's exported UI source for build 1.60.1.70205, commit `e3ecc27b64d30fdc735a3f6579b866858f9f9df1` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
+XPIsland 0.6.2 targets Forever interface 16001. Current callback and frame contracts were checked against Blizzard's exported UI source for build 1.60.1.70338, commit `943764493e6b16d63ded3ab304150d1f05e58b57` in [Gethe/wow-ui-source](https://github.com/Gethe/wow-ui-source).
 
 ## Automated checks
 
@@ -22,6 +22,7 @@ luajit tests/frame_work_test.lua
 luajit tests/tooltip_test.lua
 luajit tests/features_test.lua
 luajit tests/played_test.lua
+luajit tests/stock_tracking_test.lua
 luajit tests/durations_test.lua
 luajit tests/stress_test.lua
 python3 tests/release_test.py
@@ -44,19 +45,22 @@ python3 tests/package.py
 - Resource stress: 6,000 repeated UI/profile/timer cycles, 100,000 XP awards with hints, stable retained UI/event/timer counts, expiry, conservation and idle redraw elimination. See [resource audit](PERFORMANCE.md) for measurement caveats.
 - Package checks: Lua syntax, TOC load order, bindings XML, all three original TGA assets, ZIP paths and integrity.
 
-An optional source integration test executes Blizzard's actual tracking selection logic. Download the `Shared/StatusTrackingManager.lua` and `Mainline/StatusTrackingManagerOverrides.lua` files from the pinned commit, preserving those subdirectories, then run:
+Both check and release CI check out the immutable Forever source commit above and pass its `Interface/AddOns` path to the played-time and stock-tracking suites. To run the same checks locally against that checkout:
 
 ```sh
-luajit tests/stock_tracking_test.lua /path/to/Blizzard_StatusTrackingBar/
+luajit tests/played_test.lua /path/to/wow-ui-source/Interface/AddOns
+luajit tests/stock_tracking_test.lua /path/to/wow-ui-source/Interface/AddOns
 ```
 
-Its eight assertions check XP-only suppression, reputation preservation, reversal, and restoration through a later addon owner's wrapper. This does not establish live taint safety. Current aggregate results, including progression suites, are listed below.
+The played-time suite executes Blizzard's actual chat dispatcher and checks the request/reply schema from generated API declarations. The stock-tracking suite checks frame method signatures and protection/secret-return metadata, executes the native eligibility selector, and exercises ownership, combat deferral, Edit Mode and Ellesmere handoff. Strict doubles reject even temporary callback replacements, event subscription changes and layout calls. Restricted-value recovery checks verify that unreadable data cannot advance counters, spend request attempts or create timing anchors. These are behavioral/API checks, not UI-string snapshots or a simulated WoW taint engine.
+
+The October 10 error findings were Blizzard `CompactUnitFrame_UpdateHealthColor` reading secret `oldR` and `CompactUnitFrame_GetRangeAlpha` reading secret `outOfRange`, attributed to XPIsland by the client. The two confirmed shared callback writes (`CanShowBar` and `customEventHandler`) are removed. The exact downstream propagation is not established; this change does not patch Blizzard's unit-frame code or claim to reproduce native taint in LuaJIT. No live acceptance is required for this remediation. Older counts and live checklists below are historical coverage, not new gates.
 
 The runtime, revision, motion and feature tests emit twenty-one SVG layout fixtures in `dist/`. `tests/render_previews.py` renders them with a local macOS Chrome installation. These are explicitly marked offline fixtures, not in-game screenshots: substitute fonts and native-control outlines cannot validate WoW's actual artwork or text rasterization. Screenshot findings and the final self-review are recorded in [0.4 design review](DESIGN-REVIEW-04.md).
 
-## In-game acceptance
+## Historical in-game checklist
 
-These cases remain to be verified after loading the revision on the running client:
+These earlier validation notes are retained as context; they are outside the current remediation scope:
 
 - Rested preview contrast and 250 ms highlights in the real renderer, thin source fill rasterization and full-level timing across real server event order.
 - Native font/texture/control rendering, interactions, custom font extremes, native dropdown pooling/skins, physical Mac notch and external display transitions.

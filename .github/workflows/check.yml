@@ -12,6 +12,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check out pinned Forever API contracts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Gethe/wow-ui-source
+          ref: 943764493e6b16d63ded3ab304150d1f05e58b57 # Forever 1.60.1.70338
+          path: .blizzard-api
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/PlayerScriptDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/SystemDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretAspectConstantsDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/ForbiddenAspectConstantsDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleFrameAPIDocumentation.lua
+            /Interface/AddOns/Blizzard_ChatFrameBase/Shared/ChatFrame.lua
+            /Interface/AddOns/Blizzard_ChatFrameBase/Mainline/ChatFrameOverrides.lua
+            /Interface/AddOns/Blizzard_StatusTrackingBar/Shared/StatusTrackingManager.lua
+            /Interface/AddOns/Blizzard_StatusTrackingBar/Mainline/StatusTrackingManagerOverrides.lua
       - name: Install LuaJIT
         run: sudo apt-get update && sudo apt-get install -y luajit
       - name: Test model and runtime
@@ -33,7 +51,8 @@ jobs:
           luajit tests/polish_test.lua
           luajit tests/tooltip_test.lua
           luajit tests/features_test.lua
-          luajit tests/played_test.lua
+          luajit tests/played_test.lua .blizzard-api/Interface/AddOns
+          luajit tests/stock_tracking_test.lua .blizzard-api/Interface/AddOns
           luajit tests/durations_test.lua
           luajit tests/frame_work_test.lua
           luajit tests/stress_test.lua
