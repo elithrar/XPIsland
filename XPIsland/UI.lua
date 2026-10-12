@@ -253,7 +253,7 @@ local explanations = {
     "Confirmed kill XP outside instances, including rested bonuses.",
     "Confirmed quest XP received outside instances, including dungeon quests turned in outdoors.",
     "All XP gained inside party dungeons, counted once.",
-    "Exploration, raids, other instances and unconfirmed XP sources.",
+    "Outdoor exploration, raids, other instances and unconfirmed XP sources.",
 }
 
 -- A single cancellable timer belongs to the current stat target. The generation
