@@ -99,7 +99,7 @@ end
 function X:Toggle()
     if not self.session then return end
     self:CancelAutoCollapse()
-    if not self:CanShow() then say("XP is unavailable, capped or disabled. Select Honor & PvP in Tracking settings to show PvP progression.");return end
+    if not self:CanShow() then say("XP unavailable, capped or disabled. Select Honor & PvP in Tracking settings.");return end
     if not UI.expanded then self.db.expandedOnce=true end
     UI:SetExpanded(not UI.expanded)
     if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(self.profile.autoCollapseDuration) end
@@ -274,7 +274,7 @@ function X:Integration()
     self.integrationMessage=nil
     local manager=StatusTrackingBarManager
     if not manager then
-        if self.profile.hideBlizzard then self.integrationMessage="Blizzard tracking bars are unavailable." end
+        if self.profile.hideBlizzard then self.integrationMessage="Blizzard tracking bars unavailable." end
         return
     end
     local lite=EllesmereUI and EllesmereUI.Lite
@@ -284,13 +284,13 @@ function X:Integration()
     if not safe(editing) then return end
     local wanted=self.profile.hideBlizzard and not euiOwns and not editing
     if InCombatLockdown() then
-        if wanted or self.hiddenStockManager then self.integrationMessage="Blizzard tracking visibility will update after combat." end
+        if wanted or self.hiddenStockManager then self.integrationMessage="Blizzard tracking bar visibility updates after combat." end
         return
     end
     if euiOwns then
         -- Ellesmere has taken ownership; don't re-show its suppressed stock UI.
         self.hiddenStockManager=nil
-        if self.profile.hideBlizzard then self.integrationMessage="Ellesmere manages data bars. Control them in Ellesmere." end
+        if self.profile.hideBlizzard then self.integrationMessage="Ellesmere controls tracking bars. Adjust them there." end
         return
     end
     local shown=manager:IsShown()
@@ -508,7 +508,7 @@ if C_UI and C_UI.Reload then hooksecurefunc(C_UI,"Reload",function() X.reloadInt
 
 SLASH_XPISLAND1="/xpisland"
 SlashCmdList.XPISLAND=function(message)
-    if not X.session then say("XPIsland is waiting for your character to enter the world.");return end
+    if not X.session then say("Waiting for your character to enter the world.");return end
     if message:lower():match("^%s*reset%s*$") then
         X:Clock()
         UI:ClearHighlights()

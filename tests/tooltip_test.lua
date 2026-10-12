@@ -10,7 +10,7 @@ local function open() UI.frame:Show();UI:SetExpanded(true,true) end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false);W.advance(0)
 X.profile.autoCollapse=false
 open()
-local titles={'XP remaining','Session XP/hour','Next level','Rested XP','Outdoor kills','Outdoor quests','Dungeons','Other'}
+local titles={'XP remaining','XP/hour','Time to level','Rested XP','Outdoor kills','Outdoor quests','Dungeons','Other'}
 for i=1,8 do
  enter(i);shown(false,'every cell starts hidden')
  W.advance(.749);shown(false,'full 750 ms dwell required')

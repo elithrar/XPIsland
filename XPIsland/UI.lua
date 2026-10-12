@@ -241,19 +241,19 @@ function UI.BarPiece(parent, layer, edge)
     return f
 end
 
-local labels = {"XP Remaining", "XP/hour", "Time to Level", "Rested XP", "Kill XP", "Quest XP", "Dungeon XP", "Other XP"}
+local labels = {"XP remaining", "XP/hour", "Time to level", "Rested XP", "Kill XP", "Quest XP", "Dungeon XP", "Other XP"}
 local pvpLabels={"Honor available","PvP rank","Rank Points left","Current rank cap"}
 -- Retain functional stat explanations and Blizzard tooltip styling.
-local tooltipLabels = {"XP remaining", "Session XP/hour", "Next level", "Rested XP", "Outdoor kills", "Outdoor quests", "Dungeons", "Other"}
+local tooltipLabels = {"XP remaining", "XP/hour", "Time to level", "Rested XP", "Outdoor kills", "Outdoor quests", "Dungeons", "Other"}
 local explanations = {
-    "XP still needed / total required for this level.",
-    "XP rate over up to the last hour, weighted towards recent kill XP.",
-    "Estimated from your current XP/hour rate. Available after one minute with XP earned.",
-    "Rested XP still available, including any amount extending into the next level.",
-    "Confirmed kill XP earned outside instances, including rested bonuses.",
-    "Confirmed quest rewards received outside instances. A dungeon quest turned in outdoors counts here.",
-    "Every XP gain received inside a party dungeon. Includes kills, quests, exploration and bonuses, counted once.",
-    "Exploration, raid/other-instance gains, and XP whose source could not be confirmed. Categories sum to session XP.",
+    "XP needed / total required for this level.",
+    "XP/hour over up to one hour. Weighted towards recent kill XP.",
+    "Based on your current XP/hour.",
+    "Available rested XP, including XP beyond this level.",
+    "Confirmed kill XP outside instances, including rested bonuses.",
+    "Confirmed quest XP received outside instances, including dungeon quests turned in outdoors.",
+    "All XP gained inside party dungeons, counted once.",
+    "Outdoor exploration, raids, other instances and unconfirmed XP sources.",
 }
 
 -- A single cancellable timer belongs to the current stat target. The generation
@@ -295,7 +295,7 @@ function UI:ShowStatTooltip(cell,i)
             if pet then GameTooltip:AddLine((pet.name or "Pet").." · Level "..pet.level.." · "..M.ExactXP(pet.xp,pet.cap),.8,.65,1,true) end
         elseif i==10 then
             GameTooltip:AddLine("PvP rank",1,1,1)
-            GameTooltip:AddLine("Current Rank Points / next-rank requirement. Honor is a separate spendable currency.",.75,.77,.82,true)
+            GameTooltip:AddLine("Rank Points / next rank requirement. Honor is a separate currency.",.75,.77,.82,true)
             self:AddPvPTooltip()
         else
             GameTooltip:AddLine("Kills to level",1,1,1)
@@ -304,9 +304,9 @@ function UI:ShowStatTooltip(cell,i)
         GameTooltip:Show();return
     elseif owner:Mode()=="pvp" then
         GameTooltip:AddLine(pvpLabels[i] or "PvP progression",1,1,1)
-        GameTooltip:AddLine(i==1 and "Spendable Honor balance, not Honor earned this session. Spending does not lower PvP rank."
-            or i==4 and "Season Rank Points / cumulative ceiling currently available. This is not points earned this week."
-            or "Forever PvP rank progression uses Rank Points, separately from Honor currency.",.75,.77,.82,true)
+        GameTooltip:AddLine(i==1 and "Spendable Honor balance. Spending Honor does not lower rank."
+            or i==4 and "Season Rank Points / current cumulative cap."
+            or "Rank Points determine PvP rank. Honor is a separate currency.",.75,.77,.82,true)
         self:AddPvPTooltip();GameTooltip:Show();return
     end
     GameTooltip:AddLine(tooltipLabels[i], 1,1,1)
@@ -338,17 +338,17 @@ function UI:AddKillTooltip()
     local kills,state,count,mean=M.KillsToLevel(o.session,t and t.xp,t and t.cap,o:IsCapped()~=false)
     GameTooltip:AddLine(M.KillMessages[state],.75,.77,.82,true)
     if kills then GameTooltip:AddLine("About "..M.Compact(kills).." kills · "..M.Compact(mean).." XP/kill",.8,.65,1,true) end
-    if count and count>0 then GameTooltip:AddLine(M.Compact(count).." confirmed kills in the rolling window",.75,.77,.82,true) end
+    if count and count>0 then GameTooltip:AddLine(M.Compact(count).." recent confirmed kills",.75,.77,.82,true) end
 end
 
 function UI:AddPvPTooltip()
     local r=P.rank
     GameTooltip:AddLine("Honor available: "..M.Compact(P.honor),.8,.65,1)
-    if not r then GameTooltip:AddLine("PvP rank information is unavailable.",.75,.77,.82,true);return end
+    if not r then GameTooltip:AddLine("PvP rank unavailable.",.75,.77,.82,true);return end
     GameTooltip:AddLine((r.level==0 and "Unranked" or "Rank "..r.level).." · "..P:RankText(),.8,.65,1,true)
     if r.maximum then GameTooltip:AddLine("Maximum seasonal rank reached.",.75,.77,.82,true)
     elseif r.weekCapped then GameTooltip:AddLine("Current rank cap reached.",.75,.77,.82,true) end
-    if r.ceiling then GameTooltip:AddLine("Season Rank Points: "..M.Compact(r.total).." / "..M.Compact(r.ceiling).." currently available",.75,.77,.82,true) end
+    if r.ceiling then GameTooltip:AddLine("Season Rank Points: "..M.Compact(r.total).." / "..M.Compact(r.ceiling).." current cap",.75,.77,.82,true) end
 end
 
 -- All footer labels and values share one small font size. Measure only when

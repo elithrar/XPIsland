@@ -63,7 +63,7 @@ end
 for _,seconds in ipairs({5,10,15}) do
  close();X.profile.levelUp=true;X.profile.autoCollapse=false;showLevel(seconds)
  eq(X.collapseDelay,seconds);eq(X.collapseKind,'level');eq(UI.levelText:IsShown(),true)
- eq(UI.cells[3].title:GetText(),'Time to Level')
+ eq(UI.cells[3].title:GetText(),'Time to level')
  W.hover=UI.frame;X:InteractionChanged()
  W.advance(seconds-.01);eq(X.levelNotice~=nil,true);W.advance(.02)
  eq(X.levelNotice,nil);eq(UI.bar:IsShown(),true);eq(UI.expanded,true,'hover delays collapse, not header expiry')

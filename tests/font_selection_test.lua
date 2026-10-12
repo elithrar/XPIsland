@@ -82,7 +82,7 @@ for _,name in ipairs({"Expressway","2002","2002 Bold","Arial","Game tooltip","Ex
     eq(O.profilesTab.text:GetText(),"Profiles","previously blank Profiles caption survives font selection")
     eq(O.rested.text:GetText(),"Rested XP","previously blank color caption survives font selection")
     eq(O.format.Text:GetText(),"Percentage","previously blank bar format survives menu regeneration")
-    eq(O.font.Text:GetText(),name=="Game tooltip" and "Game Tooltip (default)" or name,"selected font remains visible")
+    eq(O.font.Text:GetText(),name=="Game tooltip" and "Game tooltip (default)" or name,"selected font remains visible")
     local fontCaption
     for _,entry in ipairs(O.fontObjects) do
         if entry.object:GetText()=="Font" then fontCaption=entry.object end

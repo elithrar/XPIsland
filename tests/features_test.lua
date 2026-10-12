@@ -120,12 +120,12 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
     UI:SetExpanded(true,true)
     for _,duration in ipairs({36*60,102*60}) do
      X:LevelUp();X:ShowLevelDuration(10,duration);UI:SetExpanded(true,true)
-     local c=UI.cells[3];eq(c.title:GetText(),'Time to Level')
+     local c=UI.cells[3];eq(c.title:GetText(),'Time to level')
      eq(UI.levelText:GetText(),duration==2160 and 'Last level took 36m' or 'Last level took 1h 42m')
      eq(UI.bar:IsShown(),false);eq(UI.levelText:IsShown(),true)
      local _,_,width=UI.levelText:Rect();local _,_,headerWidth=UI.header:Rect()
      eq(width<=headerWidth,true,'whole phrase fits header at chosen font and scale')
-     X:ClearLevelNotice();UI:Update();eq(c.title:GetText(),'Time to Level')
+     X:ClearLevelNotice();UI:Update();eq(c.title:GetText(),'Time to level')
      eq(UI.bar:IsShown(),true);eq(UI.levelText:IsShown(),false)
     end
    end

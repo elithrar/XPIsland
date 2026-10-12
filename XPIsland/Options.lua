@@ -71,7 +71,7 @@ end
 function O:Dropdown(parent,x,y,width,entries,get,choose,placeholder)
     local d=CreateFrame("DropdownButton",nil,parent,"WowStyle1DropdownTemplate")
     d:SetPoint("TOPLEFT",x,y);d:SetSize(width,24)
-    d:SetDefaultText(placeholder or "Choose…")
+    d:SetDefaultText(placeholder or "Choose")
     -- The Classic template supplies TOP anchors for a 10px text box. Keep
     -- native art/arrow, but center our 12px font in the control's full height.
     d.Text:ClearAllPoints()
@@ -193,8 +193,8 @@ function O:Create(owner)
     section(page,"Position",316,-320,288,105)
     label(page,"Bar label",28,-105)
     self.format=self:Dropdown(page,28,-125,260,function() return {
-        {value="percent",label="Percentage"},{value="fraction",label="Current / Total XP"},
-        {value="left",label="XP Remaining"},{value="leftPercent",label="XP Remaining (%)"},{value="eta",label="Time to Next Level"},
+        {value="percent",label="Percentage"},{value="fraction",label="Current / total XP"},
+        {value="left",label="XP remaining"},{value="leftPercent",label="XP remaining (%)"},{value="eta",label="Time to level"},
         {value="kills",label="Kills to level"}
     } end,function() return owner.profile.format end,function(v) owner.profile.format=v;owner:ApplyProfile() end)
     label(page,"Font",28,-163)
@@ -202,7 +202,7 @@ function O:Create(owner)
         local names={Arial=true,["Friz Quadrata"]=true,["Game tooltip"]=true}
         local lsm=LibStub and LibStub("LibSharedMedia-3.0",true)
         if lsm then for name in pairs(lsm:HashTable("font")) do names[name]=true end end
-        local list={};for name in pairs(names) do list[#list+1]={value=name,label=name=="Game tooltip" and "Game Tooltip (default)" or name} end
+        local list={};for name in pairs(names) do list[#list+1]={value=name,label=name=="Game tooltip" and "Game tooltip (default)" or name} end
         table.sort(list,function(a,b) return a.value<b.value end);return list
     end,function() return owner.profile.font end,function(v)
         owner.profile.font=v;owner.profile.fontCustomized=v~="Game tooltip";owner:ApplyProfile()
@@ -237,27 +237,27 @@ function O:Create(owner)
     self:Check(page,"Lock position","locked",328,-104)
     self:Duration(page,"levelUp","levelUpDuration",-132)
     self:Duration(page,"autoCollapse","autoCollapseDuration",-160)
-    self:Check(page,"Collapse when combat starts","collapseCombat",328,-188)
+    self:Check(page,"Collapse on combat entry","collapseCombat",328,-188)
     self:Check(page,"Hide Blizzard tracking bars","hideBlizzard",328,-216)
-    local hint=label(page,"Includes stock XP, reputation and Honor.",328,-247,11)
+    local hint=label(page,"Includes XP, reputation and Honor bars.",328,-247,11)
     hint:SetWidth(260);hint:SetWordWrap(true);hint:SetTextColor(.7,.7,.72)
     self.binding=button(page,"",328,-273,260,function() Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID,"XPIsland") end)
     self.placement=self:Dropdown(page,328,-342,260,function() return {
         {value="top",label="Top"},{value="bottom",label="Bottom"},{value="custom",label="Custom (dragged)"}
     } end,function() return owner.profile.placement end,function(v) owner.profile.placement=v;owner:ApplyProfile() end)
-    label(page,"Unlock and drag to set a custom position.",328,-377,11):SetTextColor(.7,.7,.72)
+    label(page,"Unlock to drag the island.",328,-377,11):SetTextColor(.7,.7,.72)
     button(page,"Reset to top",328,-401,124,function()
         owner.profile.position={x=0,y=-8};owner.profile.placement="top";owner:ApplyProfile()
     end)
     button(page,"Expand/collapse",464,-401,124,function() owner:Toggle() end)
-    local timerHint=label(page,"Collapse waits while hovering, dragging, or using these settings.",28,-386,11)
+    local timerHint=label(page,"Auto-collapse waits while hovering, dragging or using settings.",28,-386,11)
     timerHint:SetWidth(260);timerHint:SetWordWrap(true);timerHint:SetTextColor(.7,.7,.72)
     self.status=label(content,"",20,-442,11);self.status:SetWidth(580);self.status:SetWordWrap(true);self.status:SetTextColor(.8,.8,.8)
     page=self.profiles
     section(page,"Profiles",16,-80,588,340)
     label(page,"Active profile",28,-108)
     self.active=self:Dropdown(page,28,-130,260,function() return self:ProfileEntries() end,function() return owner.profileName end,function(v) self:Switch(v) end)
-    local info=label(page,"Shared profiles update every character using them. A character profile is an independent copy. Session statistics stay with your character.",328,-108)
+    local info=label(page,"Changes affect every character using this profile. Character profiles are separate copies. Session stats stay with each character.",328,-108)
     info:SetWidth(260);info:SetWordWrap(true)
     button(page,"Use shared",28,-172,124,function() self:Switch("Shared") end)
     button(page,"Use character",164,-172,124,function()
@@ -274,14 +274,14 @@ function O:Create(owner)
     label(page,"Copy settings from",28,-308)
     self.copy=self:Dropdown(page,28,-330,260,function() return self:ProfileEntries() end,function() return self.copySource end,function(v)
         self.copySource=v;self.confirmCopy=nil;self:Refresh()
-    end,"Choose source…")
+    end,"Choose source")
     self.copyButton=button(page,"Copy settings",328,-330,260,function()
-        if not self.copySource then self.status:SetText("Choose a source profile first.");return end
+        if not self.copySource then self.status:SetText("Choose a source profile.");return end
         if not self.confirmCopy then self.confirmCopy=true;self.copyButton.text:SetText("Confirm overwrite");fitBounded(self.copyButton.text);return end
         owner.db.profiles[owner.profileName]=M.Copy(owner.db.profiles[self.copySource]);owner.profile=owner.db.profiles[owner.profileName]
         self.confirmCopy=nil;owner:ApplyProfile()
     end)
-    label(page,"Copy replaces the active profile. Duplicate creates a separate profile.",28,-383,11):SetTextColor(.7,.7,.72)
+    label(page,"Copy overwrites the active profile. Duplicate creates a new one.",28,-383,11):SetTextColor(.7,.7,.72)
     page=self.tracking
     section(page,"Primary bar",16,-80,288,340)
     section(page,"Expanded XP details",316,-80,288,340)
@@ -294,16 +294,16 @@ function O:Create(owner)
     self:Check(page,"Switch to PvP at level cap","pvpAtCap",28,-163)
     label(page,"Honor & PvP bar label",28,-207)
     self.pvpFormat=self:Dropdown(page,28,-227,260,function() return {
-        {value="honor",label="Honor available"},{value="rankLeft",label="Rank Points to next"}
+        {value="honor",label="Honor available"},{value="rankLeft",label="Rank Points to next rank"}
     } end,function() return owner.profile.pvpFormat end,function(v) owner.profile.pvpFormat=v;owner:ApplyProfile() end)
-    local modeHint=label(page,"PvP mode stays visible at max level. Its bar shows rank progress; Honor is a separate spendable balance. Selecting a mode turns off automatic switching.",28,-271,12)
+    local modeHint=label(page,"PvP mode shows rank progress, even at level cap. Honor is a separate currency. Choosing a mode disables automatic switching.",28,-271,12)
     modeHint:SetWidth(260);modeHint:SetWordWrap(true)
     self:Check(page,"Pet XP when available","showPet",328,-105)
     self:Check(page,"PvP rank progress","showRank",328,-139)
     self:Check(page,"Estimated kills to level","showKills",328,-173)
-    local killHint=label(page,"Kill estimates use up to one hour of confirmed outdoor and dungeon kills. The latest 20 minutes count twice. Rested and group rewards affect the estimate.",328,-221,12)
+    local killHint=label(page,"Estimates use recent confirmed kills. Rested XP and group rewards affect XP per kill.",328,-221,12)
     killHint:SetWidth(260);killHint:SetWordWrap(true)
-    local inlineHint=label(page,"Details appear together in one compact row. No extra expansion is needed.",328,-328,12)
+    local inlineHint=label(page,"Hover over a stat for details.",328,-328,12)
     inlineHint:SetWidth(260);inlineHint:SetWordWrap(true)
     f:SetScript("OnHide",function() self:CloseMenu();self.confirmCopy=nil;owner:InteractionChanged() end)
     f:SetScript("OnShow",function() self:Refresh();owner:InteractionChanged() end)
