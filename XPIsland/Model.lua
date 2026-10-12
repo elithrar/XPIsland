@@ -59,7 +59,7 @@ end
 function M.Database(db)
     db = type(db) == "table" and db or {}
     -- Do not destructively downgrade a newer saved schema.
-    if M.Number(db.version) and db.version > 2 then return nil, "Saved settings belong to a newer XPIsland version." end
+    if M.Number(db.version) and db.version > 2 then return nil, "Saved settings require a newer XPIsland version." end
     local legacy = not M.Number(db.version) or db.version < 2
     db.version = 2
     db.expandedOnce = db.expandedOnce == true -- account-wide onboarding, never copied with a profile
@@ -215,9 +215,9 @@ function M.KillsToLevel(session,xp,cap,capped)
     return kills,"ready",count,mean
 end
 
-M.KillMessages={empty="No recent confirmed kills.", warming="Collecting kill history: at least five confirmed kills are needed.",
-    unavailable="Waiting for player XP information, or XP is capped/disabled.",
-    ready="Approximate kills at recent rewards. The newest 20 minutes count twice within one hour; XP and kill counts use identical weights. Assumes similar rewards, including rested and group bonuses."}
+M.KillMessages={empty="No recent confirmed kills.", warming="Needs at least five recent confirmed kills.",
+    unavailable="Player XP unavailable, capped or disabled.",
+    ready="Approximate kills. Weighted towards recent kill XP and rate."}
 
 function M.Estimate(session, xp, cap, capped)
     if capped or not cap or cap<=0 or not session then return end
@@ -257,11 +257,11 @@ function M.ETAState(session, rate, duration)
 end
 
 M.ETAMessages = {
-    empty = "No XP activity in this session yet.",
-    warming = "Collecting a full minute of XP history for an estimate.",
-    idle = "No recent XP to estimate from. Earn XP to update your pace.",
-    unavailable = "Waiting for XP information.",
-    recovering = "Recalculating your leveling pace.",
+    empty = "No XP earned this session.",
+    warming = "Collecting one minute of XP history.",
+    idle = "No recent XP for an estimate.",
+    unavailable = "Waiting for XP data.",
+    recovering = "Recalculating leveling pace.",
 }
 
 function M.ExactXP(xp, cap)

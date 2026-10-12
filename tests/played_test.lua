@@ -79,7 +79,7 @@ for _,first in ipairs({true,false}) do
  X:ApplyProfile();eq(XPIslandPlayed.current.start,8000)
  levelup(W,11);reply(W,11200,200)
  eq(X.levelNotice.seconds,3000,'duration uses server difference, not wall/elapsed time')
- eq(X.levelNotice.level,10);eq(UI.cells[3].title:GetText(),'Time to Level');eq(UI.levelText:GetText(),'Last level took 50m');eq(UI.bar:IsShown(),false)
+ eq(X.levelNotice.level,10);eq(UI.cells[3].title:GetText(),'Time to level');eq(UI.levelText:GetText(),'Last level took 50m');eq(UI.bar:IsShown(),false)
  local timer=X.levelNoticeTimer;W.event('PLAYER_LEVEL_UP',11);eq(X.levelNoticeTimer,timer,'duplicate level event')
  UI:SetExpanded(false);UI:SetExpanded(true);eq(X.levelNotice,nil,'dismissed notice stays dismissed');eq(UI.bar:IsShown(),true)
  W.advance(20);eq(X.levelNotice,nil);eq(P.saved.current.start,11000)
@@ -171,7 +171,7 @@ W,X,P,UI=boot();W.advance(1);reply(W,10000,2000);levelup(W,11);reply(W,11000,100
 local rate,eta
 local M={};assert(loadfile('XPIsland/Model.lua'))('XPIsland',M)
 rate,eta=M.Model.Estimate(X.session,X.tracker.xp,X.tracker.cap,X:IsCapped())
-eq(UI.cells[3].value:GetText(),M.Model.Duration(eta));eq(UI.cells[3].title:GetText(),'Time to Level')
+eq(UI.cells[3].value:GetText(),M.Model.Duration(eta));eq(UI.cells[3].title:GetText(),'Time to level')
 W.hover=UI.frame;W.advance(9.9);eq(UI.levelText:IsShown(),true)
 W.advance(.2);eq(UI.levelText:IsShown(),false);eq(UI.bar:IsShown(),true);eq(UI.expanded,true)
 levelup(W,12);reply(W,12000,100);local stale=X.levelNoticeTimer

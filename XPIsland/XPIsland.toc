@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: XPIsland
-## Notes: A compact experience island for World of Warcraft: Forever.
+## Notes: Compact XP and PvP tracking for World of Warcraft: Forever.
 ## Author: Matt
 ## X-Curse-Project-ID: 1727059
 ## Version: 0.6.2

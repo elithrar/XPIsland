@@ -12,7 +12,7 @@ end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 eq(X.db.expandedOnce,false)
 fresh();local lines=hover()
-eq(lines[1][1],'No XP activity in this session yet.')
+eq(lines[1][1],'No XP earned this session.')
 eq(lines[2][1],'12,345 / 95,000 (13.0%)');eq(#lines,3)
 eq(UI.infinity:IsShown(),true);eq(UI.label:GetText(),'')
 eq(UI.infinity.symbol.texture,'Interface\\AddOns\\XPIsland\\media\\infinity.tga','visible symbol uses packaged pixels')
@@ -103,7 +103,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
   end
  end
 end
-W.choose(O.format,'leftPercent');eq(O.format.Text:GetText(),'XP Remaining (%)')
+W.choose(O.format,'leftPercent');eq(O.format.Text:GetText(),'XP remaining (%)')
 eq(O.active.Text:GetText(),longName,'long profile selection preserved')
 -- Retain the two-row padding contract when optional inline details are disabled.
 X.profile.showRank=false;X.profile.showKills=false

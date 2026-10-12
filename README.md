@@ -2,23 +2,21 @@
 
 💾 **[Download the latest version](https://www.curseforge.com/wow/addons/xpisland) on CurseForge**
 
-A Dynamic Island-inspired XP bar that shows your XP, time to next level, and sources of XP during your current session.
+A compact XP bar for World of Warcraft: Forever, inspired by Dynamic Island.
 
-- A segmented XP bar that shows rested XP and can be configured to show XP remaining or time to next level based on your current leveling pace.
-- An expandable island that shows time to level, session XP sources, and a compact inline row for pet XP, PvP rank progress, and estimated kills to level.
-- Optional Honor & PvP mode stays useful at max level, with separate Honor balance and Rank Points. Choose it in Tracking settings, or opt into switching at the player level cap.
-- Per-character profiles, customizable fonts, and automatic scaling based on your UI size, with widths that stay compact on ultrawide screens.
-- Optional stock-bar hiding covers Blizzard XP, reputation and Honor bars together. Other addons retain their own bar controls.
-
-For World of Warcraft: Forever. This is a fun experiment to better show the pace of leveling.
+- Track rested XP, XP remaining and estimated time to level.
+- Expand for session XP sources, pet XP, PvP rank and estimated kills to level.
+- Track Honor and Rank Points in PvP mode, including at level cap. Enable it in Tracking settings or switch automatically at the cap.
+- Choose shared or character profiles, fonts and scale. The island fits your UI and stays compact on ultrawide screens.
+- Hide Blizzard's XP, reputation and Honor bars. Other addons keep control of their bars.
 
 <img width="556" height="299" alt="xp-island-collapsed" src="https://github.com/user-attachments/assets/b241fb90-beaf-42a0-8e35-8fb6bc308707" />
 
 ## Installation
 
-Copy the `XPIsland` folder into your Forever client's `Interface/AddOns` directory, then restart WoW. The folder should contain `XPIsland.toc` directly.
+Copy `XPIsland` into your Forever client's `Interface/AddOns` folder, then restart WoW. `XPIsland.toc` must be directly inside `XPIsland`.
 
-Type `/xpisland` for settings. Click the island to expand it, or assign “Expand / collapse XPIsland” in WoW's Keybindings. Use `/xpisland reset` to start a fresh session.
+Use `/xpisland` for settings and `/xpisland reset` to reset session stats. Click the island to expand or collapse it, or bind “Expand / collapse XPIsland” in WoW's Keybindings.
 
 ## Screenshots
 
@@ -41,15 +39,14 @@ Options:
 
 ## Contributing
 
-Open an issue first. PRs that just throw code over the wall without a discussion or some taste may be closed, sorry!
+Open an issue before submitting a PR. Unsolicited PRs may be closed.
 
 ## Development
 
-In a source checkout, run `luajit tests/model_test.lua`, `luajit tests/runtime_test.lua`, `luajit tests/revision_test.lua`, `luajit tests/rate_test.lua`, `luajit tests/kills_test.lua`, `luajit tests/font_selection_test.lua`, `luajit tests/text_layout_test.lua`, `luajit tests/progression_test.lua`, `luajit tests/motion_test.lua`, `luajit tests/recovery_test.lua`, `luajit tests/polish_test.lua`, `luajit tests/frame_work_test.lua`, `luajit tests/tooltip_test.lua`, `luajit tests/features_test.lua`, `luajit tests/stress_test.lua`, `python3 tests/release_test.py`, and `python3 tests/package.py` from the repository root. The package is written to `dist/`.
-In a source checkout, run `luajit tests/model_test.lua`, `luajit tests/runtime_test.lua`, `luajit tests/revision_test.lua`, `luajit tests/rate_test.lua`, `luajit tests/kills_test.lua`, `luajit tests/font_startup_test.lua`, `luajit tests/text_layout_test.lua`, `luajit tests/progression_test.lua`, `luajit tests/motion_test.lua`, `luajit tests/recovery_test.lua`, `luajit tests/polish_test.lua`, `luajit tests/frame_work_test.lua`, `luajit tests/tooltip_test.lua`, `luajit tests/features_test.lua`, `luajit tests/stress_test.lua`, `python3 tests/release_test.py`, and `python3 tests/package.py` from the repository root. The package is written to `dist/`.
+Run the checks in [Check addon](.github/workflows/check.yml) from the repository root with LuaJIT and Python 3. Create `dist/` before running Lua tests. `python3 tests/package.py` builds a local ZIP in `dist/`.
 
 See [behavior details](docs/BEHAVIOR.md) and [validation coverage](docs/VALIDATION.md), including API contract checks and historical client observations.
 
 ## License
 
-BSD 3-Clause, see the [license file](LICENSE) for details.
+BSD 3-Clause. See [LICENSE](LICENSE).
