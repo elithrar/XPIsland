@@ -26,6 +26,11 @@ jobs:
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretAspectConstantsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/ForbiddenAspectConstantsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleFrameAPIDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleButtonAPIDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleScriptRegionAPIDocumentation.lua
+            /Interface/AddOns/Blizzard_Menu/MenuUtil.lua
+            /Interface/AddOns/Blizzard_Menu/Menu.lua
+            /Interface/AddOns/Blizzard_Menu/Vanilla/MenuVariants.lua
             /Interface/AddOns/Blizzard_ChatFrameBase/Shared/ChatFrame.lua
             /Interface/AddOns/Blizzard_ChatFrameBase/Mainline/ChatFrameOverrides.lua
             /Interface/AddOns/Blizzard_StatusTrackingBar/Shared/StatusTrackingManager.lua
@@ -47,6 +52,7 @@ jobs:
           luajit tests/font_startup_test.lua --fail-paths
           luajit tests/text_layout_test.lua
           luajit tests/motion_test.lua
+          luajit tests/indicator_menu_test.lua .blizzard-api/Interface/AddOns
           luajit tests/recovery_test.lua
           luajit tests/polish_test.lua
           luajit tests/tooltip_test.lua

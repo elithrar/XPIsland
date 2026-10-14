@@ -98,6 +98,7 @@ function methods:GenerateMenu()
     self.Text:SetText(text)
 end
 function methods:CloseMenu() self.menuOpen=false end
+function methods:GetScript(event) return self.scripts[event] end
 function methods:SetScript(event,f) self.scripts[event]=f end
 function methods:IsEventRegistered(e) return self.events and self.events[e] or false end
 function methods:RegisterEvent(e) self.events=self.events or {};self.events[e]=true end
@@ -160,7 +161,8 @@ function methods:EnableMouse(v) self.mouse=v end
 function methods:EnableMouseWheel(v) self.wheel=v end
 function methods:SetMovable(v) self.movable=v end
 function methods:SetClampedToScreen(v) self.clamped=v end
-function methods:RegisterForDrag() end
+function methods:RegisterForDrag(...) self.dragButtons={...} end
+function methods:RegisterForClicks(...) self.clickButtons={...} end
 function methods:StartMoving() self.moving=true end
 function methods:StopMovingOrSizing() self.moving=false end
 function methods:SetAutoFocus(v) self.autoFocus=v end
@@ -269,10 +271,16 @@ function W.event(event,...)
         if o.events and o.events[event] and o.scripts.OnEvent then o.scripts.OnEvent(o,event,...) end
     end
 end
-function W.click(button)
+function W.click(button,mouseButton)
+    mouseButton=mouseButton or "LeftButton"
+    if button.clickButtons then
+        local registered=false
+        for _,name in ipairs(button.clickButtons) do if name==mouseButton.."Up" then registered=true end end
+        if not registered then return end
+    elseif mouseButton~="LeftButton" then return end
     if button.kind=="DropdownButton" then button:GenerateMenu();button.menuOpen=true;return end
     if button.kind=="CheckButton" then button.checked=not button.checked end
-    button.scripts.OnClick(button,"LeftButton")
+    button.scripts.OnClick(button,mouseButton)
 end
 function W.choose(dropdown,value)
     dropdown:GenerateMenu()

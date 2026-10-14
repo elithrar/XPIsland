@@ -3,6 +3,66 @@ local M, UI = ns.Model, ns.UI
 local O = {}
 ns.Options = O
 local backdrop={bgFile="Interface\\Buttons\\WHITE8X8",edgeFile="Interface\\Tooltips\\UI-Tooltip-Border",tile=true,tileSize=8,edgeSize=10,insets={left=2,right=2,top=2,bottom=2}}
+local xpFormats={
+    {value="percent",label="Percentage"},{value="fraction",label="Current / total XP"},
+    {value="left",label="XP remaining"},{value="leftPercent",label="XP remaining (%)"},
+    {value="eta",label="Time to level"},{value="kills",label="Kills to level"}
+}
+local pvpFormats={
+    {value="honor",label="Honor available"},{value="rankLeft",label="Rank Points to next rank"}
+}
+
+function O:IndicatorFormats(mode)
+    if mode=="pvp" then return pvpFormats,"pvpFormat" end
+    return xpFormats,"format"
+end
+
+function O:SetIndicatorFormat(mode,value)
+    local entries,key=self:IndicatorFormats(mode)
+    for _,entry in ipairs(entries) do
+        if entry.value==value then
+            UI.owner.profile[key]=value;UI.owner:ApplyProfile()
+            return
+        end
+    end
+end
+
+function O:CloseIndicatorMenu()
+    local context=self.indicatorMenu
+    if not context then return end
+    self.indicatorMenu=nil
+    context.menu:Close()
+    UI.owner:InteractionChanged()
+end
+
+function O:OpenIndicatorMenu(region)
+    local owner=UI.owner
+    if InCombatLockdown() or UI.dragging or not region:IsVisible() then return end
+    self:CloseIndicatorMenu()
+    UI:CancelStatTooltip();GameTooltip:Hide()
+    local mode,profile=owner:Mode(),owner.profile
+    local entries,key=self:IndicatorFormats(mode)
+    -- Native proxy frames are pooled; use per-opening ownership for callbacks.
+    local context={}
+    local menu=MenuUtil.CreateContextMenu(region,function(_,root)
+        for _,entry in ipairs(entries) do
+            root:CreateRadio(entry.label,function(value) return profile[key]==value end,function(value)
+                -- A queued click must not survive combat, dismissal or a profile/mode change.
+                if InCombatLockdown() or self.indicatorMenu~=context or UI.dragging
+                    or not region:IsVisible() or owner.profile~=profile or owner:Mode()~=mode then return end
+                self:SetIndicatorFormat(mode,value)
+            end,entry.value)
+        end
+    end)
+    if menu then
+        context.menu=menu;self.indicatorMenu=context
+        menu:SetClosedCallback(function()
+            if self.indicatorMenu~=context then return end
+            self.indicatorMenu=nil;owner:InteractionChanged()
+        end)
+        owner:InteractionChanged()
+    end
+end
 
 -- Explicit single-line control allocations. Wrapping prose keeps its native
 -- width; edit boxes keep native caret scrolling rather than scaling the widget.
@@ -100,6 +160,7 @@ function O:Dropdown(parent,x,y,width,entries,get,choose,placeholder)
 end
 
 function O:CloseMenu()
+    self:CloseIndicatorMenu()
     for _,d in ipairs(self.dropdowns or {}) do d:CloseMenu() end
 end
 
@@ -192,11 +253,8 @@ function O:Create(owner)
     section(page,"Behavior",316,-80,288,218)
     section(page,"Position",316,-320,288,105)
     label(page,"Bar label",28,-105)
-    self.format=self:Dropdown(page,28,-125,260,function() return {
-        {value="percent",label="Percentage"},{value="fraction",label="Current / total XP"},
-        {value="left",label="XP remaining"},{value="leftPercent",label="XP remaining (%)"},{value="eta",label="Time to level"},
-        {value="kills",label="Kills to level"}
-    } end,function() return owner.profile.format end,function(v) owner.profile.format=v;owner:ApplyProfile() end)
+    self.format=self:Dropdown(page,28,-125,260,function() return self:IndicatorFormats("xp") end,
+        function() return owner.profile.format end,function(v) self:SetIndicatorFormat("xp",v) end)
     label(page,"Font",28,-163)
     self.font=self:Dropdown(page,28,-183,260,function()
         local names={Arial=true,["Friz Quadrata"]=true,["Game tooltip"]=true}
@@ -293,9 +351,8 @@ function O:Create(owner)
     end)
     self:Check(page,"Switch to PvP at level cap","pvpAtCap",28,-163)
     label(page,"Honor & PvP bar label",28,-207)
-    self.pvpFormat=self:Dropdown(page,28,-227,260,function() return {
-        {value="honor",label="Honor available"},{value="rankLeft",label="Rank Points to next rank"}
-    } end,function() return owner.profile.pvpFormat end,function(v) owner.profile.pvpFormat=v;owner:ApplyProfile() end)
+    self.pvpFormat=self:Dropdown(page,28,-227,260,function() return self:IndicatorFormats("pvp") end,
+        function() return owner.profile.pvpFormat end,function(v) self:SetIndicatorFormat("pvp",v) end)
     local modeHint=label(page,"PvP mode shows rank progress, even at level cap. Honor is a separate currency. Choosing a mode disables automatic switching.",28,-271,12)
     modeHint:SetWidth(260);modeHint:SetWordWrap(true)
     self:Check(page,"Pet XP when available","showPet",328,-105)

@@ -411,6 +411,10 @@ function UI:Create(owner)
     self.label:SetJustifyH("CENTER")
     self.infinity,self.infinitySupported=UI.Infinity(self.bar)
     self.infinity:Hide()
+    self.indicator=CreateFrame("Button",nil,self.bar)
+    self.indicator:RegisterForClicks("LeftButtonUp","RightButtonUp")
+    self.indicator:RegisterForDrag("LeftButton")
+    self.bar:SetScript("OnHide",function() ns.Options:CloseIndicatorMenu() end)
     self.segments = {}
     for i=1,20 do
         local edge=i==1 and "left" or i==20 and "right" or nil
@@ -469,6 +473,7 @@ function UI:Create(owner)
     end)
     f:SetScript("OnDragStart", function()
         if owner.profile.locked then return end
+        ns.Options:CloseIndicatorMenu()
         self:CancelStatTooltip();self:ClearHighlights()
         self.dragged = true; self.dragging = true
         owner:InteractionChanged(); self:StopAnimation(); self:RenderGeometry(self.expanded and 1 or 0); f:StartMoving()
@@ -509,6 +514,7 @@ function UI:Create(owner)
     end)
     f:SetScript("OnLeave", function() GameTooltip:Hide();owner:InteractionChanged() end)
     f:SetScript("OnHide",function()
+        ns.Options:CloseIndicatorMenu()
         self:CancelStatTooltip();self:ClearHighlights()
         owner.levelWindow=nil
         owner:ClearLevelNotice()
@@ -516,6 +522,15 @@ function UI:Create(owner)
         self.expanded=false
         if self.layout then self:RenderGeometry(0) end
     end)
+    -- Only this measured right-hand slot accepts a context click. Preserve the
+    -- island's existing left click, drag and tooltip behavior over the label.
+    self.indicator:SetScript("OnClick",function(_,button)
+        if button=="RightButton" then ns.Options:OpenIndicatorMenu(self.indicator)
+        elseif button=="LeftButton" then f:GetScript("OnClick")(f,button) end
+    end)
+    for _,event in ipairs({"OnDragStart","OnDragStop","OnEnter","OnLeave"}) do
+        self.indicator:SetScript(event,f:GetScript(event))
+    end
     self:Layout(); f:Hide()
 end
 
@@ -612,6 +627,8 @@ function UI:LayoutContents(preserveMotion)
     self.outer:Radius(17);self.inner:Radius(16)
     self.label:ClearAllPoints();self.label:SetPoint("RIGHT",self.header,"RIGHT",-14,0)
     self.label:SetSize(labelWidth,layout.barHeight)
+    self.indicator:ClearAllPoints();self.indicator:SetPoint("RIGHT",self.header,"RIGHT",-14,0)
+    self.indicator:SetSize(labelWidth,layout.barHeight)
     -- Empty FontStrings need not provide drawable bounds. Keep the symbol in
     -- the numeric slot without anchoring it to the label we clear for infinity.
     self.infinity:ClearAllPoints();self.infinity:SetPoint("CENTER",self.header,"RIGHT",-14-labelWidth/2,0)
