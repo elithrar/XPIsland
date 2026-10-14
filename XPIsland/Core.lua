@@ -56,6 +56,7 @@ function X:RefreshMode()
     if self.displayMode==mode then return end
     self.displayMode=mode
     if not UI.frame then return end
+    Options:CloseIndicatorMenu()
     self:CancelAutoCollapse();self:ClearLevelNotice();self.levelWindow=nil
     UI:CancelStatTooltip();UI:ClearHighlights();UI:StopAnimation()
     GameTooltip:Hide()
@@ -69,7 +70,8 @@ function X:CancelAutoCollapse(keepDelay)
 end
 
 function X:IsInteracting()
-    return UI.dragging or (UI.frame and UI.frame:IsMouseOver()) or (Options.frame and Options.frame:IsShown())
+    return UI.dragging or Options.indicatorMenu or (UI.frame and UI.frame:IsMouseOver())
+        or (UI.indicator and UI.indicator:IsMouseOver()) or (Options.frame and Options.frame:IsShown())
 end
 
 -- One owned timer. Pointer events react immediately; the existing one-second
@@ -324,6 +326,7 @@ function X:RefreshAppearance(retryFonts,preserveMotion,refreshControls)
 end
 
 function X:ApplyProfile()
+    Options:CloseIndicatorMenu()
     self:RefreshMode()
     local kind=self.collapseKind
     self:CancelAutoCollapse()
@@ -486,6 +489,7 @@ events:SetScript("OnEvent",function(_,event,...)
     elseif event=="PLAYER_CAMPING" or event=="PLAYER_QUITING" then X.cleanIntent=true
     elseif event=="LOGOUT_CANCEL" then X.cleanIntent=nil
     elseif event=="PLAYER_REGEN_DISABLED" then
+        Options:CloseIndicatorMenu()
         if X.profile.collapseCombat then X:CancelAutoCollapse();UI:SetExpanded(false) end
     elseif event=="PLAYER_REGEN_ENABLED" then X:Integration();Options:Refresh()
     elseif event=="UI_SCALE_CHANGED" or event=="DISPLAY_SIZE_CHANGED" or event=="NOTCHED_DISPLAY_MODE_CHANGED" then
