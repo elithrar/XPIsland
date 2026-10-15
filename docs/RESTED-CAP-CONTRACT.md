@@ -102,7 +102,8 @@ whose proposed effective capacity is fractional:
 
 ```lua
 /run print("build",select(2,GetBuildInfo()),"level",UnitLevel("player"),"levelXP",UnitXPMax("player"),"restedXP",GetXPExhaustion())
-/run local c=C_Traits.GetConfigIDByTreeID(1188); print("config",c); if c then print("staged",C_Traits.ConfigHasStagedChanges(c)); DevTools_Dump(C_Traits.GetNodeInfo(c,110301)) end
+/run local c=C_Traits.GetConfigIDByTreeID(1188); print("config",c); if c then print("staged",C_Traits.ConfigHasStagedChanges(c)) end
+/run local c=C_Traits.GetConfigIDByTreeID(1188); local n=c and C_Traits.GetNodeInfo(c,110301); if n then print("active/current/purchased/max",n.activeRank,n.currentRank,n.ranksPurchased,n.maxRanks) end
 ```
 
 These values are an evidence request, not an assertion that the proposed formula
