@@ -77,10 +77,28 @@ alone can describe a preview. The
 [curve API](https://github.com/Gethe/wow-ui-source/blob/735496de78ebd30ce816a0637982c556987f258c/Interface/AddOns/Blizzard_APIDocumentationGenerated/CurveUtilDocumentation.lua)
 can evaluate game curve 121614 at the validated rank.
 
+## Installed XP table and rounding scope
+
+A subsequent verification pass extracted `gametables/xp.txt` (file data ID
+1391661) read-only from installed build 1.60.1.70374, build key
+`25822068f8fce8b21bc714e7e3210481`. Its content key is
+`f19db4c245ead0a3926803c85134e6b1`; the extracted text has SHA-256
+`935253a23756f0ab7a760e8e4ab22184e1aca49285944ea68efc0a8820e459e6`.
+All 59 leveling rows (levels 1–59) have `Total` divisible by 100 and `Divisor` 1.
+Consequently the candidate `Total * 3 * (100 + 4 * rank) / 200` is an integer
+for every rank 0–5 at each of those levels (354 combinations checked with exact
+rational arithmetic).
+
+This removes the need to find a fractional-cap example **in the current baseline
+XP table**. It does not establish the 150% base, exclude server overrides to
+`UnitXPMax`, or define rounding for future non-integral caps. If live requirements
+match the table, rational evaluation avoids the floating-point equality problem
+without inventing a rounding tolerance.
+
 ## Remaining blocking evidence
 
 The inspected current sources and data do **not** establish Forever's base-cap
-equation or the server/API rounding of a fractional effective capacity. A fixed
+equation. A fixed
 `1.5 * UnitXPMax` is therefore not enabled as a fallback. The current
 [DataStore implementation](https://github.com/Thaoky/DataStore_Characters/blob/9585575ecc1b43b1d8d68650b0cd5d2f0512c081/DataStore_Characters/DataStore_Characters.lua)
 uses that historical base, but its explicit Forever branch changes event wiring;
@@ -91,14 +109,22 @@ not supply a documented equation establishing the base.
 Even if 150% is verified, naive `1000 * 1.5 * 1.12` evaluates slightly above 1680
 in double precision and can incorrectly withhold `Max`. For an integer percentage
 bonus, `levelXP * 3 * (100 + bonusPercent) / 200` avoids that particular error.
-Server rounding at non-integral boundaries still needs independent confirmation;
-a broad one-XP tolerance could falsely mark a genuinely incomplete pool as full.
+Server rounding at non-integral boundaries remains unspecified, but such a
+boundary is not produced by the current baseline table and verified rank bonuses.
+A broad one-XP tolerance could falsely mark an incomplete pool as full.
 
-No game process or Forever game-state query bridge was running during inspection.
-No addon was installed or game files changed. To close the gap, collect the
-following read-only values on a **known fully rested** leveling character, with
-no staged Legacy edits, including zero and nonzero Well Rested ranks and a level
-whose proposed effective capacity is fractional:
+The verification pass again found no game process or Forever game-state query
+bridge; the installed build remained 70374. The developer log contained only
+start/shutdown markers and the test-suite log was empty. Existing addon references
+did not supply a verified capacity calculation. No addon was installed or game
+files changed.
+
+The minimum next collection is the following read-only output on **known fully
+rested** leveling characters at rank zero and a nonzero Well Rested rank, with no
+staged Legacy edits, plus each rank shown in the Legacy UI. This tests both the
+candidate base equation and modifier application against the actual pools.
+If the character has no readable Legacy config, that alone does not establish a
+zero bonus; report that output instead of assigning rank zero.
 
 ```lua
 /run print("build",select(2,GetBuildInfo()),"level",UnitLevel("player"),"levelXP",UnitXPMax("player"),"restedXP",GetXPExhaustion())
@@ -108,4 +134,5 @@ whose proposed effective capacity is fractional:
 
 These values are an evidence request, not an assertion that the proposed formula
 or rank semantics have already been observed in game. The independent review
-confirmed the same unresolved base and rounding gaps.
+confirmed the unresolved base and runtime rank semantics. A fractional example is
+not requested for the current baseline table.
