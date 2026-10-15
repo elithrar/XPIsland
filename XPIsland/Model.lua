@@ -125,13 +125,11 @@ function M.Label(format, xp, cap)
     return (string.format("%.1f%%", xp / cap*100):gsub("%.",DECIMAL_SEPERATOR or "."))
 end
 
-function M.RestedText(rested, levelXP)
-    if not M.Number(levelXP) or levelXP<=0 then return end
+function M.RestedText(rested, maximum)
+    if not M.Number(maximum) or maximum<=0 then return end
+    if issecretvalue and issecretvalue(rested) then return end
     if rested==nil then rested=0 end -- GetXPExhaustion returns nil without a bonus.
     if not M.Number(rested) or rested<0 then return end
-    -- Rested allowance: 150% of full level XP, not the remaining XP to level.
-    local maximum=levelXP*1.5
-    if not M.Number(maximum) then return end
     if rested>=maximum then return "Max",true end
     -- Keep rounded percentages below 100 until the actual allowance is full.
     return M.Label("percent",min(rested,maximum*.999),maximum).." of max. rested XP",false

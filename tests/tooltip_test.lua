@@ -19,34 +19,40 @@ for i=1,8 do
  eq(UI.tooltipTimer,nil,'one-shot handle released')
  leave(i);shown(false,'leave hides visible tooltip');eq(UI.tooltipCell,nil)
 end
--- Rested progress is a share of the whole allowance, not the level or XP left.
+-- The formatter requires an explicit effective capacity, never a level XP guess.
 local M=ns.Model
 for _,case in ipairs({
- {0,1000,'0.0% of max. rested XP',false},
- {1,1000,'0.1% of max. rested XP',false},
- {750,1000,'50.0% of max. rested XP',false},
- {1000,1000,'66.7% of max. rested XP',false},
- {1499,1000,'99.9% of max. rested XP',false},
- {1499.999,1000,'99.9% of max. rested XP',false},
- {1500,1000,'Max',true}, {1600,1000,'Max',true},
- {7900,21300,'24.7% of max. rested XP',false},
- {1500,2000,'50.0% of max. rested XP',false},
+ {0,1500,'0.0% of max. rested XP',false},
+ {1,1500,'0.1% of max. rested XP',false},
+ {750,1500,'50.0% of max. rested XP',false},
+ {1000,1500,'66.7% of max. rested XP',false},
+ {1499,1500,'99.9% of max. rested XP',false},
+ {1499.999,1500,'99.9% of max. rested XP',false},
+ {1500,1500,'Max',true}, {1600,1500,'Max',true},
+ {7900,31950,'24.7% of max. rested XP',false},
+ {1500,3000,'50.0% of max. rested XP',false},
 }) do
  local text,maximum=M.RestedText(case[1],case[2])
  eq(text,case[3]);eq(maximum,case[4])
 end
-eq(M.RestedText(nil,1000),'0.0% of max. rested XP','nil means no rested bonus')
+eq(M.RestedText(nil,1500),'0.0% of max. rested XP','nil means no rested bonus')
 for _,invalid in ipairs({0,-1,math.huge,-math.huge,0/0,'1000',false}) do
  eq(M.RestedText(750,invalid),nil,'invalid denominator is unavailable')
 end
-eq(M.RestedText(750,nil),nil);eq(M.RestedText(1,1.79e308),nil,'reject overflowing allowance')
+eq(M.RestedText(750,nil),nil,'missing effective capacity is unavailable')
 for _,invalid in ipairs({-1,math.huge,-math.huge,0/0,'750',false}) do
  eq(M.RestedText(invalid,1000),nil,'invalid rested value is unavailable')
 end
 local secret=setmetatable({},{__lt=function() error('secret compared') end,__mul=function() error('secret multiplied') end})
 issecretvalue=function(v) return rawequal(v,secret) end
 eq(M.RestedText(secret,1000),nil);eq(M.RestedText(750,secret),nil);issecretvalue=nil
-DECIMAL_SEPERATOR=',';eq(M.RestedText(750,1000),'50,0% of max. rested XP');DECIMAL_SEPERATOR=nil
+DECIMAL_SEPERATOR=',';eq(M.RestedText(750,1500),'50,0% of max. rested XP');DECIMAL_SEPERATOR=nil
+-- Runtime has no verified capacity source yet. Neither percentages nor Max may
+-- be invented, even when the rested amount equals 150% of the level requirement.
+W.rested=1500;W.event('UPDATE_EXHAUSTION');enter(4);W.advance(.751)
+eq(#W.tooltip.lines,2,'unknown capacity leaves existing tooltip intact');leave(4)
+-- Supply explicit capacities only in this fixture to exercise prepared rendering.
+X.restedMaximum=1500
 local originalColor=X.profile.rested
 X.profile.rested={.12,.74,.38}
 local function restedLine(text,maximum)
@@ -76,7 +82,7 @@ W.capped=false;W.level=60;UI:ShowStatTooltip(UI.cells[4],4);eq(#W.tooltip.lines,
 W.level=10;W.xp=oldXP;W.rested=0;X.profile.rested=originalColor;X:Sample();W.advance(2.1);GameTooltip:Hide()
 -- Rested XP can update before the tracker accepts the next level's requirement.
 W.rested=1500;W.event('UPDATE_EXHAUSTION');enter(4);W.advance(.751);restedLine('Max',true)
-W.level=11;W.xp=20;W.cap=2000;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
+W.level=11;W.xp=20;W.cap=2000;X.restedMaximum=3000;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
 eq(X.tracker.cap,1000,'old denominator waits for rollover confirmation')
 eq(#W.tooltip.lines,2,'omit progress while the XP denominator is pending')
 W.advance(2.1);eq(X.tracker.cap,2000);restedLine('50.0% of max. rested XP',false);leave(4)
