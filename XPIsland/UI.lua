@@ -316,6 +316,15 @@ function UI:ShowStatTooltip(cell,i)
         local key = SOURCE_KEYS[i-4]
         local amount = s.buckets[key]
         GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
+    elseif i == 4 and owner.tracker and not owner.tracker.pending and not owner.levelPending
+        and not owner.transition and owner:IsCapped()==false then
+        -- Effective capacity must include Legacy perks; never infer it from level XP.
+        -- Draft: restedMaximum has no producer until its client contract is verified.
+        local text,maximum=M.RestedText(owner.rested,owner.restedMaximum)
+        if text then
+            if maximum then GameTooltip:AddLine(text,1,.1,.1)
+            else GameTooltip:AddLine(text,unpack(owner.profile.rested)) end
+        end
     elseif i == 3 and owner.tracker then
         local t=owner.tracker
         local rate,duration=M.Estimate(s,t.xp,t.cap,owner:IsCapped()~=false)
@@ -892,4 +901,8 @@ function UI:Update()
         end
     end
     self.frame:SetShown(o:CanShow())
+    local restedCell=self.cells[4]
+    if not pvp and self.tooltipCell==restedCell and GameTooltip:GetOwner()==restedCell and GameTooltip:IsShown() then
+        self:ShowStatTooltip(restedCell,4)
+    end
 end

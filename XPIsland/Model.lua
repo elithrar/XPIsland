@@ -125,6 +125,16 @@ function M.Label(format, xp, cap)
     return (string.format("%.1f%%", xp / cap*100):gsub("%.",DECIMAL_SEPERATOR or "."))
 end
 
+function M.RestedText(rested, maximum)
+    if not M.Number(maximum) or maximum<=0 then return end
+    if issecretvalue and issecretvalue(rested) then return end
+    if rested==nil then rested=0 end -- GetXPExhaustion returns nil without a bonus.
+    if not M.Number(rested) or rested<0 then return end
+    if rested>=maximum then return "Max",true end
+    -- Keep rounded percentages below 100 until the actual allowance is full.
+    return M.Label("percent",min(rested,maximum*.999),maximum).." of max. rested XP",false
+end
+
 function M.Duration(seconds, long)
     if not M.Number(seconds) or seconds < 0 then return "—" end
     if seconds < 60 then return long and "Less than one minute" or "<1m" end
