@@ -1,5 +1,6 @@
 -- Strict, deterministic WoW UI/event double. This is not an in-game renderer.
-local W={objects={},time=0,wall=1000,timers={},level=10,xp=100,cap=1000,rested=0,instance="none",capped=false,combat=false}
+local W={objects={},time=0,wall=1000,timers={},level=10,xp=100,cap=1000,rested=0,instance="none",capped=false,combat=false,
+    legacyConfig=42,legacyRank=0,legacyStaged=false}
 local methods={}
 local mt={__index=function(_,key) return methods[key] end}
 local function object(kind,name,parent)
@@ -204,6 +205,14 @@ function UnitLevel() return W.level end
 function UnitXP() return W.xp end
 function UnitXPMax() return W.cap end
 function GetXPExhaustion() return W.rested end
+C_Traits={
+    GetConfigIDByTreeID=function(tree) assert(tree==1188);if W.legacyConfig~=false then return W.legacyConfig end end,
+    ConfigHasStagedChanges=function(config) assert(config==W.legacyConfig);return W.legacyStaged end,
+    GetNodeInfo=function(config,node)
+        assert(config==W.legacyConfig and node==110301)
+        if not W.legacyNodeUnavailable then return {activeRank=W.legacyRank} end
+    end,
+}
 function UnitGUID() return "Player-1" end
 function UnitName() return "Test" end
 function GetRealmName() return "Realm" end

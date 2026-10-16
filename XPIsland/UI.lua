@@ -318,8 +318,6 @@ function UI:ShowStatTooltip(cell,i)
         GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
     elseif i == 4 and owner.tracker and not owner.tracker.pending and not owner.levelPending
         and not owner.transition and owner:IsCapped()==false then
-        -- Effective capacity must include Legacy perks; never infer it from level XP.
-        -- Draft: restedMaximum has no producer until its client contract is verified.
         local text,maximum=M.RestedText(owner.rested,owner.restedMaximum)
         if text then
             if maximum then GameTooltip:AddLine(text,1,.1,.1)
