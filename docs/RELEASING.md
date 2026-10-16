@@ -1,14 +1,19 @@
 # Releases
 
+Every merge into `main`, including documentation and maintenance, requires a new version, a matching annotated tag on the exact resulting main commit, a published GitHub Release and verification of the existing distribution workflow. Prepare the version and notes in the PR. Strongly prefer a patch bump for current non-breaking work; justify a minor bump for an intentionally broader compatible release. Recheck concurrent releases before merging so versions are never reused. See `AGENTS.md` for the mandatory release-completion checks.
+
+Confirm authorization for both merge and release before merging. If release work is blocked or not authorized, leave the PR unmerged. After merging, wait for **Check addon** on that exact main commit, push its annotated tag, and monitor **Release addon** to completion; a main push alone does not invoke publishing.
+
 Push an annotated `v*` tag whose commit is already reachable from `origin/main`. The tag version must exactly match both `XPIsland.toc` and `Core.lua`; add `docs/releases/<version>.md` before tagging. Lightweight tags, off-main commits, mismatched versions and extra game flavors fail before publication.
 
 ```sh
 git switch main
 git pull --ff-only
-# Commit the version bump, release notes and reviewed changes; wait for Check addon.
-git push origin main
-git tag -a v0.4.0 -m 'XPIsland 0.4.0'
-git push origin v0.4.0
+# The authorized PR has merged with its version bump and notes.
+# Confirm HEAD is the merge's resulting main commit and Check addon passed there.
+# Example only: use the actual next unused version prepared in that PR.
+git tag -a v0.6.5 -m 'XPIsland 0.6.5'
+git push origin v0.6.5
 ```
 
 Tags themselves do not belong to branches. The workflow fetches `origin/main` and checks ancestry rather than assuming a tag-push branch filter enforces main. Do not move a published tag; use a new version for corrections. A manual run of Release addon with the existing tag resumes publication without moving it.
