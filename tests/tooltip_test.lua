@@ -19,7 +19,7 @@ for i=1,8 do
  eq(UI.tooltipTimer,nil,'one-shot handle released')
  leave(i);shown(false,'leave hides visible tooltip');eq(UI.tooltipCell,nil)
 end
--- The formatter requires an explicit effective capacity, never a level XP guess.
+-- Rendering consumes the separately calculated capacity.
 local M=ns.Model
 for _,case in ipairs({
  {0,1500,'0.0% of max. rested XP',false},
@@ -47,12 +47,10 @@ local secret=setmetatable({},{__lt=function() error('secret compared') end,__mul
 issecretvalue=function(v) return rawequal(v,secret) end
 eq(M.RestedText(secret,1000),nil);eq(M.RestedText(750,secret),nil);issecretvalue=nil
 DECIMAL_SEPERATOR=',';eq(M.RestedText(750,1500),'50,0% of max. rested XP');DECIMAL_SEPERATOR=nil
--- Runtime has no verified capacity source yet. Neither percentages nor Max may
--- be invented, even when the rested amount equals 150% of the level requirement.
-W.rested=1500;W.event('UPDATE_EXHAUSTION');enter(4);W.advance(.751)
+-- Missing perk state temporarily leaves the original tooltip intact.
+W.legacyNodeUnavailable=true;W.rested=1500;W.event('UPDATE_EXHAUSTION');enter(4);W.advance(.751)
 eq(#W.tooltip.lines,2,'unknown capacity leaves existing tooltip intact');leave(4)
--- Supply explicit capacities only in this fixture to exercise prepared rendering.
-X.restedMaximum=1500
+W.legacyNodeUnavailable=false;W.event('UPDATE_EXHAUSTION')
 local originalColor=X.profile.rested
 X.profile.rested={.12,.74,.38}
 local function restedLine(text,maximum)
@@ -82,7 +80,7 @@ W.capped=false;W.level=60;UI:ShowStatTooltip(UI.cells[4],4);eq(#W.tooltip.lines,
 W.level=10;W.xp=oldXP;W.rested=0;X.profile.rested=originalColor;X:Sample();W.advance(2.1);GameTooltip:Hide()
 -- Rested XP can update before the tracker accepts the next level's requirement.
 W.rested=1500;W.event('UPDATE_EXHAUSTION');enter(4);W.advance(.751);restedLine('Max',true)
-W.level=11;W.xp=20;W.cap=2000;X.restedMaximum=3000;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
+W.level=11;W.xp=20;W.cap=2000;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
 eq(X.tracker.cap,1000,'old denominator waits for rollover confirmation')
 eq(#W.tooltip.lines,2,'omit progress while the XP denominator is pending')
 W.advance(2.1);eq(X.tracker.cap,2000);restedLine('50.0% of max. rested XP',false);leave(4)

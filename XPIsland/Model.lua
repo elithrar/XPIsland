@@ -125,6 +125,20 @@ function M.Label(format, xp, cap)
     return (string.format("%.1f%%", xp / cap*100):gsub("%.",DECIMAL_SEPERATOR or "."))
 end
 
+-- Accepted approximation, kept here for tuning: the historical 150%-of-level
+-- base is not verified for Forever. Well Rested's 4%/rank (max 5) is present in
+-- client data through 70425. Do not calibrate every character from one XP pool.
+M.restedCapacity = {basePercent=150, rankPercent=4, maxRank=5}
+function M.RestedMaximum(levelXP, rank)
+    local rule=M.restedCapacity
+    if not M.Number(levelXP) or levelXP<=0 or not M.Number(rank)
+        or rank<0 or rank>rule.maxRank or rank~=floor(rank) then return end
+    -- Integer-first arithmetic avoids false below-cap results such as
+    -- 1000 * 1.5 * 1.12 > 1680. Round down only if a future requirement is fractional.
+    local maximum=levelXP*rule.basePercent*(100+rule.rankPercent*rank)/10000
+    if M.Number(maximum) and maximum>=1 then return floor(maximum) end
+end
+
 function M.RestedText(rested, maximum)
     if not M.Number(maximum) or maximum<=0 then return end
     if issecretvalue and issecretvalue(rested) then return end

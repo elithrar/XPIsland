@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options, P = ns.Model, ns.UI, ns.Options, ns.Progression
-local X = {version="0.6.3", formats={}}
+local X = {version="0.6.4", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -11,6 +11,45 @@ BINDING_NAME_XPISLAND_TOGGLE="Expand / collapse XPIsland"
 local events=CreateFrame("Frame")
 local function safe(v)
     return not (issecretvalue and issecretvalue(v))
+end
+local RESTED_TREE, RESTED_NODE, LEGACY_FACTION = 1188, 110301, 2802
+
+function X:ReadRestedRank()
+    local previousConfig,previousRank=self.restedTraitConfig,self.restedTraitRank
+    self.restedTraitConfig,self.restedTraitRank=nil,nil
+    if not C_Traits or not C_Traits.GetConfigIDByTreeID or not C_Traits.GetNodeInfo
+        or not C_Traits.ConfigHasStagedChanges then return end
+    local config=C_Traits.GetConfigIDByTreeID(RESTED_TREE)
+    if not safe(config) then return end
+    if config==nil then
+        -- Nil config alone is not zero ranks. Blizzard gates Legacy on this
+        -- faction's renown; require consistent, readable locked-system data.
+        if not C_MajorFactions or not C_MajorFactions.GetMajorFactionData
+            or not C_MajorFactions.GetCurrentRenownLevel then return end
+        local info=C_MajorFactions.GetMajorFactionData(LEGACY_FACTION)
+        local renown=C_MajorFactions.GetCurrentRenownLevel(LEGACY_FACTION)
+        if safe(info) and type(info)=="table" and safe(info.isUnlocked) and info.isUnlocked==false
+            and M.Number(info.renownLevel) and info.renownLevel==0 and M.Number(renown) and renown==0 then return 0 end
+        return
+    end
+    if not M.Number(config) or config<=0 or config~=math.floor(config) then return end
+    local staged=C_Traits.ConfigHasStagedChanges(config)
+    if not safe(staged) or type(staged)~="boolean" then return end
+    -- A preview must not change capacity. Retain only this config's last
+    -- confirmed rank; a first read during staged edits remains unavailable.
+    if staged then
+        if previousConfig==config then
+            self.restedTraitConfig,self.restedTraitRank=config,previousRank
+            return previousRank
+        end
+        return
+    end
+    local node=C_Traits.GetNodeInfo(config,RESTED_NODE)
+    if not safe(node) or type(node)~="table" then return end
+    local rank=node.activeRank
+    if not M.Number(rank) or rank<0 or rank>M.restedCapacity.maxRank or rank~=math.floor(rank) then return end
+    self.restedTraitConfig,self.restedTraitRank=config,rank
+    return rank
 end
 local function context()
     local inside,kind=IsInInstance()
@@ -222,7 +261,7 @@ function X:Sample(overrideContext)
     if capped==nil then return end
     if capped and cap==0 and level==t.level then
         if self.transition then P:Refresh() end
-        t.pending=nil;self.transition=nil;UI:Update();return
+        t.pending=nil;self.transition=nil;self.restedPending=nil;self.restedMaximum=nil;UI:Update();return
     end
     local oldLevel,oldXP,oldCap=t.level,t.xp,t.cap
     local wasTransition=self.transition
@@ -233,7 +272,11 @@ function X:Sample(overrideContext)
         if wasTransition then P:Refresh() end
     end
     local rested=GetXPExhaustion()
+    local readable=safe(rested) and (rested==nil or (M.Number(rested) and rested>=0))
     self.rested=M.Number(rested) and math.max(0,rested) or 0
+    local rank=self:ReadRestedRank()
+    self.restedMaximum=readable and M.RestedMaximum(cap,rank) or nil
+    self.restedPending=not capped and (not readable or rank==nil) or nil
     UI:Update()
     if accepted and oldLevel~=nil then
         if oldLevel~=level or oldCap~=cap or xp<oldXP then UI:ClearHighlights()
@@ -390,7 +433,7 @@ function X:Initialize(reloading)
     self:WatchFonts()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
-        if self.online and (self.transition or self.tracker.pending or self.levelPending) then self:Sample() end
+        if self.online and (self.transition or self.tracker.pending or self.levelPending or self.restedPending) then self:Sample() end
         ns.Played:Pump()
         local changed=P:Pump()
         self:RefreshMode()
@@ -445,6 +488,10 @@ events:SetScript("OnEvent",function(_,event,...)
         end
     elseif event=="UPDATE_FACTION" or event=="MAJOR_FACTION_RENOWN_LEVEL_CHANGED" or event=="CURRENCY_DISPLAY_UPDATE" then
         P:PvP();UI:Update()
+        if event=="MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
+            local faction=...
+            if M.Number(faction) and faction==LEGACY_FACTION then X:DeferSample() end
+        end
     elseif event=="UNIT_CONNECTION" then
         local unit,connected=...
         if safe(unit) and unit=="player" and safe(connected) and type(connected)=="boolean" then
@@ -460,6 +507,11 @@ events:SetScript("OnEvent",function(_,event,...)
     elseif event=="PLAYER_XP_UPDATE" then
         local unit=...
         if safe(unit) and unit=="player" then X:DeferSample() end
+    elseif event=="TRAIT_CONFIG_UPDATED" or event=="TRAIT_CONFIG_CREATED" or event=="TRAIT_CONFIG_LIST_UPDATED"
+        or event=="MAJOR_FACTION_UNLOCKED" then X:DeferSample()
+    elseif event=="TRAIT_NODE_CHANGED" or event=="TRAIT_NODE_CHANGED_PARTIAL" then
+        local node=...
+        if M.Number(node) and node==RESTED_NODE then X:DeferSample() end
     elseif event=="PLAYER_LEVEL_UP" then
         local level=...
         local changed=X:ObserveLevel(level)
@@ -502,7 +554,8 @@ for _,event in ipairs({"ADDON_LOADED","TIME_PLAYED_MSG","UNIT_CONNECTION","PLAYE
     "UNIT_PET","UNIT_PET_EXPERIENCE","UNIT_LEVEL","UPDATE_FACTION","MAJOR_FACTION_RENOWN_LEVEL_CHANGED","CURRENCY_DISPLAY_UPDATE",
     "CHAT_MSG_COMBAT_XP_GAIN","LOADING_SCREEN_ENABLED","LOADING_SCREEN_DISABLED","PLAYER_LEAVING_WORLD","PLAYER_LOGOUT","PLAYER_CAMPING","PLAYER_QUITING","LOGOUT_CANCEL",
     "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
-    "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN"}) do events:RegisterEvent(event) end
+    "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN","TRAIT_CONFIG_UPDATED","TRAIT_CONFIG_CREATED","TRAIT_CONFIG_LIST_UPDATED",
+    "TRAIT_NODE_CHANGED","TRAIT_NODE_CHANGED_PARTIAL","MAJOR_FACTION_UNLOCKED"}) do events:RegisterEvent(event) end
 
 hooksecurefunc("Logout",function() X.cleanIntent=true end)
 hooksecurefunc("Quit",function() X.cleanIntent=true end)

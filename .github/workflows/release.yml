@@ -48,6 +48,9 @@ jobs:
           sparse-checkout: |
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/PlayerScriptDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SystemDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/SharedTraitsDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/MajorFactionsDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/LegacyConstantsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretAspectConstantsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/ForbiddenAspectConstantsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleFrameAPIDocumentation.lua
@@ -81,6 +84,7 @@ jobs:
           luajit tests/recovery_test.lua
           luajit tests/polish_test.lua
           luajit tests/tooltip_test.lua
+          luajit tests/rested_test.lua .blizzard-api/Interface/AddOns
           luajit tests/features_test.lua
           luajit tests/played_test.lua .blizzard-api/Interface/AddOns
           luajit tests/stock_tracking_test.lua .blizzard-api/Interface/AddOns
