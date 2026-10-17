@@ -37,7 +37,20 @@ workflows at `943764493e6b16d63ded3ab304150d1f05e58b57`.
 
 ## Second independent review
 
-Recorded after PR creation and before merge.
+A separate reviewer inspected PR #10 at `9f4e2c0` after creation, independently
+reading the diff, repository instructions, skill guidance and pinned contracts.
+No actionable findings or source-identifiable merge blockers remained.
+
+The reviewer reran tooltip (303), pinned native menu (1,181), progression events
+(20), progression state/UI (1,954), motion/timer/menu (6,646; 2,000 cycles) and
+rolling-rate (52) assertions. Another 111 fresh read-only probes covered all
+eight stats with hidden/foreign ownership and missed leaves, mode round trips
+with stale dispatched dwell callbacks, immediate indicator hover/missed leave,
+and animation at 30/60/120 Hz. Animation performed no tooltip repaints, rate
+scans, static font/text/measurement work or UI allocation. No implementation
+changes were needed after this independent pass; this record is the only
+follow-up change. Both initial GitHub PR/push checks passed; final-head CI must
+pass again before merge.
 
 ## Remaining live validation
 
