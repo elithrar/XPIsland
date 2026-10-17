@@ -26,6 +26,7 @@ local function rootDescription()
     function root:CreateRadio(text,selected,choose,value)
         return self:Insert({label=text,isSelected=selected,select=choose,value=value})
     end
+    function root:CreateDivider() return self:Insert({divider=true}) end
     return root
 end
 MenuUtil={CreateContextMenu=function(owner,generator)
@@ -43,6 +44,7 @@ if arg[1] then
     function MenuTemplates.CreateRadio(text,selected,choose,value)
         return {label=text,isSelected=selected,select=choose,value=value}
     end
+    function MenuTemplates.CreateDivider() return {divider=true} end
     Menu={CreateRootMenuDescription=function(mixin)
         eq(mixin,MenuStyle2Mixin,'native default context mixin')
         return rootDescription()
@@ -88,7 +90,9 @@ local function choose(menu,value) entry(menu,value).select(value) end
 eq(O.frame,nil,'quick menu does not create the options window')
 local menu=open()
 eq(menu.owner,target,'native owner is the indicator')
-eq(#menu.root.entries,6)
+eq(#menu.root.entries,9)
+eq(entry(menu,'xp').label,'Experience');eq(entry(menu,'pvp').label,'Honor & PvP')
+eq(entry(menu,'xp').isSelected('xp'),true);eq(menu.root.entries[3].divider,true)
 eq(entry(menu,'percent').isSelected('percent'),true,'saved current mode marked')
 eq(UI.expanded,false,'right click does not expand')
 local opens=menuManager.opens
@@ -105,7 +109,7 @@ for _,mode in ipairs({'xp','pvp'}) do
     local key=mode=='xp' and 'format' or 'pvpFormat'
     for _,row in ipairs(dropdown.menuDescription.entries) do
         menu=open()
-        eq(#menu.root.entries,#dropdown.menuDescription.entries,'same available options')
+        eq(#menu.root.entries,#dropdown.menuDescription.entries+3,'mode choices plus same label options')
         eq(entry(menu,row.value).label,row.label,'same user-facing label')
         choose(menu,row.value)
         eq(X.profile[key],row.value,'active profile updated')
@@ -127,12 +131,33 @@ eq(X.profile.format,'left','stale callback cannot change switched profile')
 
 -- Auto-switching resolves choices from the displayed bar, without changing mode policy.
 X.profile.pvpAtCap=true;W.level=60;X:RefreshMode();UI:Update()
-menu=open();eq(#menu.root.entries,2,'automatic PvP gets PvP choices');choose(menu,'rankLeft')
+menu=open();eq(#menu.root.entries,5,'automatic PvP gets PvP choices');choose(menu,'rankLeft')
 eq(X.profile.pvpAtCap,true);eq(X.profile.mode,'xp');eq(X.profile.pvpFormat,'rankLeft')
 W.level=10;X:RefreshMode();UI:Update()
 menu=open();stale=entry(menu,'eta');X.profile.mode='pvp';X:ApplyProfile();stale.select('eta')
 eq(X.profile.format,'left','stale callback cannot change previous bar mode')
 X.profile.mode='xp';X:ApplyProfile()
+
+-- Manual mode selection shares settings semantics, including choosing the
+-- displayed automatic mode. XP disabled below cap must not force PvP.
+W.level=60;X.profile.pvpAtCap=true;X:ApplyProfile()
+menu=open();eq(entry(menu,'pvp').isSelected('pvp'),true)
+choose(menu,'pvp');eq(X.profile.mode,'pvp');eq(X.profile.pvpAtCap,false)
+eq(O.mode.Text:GetText(),'Honor & PvP');eq(UI.expanded,false)
+local totals=X.session.total;local xpFormat=X.profile.format;local pvpFormat=X.profile.pvpFormat
+menu=open();stale=entry(menu,'pvp');choose(menu,'xp')
+eq(X.profile.mode,'xp');eq(X.profile.pvpAtCap,false);eq(UI.frame:IsShown(),false,'XP at cap hides normally')
+stale.select('pvp');eq(X.profile.mode,'xp','dismissed mode callback is stale')
+W.level=10;W.capped=true;X.profile.pvpAtCap=true;X:ApplyProfile();eq(X:Mode(),'xp')
+W.capped=false;X:ApplyProfile();menu=open();choose(menu,'pvp')
+eq(X.session.total,totals,'switching retains XP');eq(X.profile.format,xpFormat);eq(X.profile.pvpFormat,pvpFormat)
+eq(XPIslandDB.profiles[X.profileName].mode,'pvp','mode persists in active profile')
+local modeRestore=M.Database(M.Copy(XPIslandDB))
+eq(M.SelectProfile(modeRestore,X.character,X.profileName).mode,'pvp')
+menu=open();stale=entry(menu,'xp');W.combat=true;stale.select('xp');eq(X.profile.mode,'pvp')
+W.event('PLAYER_REGEN_DISABLED');W.combat=false;W.event('PLAYER_REGEN_ENABLED');stale.select('xp')
+eq(X.profile.mode,'pvp','combat-dismissed mode choice stays stale')
+menu=open();choose(menu,'xp');eq(O.mode.Text:GetText(),'Experience')
 
 -- Native menu frame proxies are pooled. Old closures must not gain ownership
 -- when the exact same proxy is reused for a later menu on the same profile.
@@ -195,9 +220,12 @@ local objects=#W.objects
 for i=1,100 do menu=open();menu:Close() end
 eq(#W.objects,objects,'reopening adds no addon-owned UI objects')
 menu=open();choose(menu,'leftPercent')
+menu=open();choose(menu,'pvp')
 local W2=dofile('tests/wow_mock.lua');local ns2=W2.load()
 W2.event('ADDON_LOADED','XPIsland');W2.event('PLAYER_ENTERING_WORLD',true,false)
 eq(ns2.owner.profile.format,'leftPercent','fresh addon initialization restores saved selection')
+eq(ns2.owner.profile.mode,'pvp','fresh initialization restores manual mode')
+eq(ns2.owner.profile.pvpAtCap,false,'manual mode retains disabled auto-switch policy')
 ns2.Options:Create(ns2.owner)
 eq(ns2.Options.format.Text:GetText(),'XP remaining (%)','fresh settings reflect restored selection')
 print('PASS: '..n..' indicator menu assertions'..(arg[1] and '; pinned Forever MenuUtil executed' or ''))

@@ -11,6 +11,12 @@ local xpFormats={
 local pvpFormats={
     {value="honor",label="Honor available"},{value="rankLeft",label="Rank Points to next rank"}
 }
+local modes={{value="xp",label="Experience"},{value="pvp",label="Honor & PvP"}}
+
+function O:SetMode(value)
+    if value~="xp" and value~="pvp" then return end
+    UI.owner.profile.mode=value;UI.owner.profile.pvpAtCap=false;UI.owner:ApplyProfile()
+end
 
 function O:IndicatorFormats(mode)
     if mode=="pvp" then return pvpFormats,"pvpFormat" end
@@ -44,12 +50,21 @@ function O:OpenIndicatorMenu(region)
     local entries,key=self:IndicatorFormats(mode)
     -- Native proxy frames are pooled; use per-opening ownership for callbacks.
     local context={}
+    local function current()
+        return not InCombatLockdown() and self.indicatorMenu==context and not UI.dragging
+            and region:IsVisible() and owner.profile==profile and owner:Mode()==mode
+    end
     local menu=MenuUtil.CreateContextMenu(region,function(_,root)
+        for _,entry in ipairs(modes) do
+            root:CreateRadio(entry.label,function(value) return owner:Mode()==value end,function(value)
+                if current() then self:SetMode(value) end
+            end,entry.value)
+        end
+        root:CreateDivider()
         for _,entry in ipairs(entries) do
             root:CreateRadio(entry.label,function(value) return profile[key]==value end,function(value)
                 -- A queued click must not survive combat, dismissal or a profile/mode change.
-                if InCombatLockdown() or self.indicatorMenu~=context or UI.dragging
-                    or not region:IsVisible() or owner.profile~=profile or owner:Mode()~=mode then return end
+                if not current() then return end
                 self:SetIndicatorFormat(mode,value)
             end,entry.value)
         end
@@ -344,11 +359,8 @@ function O:Create(owner)
     section(page,"Primary bar",16,-80,288,340)
     section(page,"Expanded XP details",316,-80,288,340)
     label(page,"Mode",28,-105)
-    self.mode=self:Dropdown(page,28,-125,260,function() return {
-        {value="xp",label="Experience"},{value="pvp",label="Honor & PvP"}
-    } end,function() return owner.profile.mode end,function(v)
-        owner.profile.mode=v;owner.profile.pvpAtCap=false;owner:ApplyProfile()
-    end)
+    self.mode=self:Dropdown(page,28,-125,260,function() return modes end,
+        function() return owner.profile.mode end,function(v) self:SetMode(v) end)
     self:Check(page,"Switch to PvP at level cap","pvpAtCap",28,-163)
     label(page,"Honor & PvP bar label",28,-207)
     self.pvpFormat=self:Dropdown(page,28,-227,260,function() return self:IndicatorFormats("pvp") end,

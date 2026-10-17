@@ -260,10 +260,14 @@ local explanations = {
 -- also rejects callbacks already dispatched before a leave or same-cell re-entry.
 function UI:CancelStatTooltip(cell)
     if cell and self.tooltipCell~=cell then return end
+    if not cell and self.barTooltip then
+        self.barTooltip=nil
+        if GameTooltip:GetOwner()==self.frame then GameTooltip:Hide() end
+    end
     local previous=self.tooltipCell
     self.tooltipGeneration=(self.tooltipGeneration or 0)+1
     if self.tooltipTimer then self.tooltipTimer:Cancel();self.tooltipTimer=nil end
-    self.tooltipCell=nil
+    self.tooltipCell,self.tooltipIndex=nil,nil
     if previous and GameTooltip:GetOwner()==previous then GameTooltip:Hide() end
 end
 
@@ -271,7 +275,7 @@ function UI:BeginStatTooltip(cell,index)
     self:CancelStatTooltip()
     GameTooltip:Hide()
     if not self.expanded or self.progress~=1 or not cell:IsVisible() or self.dragging then return end
-    self.tooltipCell=cell
+    self.tooltipCell,self.tooltipIndex=cell,index
     local generation=self.tooltipGeneration
     self.tooltipTimer=C_Timer.NewTimer(.75,function()
         if self.tooltipGeneration~=generation or self.tooltipCell~=cell then return end
@@ -316,6 +320,8 @@ function UI:ShowStatTooltip(cell,i)
         local key = SOURCE_KEYS[i-4]
         local amount = s.buckets[key]
         GameTooltip:AddLine(string.format("%d XP · %.1f%% of session", amount, s.total > 0 and amount*100/s.total or 0), .8,.65,1)
+    elseif i == 2 and s then
+        GameTooltip:AddLine(string.format("Session: %s XP · %s elapsed",BreakUpLargeNumbers(s.total),M.Duration(s.seconds)),.8,.65,1)
     elseif i == 4 and owner.tracker and not owner.tracker.pending and not owner.levelPending
         and not owner.transition and owner:IsCapped()==false then
         local text,maximum=M.RestedText(owner.rested,owner.restedMaximum)
@@ -338,6 +344,48 @@ function UI:ShowStatTooltip(cell,i)
     end
     if i>=5 and s and s.partial then GameTooltip:AddLine("Totals include recorded XP only.",.75,.77,.82,true) end
     GameTooltip:Show()
+end
+
+function UI:ShowBarTooltip()
+    local owner,f=self.owner,self.frame
+    local t=owner.tracker
+    if owner:Mode()=="pvp" then
+        GameTooltip:SetOwner(f,"ANCHOR_BOTTOM");GameTooltip:AddLine("Honor & PvP · rank progression",1,1,1)
+        self:AddPvPTooltip();GameTooltip:Show();self.barTooltip=true;return
+    end
+    if not t or not t.cap or t.cap<=0 then return end
+    GameTooltip:SetOwner(f,"ANCHOR_BOTTOM")
+    if owner.profile.format=="eta" then
+        local rate,duration=M.Estimate(owner.session,t.xp,t.cap,owner:IsCapped()~=false)
+        local state=M.ETAState(owner.session,rate,duration)
+        GameTooltip:AddLine(state=="ready" and M.Duration(duration,true).." at your current rate" or M.ETAMessages[state],1,1,1,true)
+    elseif owner.profile.format=="kills" then
+        self:AddKillTooltip()
+    end
+    GameTooltip:AddLine(M.ExactXP(t.xp,t.cap),1,1,1)
+    if not owner.db.expandedOnce then
+        GameTooltip:AddLine("Click to expand · /xpisland for settings",.8,.8,.85)
+    end
+    GameTooltip:Show();self.barTooltip=true
+end
+
+-- Repaint only an already visible, owned hover. Events and the shared clock
+-- reach this path; pending dwell timers never acquire the tooltip early.
+function UI:RefreshTooltip()
+    local cell=self.tooltipCell
+    if cell then
+        if not self.expanded or self.progress~=1 or self.dragging or not cell:IsVisible() or not cell:IsMouseOver() then
+            self:CancelStatTooltip(cell)
+        elseif not self.tooltipTimer and self.tooltipIndex and GameTooltip:IsShown() and GameTooltip:GetOwner()==cell then
+            self:ShowStatTooltip(cell,self.tooltipIndex)
+        end
+    elseif self.barTooltip and GameTooltip:IsShown() and GameTooltip:GetOwner()==self.frame then
+        if not self.dragging and self.frame:IsVisible() and (self.frame:IsMouseOver() or self.indicator:IsMouseOver()) then
+            self:ShowBarTooltip()
+        else
+            self.barTooltip=nil;GameTooltip:Hide()
+        end
+    end
 end
 
 function UI:AddKillTooltip()
@@ -499,27 +547,13 @@ function UI:Create(owner)
     f:SetScript("OnEnter", function()
         self:CancelStatTooltip()
         owner:InteractionChanged()
-        local t=owner.tracker
-        if owner:Mode()=="pvp" then
-            GameTooltip:SetOwner(f,"ANCHOR_BOTTOM");GameTooltip:AddLine("Honor & PvP · rank progression",1,1,1)
-            self:AddPvPTooltip();GameTooltip:Show();return
-        end
-        if not t or not t.cap or t.cap<=0 then return end
-        GameTooltip:SetOwner(f,"ANCHOR_BOTTOM")
-        if owner.profile.format=="eta" then
-            local rate,duration=M.Estimate(owner.session,t.xp,t.cap,owner:IsCapped()~=false)
-            local state=M.ETAState(owner.session,rate,duration)
-            GameTooltip:AddLine(state=="ready" and M.Duration(duration,true).." at your current rate" or M.ETAMessages[state],1,1,1,true)
-        elseif owner.profile.format=="kills" then
-            self:AddKillTooltip()
-        end
-        GameTooltip:AddLine(M.ExactXP(t.xp,t.cap),1,1,1)
-        if not owner.db.expandedOnce then
-            GameTooltip:AddLine("Click to expand · /xpisland for settings",.8,.8,.85)
-        end
-        GameTooltip:Show()
+        if not self.dragging then self:ShowBarTooltip() end
     end)
-    f:SetScript("OnLeave", function() GameTooltip:Hide();owner:InteractionChanged() end)
+    f:SetScript("OnLeave", function()
+        self.barTooltip=nil
+        if GameTooltip:GetOwner()==f then GameTooltip:Hide() end
+        owner:InteractionChanged()
+    end)
     f:SetScript("OnHide",function()
         ns.Options:CloseIndicatorMenu()
         self:CancelStatTooltip();self:ClearHighlights()
@@ -899,8 +933,5 @@ function UI:Update()
         end
     end
     self.frame:SetShown(o:CanShow())
-    local restedCell=self.cells[4]
-    if not pvp and self.tooltipCell==restedCell and GameTooltip:GetOwner()==restedCell and GameTooltip:IsShown() then
-        self:ShowStatTooltip(restedCell,4)
-    end
+    self:RefreshTooltip()
 end

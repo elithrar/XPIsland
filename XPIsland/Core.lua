@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options, P = ns.Model, ns.UI, ns.Options, ns.Progression
-local X = {version="0.6.5", formats={}}
+local X = {version="0.6.6", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -438,7 +438,8 @@ function X:Initialize(reloading)
         local changed=P:Pump()
         self:RefreshMode()
         self:InteractionChanged()
-        if changed or UI.expanded or self.profile.format=="eta" or self.profile.format=="kills" then UI:Update() end
+        if changed or UI.expanded or self.profile.format=="eta" or self.profile.format=="kills" then UI:Update()
+        else UI:RefreshTooltip() end
     end)
 end
 
