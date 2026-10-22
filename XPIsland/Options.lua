@@ -264,7 +264,7 @@ function O:Create(owner)
     self.profiles=CreateFrame("Frame",nil,content);self.profiles:SetAllPoints()
     self.tracking=CreateFrame("Frame",nil,content);self.tracking:SetAllPoints()
     local page=self.options
-    section(page,"Appearance",16,-80,288,278)
+    section(page,"Appearance",16,-80,288,342)
     section(page,"Behavior",316,-80,288,218)
     section(page,"Position",316,-320,288,105)
     label(page,"Bar label",28,-105)
@@ -307,6 +307,12 @@ function O:Create(owner)
         b.swatch=UI.Solid(b,"ARTWORK",1,1,1);b.swatch:SetPoint("LEFT",7,0);b.swatch:SetSize(12,12)
         self[key]=b
     end
+    label(page,"Theme",28,-370)
+    self.theme=self:Dropdown(page,28,-390,260,function() return {
+        {value="modern",label="Modern"},{value="forever",label="Forever"}
+    } end,function() return owner.profile.theme end,function(v)
+        owner.profile.theme=v;owner:ApplyProfile()
+    end)
     self:Check(page,"Lock position","locked",328,-104)
     self:Duration(page,"levelUp","levelUpDuration",-132)
     self:Duration(page,"autoCollapse","autoCollapseDuration",-160)
@@ -323,8 +329,6 @@ function O:Create(owner)
         owner.profile.position={x=0,y=-8};owner.profile.placement="top";owner:ApplyProfile()
     end)
     button(page,"Expand/collapse",464,-401,124,function() owner:Toggle() end)
-    local timerHint=label(page,"Auto-collapse waits while hovering, dragging or using settings.",28,-386,11)
-    timerHint:SetWidth(260);timerHint:SetWordWrap(true);timerHint:SetTextColor(.7,.7,.72)
     self.status=label(content,"",20,-442,11);self.status:SetWidth(580);self.status:SetWordWrap(true);self.status:SetTextColor(.8,.8,.8)
     page=self.profiles
     section(page,"Profiles",16,-80,588,340)

@@ -26,13 +26,14 @@ for name in files:
     subprocess.run(["luajit", "-b", str(path), os.devnull], check=True)
 bindings = ET.parse(addon / "Bindings.xml").getroot()
 assert bindings.find("Binding").attrib["name"] == "XPISLAND_TOGGLE"
-for asset in ["rounded.tga", "cap.tga", "infinity.tga"]:
+for asset in ["rounded.tga", "cap.tga", "infinity.tga", "theme-shading.tga", "forever-chrome.tga", "soft-cap.tga", "soft-cap-shading.tga"]:
     data = (addon / "media" / asset).read_bytes()
     width, height = (128, 64) if asset == "infinity.tga" else (64, 64)
     assert len(data) == 18 + width * height * 4
     assert struct.unpack_from("<HH", data, 12) == (width, height)
     assert data[16] == 32
 subprocess.run([sys.executable, str(root / "tests/infinity_asset_test.py")], check=True)
+subprocess.run([sys.executable, str(root / "tests/theme_asset_test.py")], check=True)
 version = re.search(r"^## Version: (" + VERSION + r")$", toc, re.M).group(1)
 assert f'version="{version}"' in (addon / "Core.lua").read_text()
 out = root / "dist" / f"XPIsland-{version}.zip"
@@ -47,7 +48,7 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
             info.external_attr = 0o100644 << 16
             z.writestr(info, path.read_bytes())
 with zipfile.ZipFile(out) as z:
-    expected = {"XPIsland/" + name for name in [*files, "XPIsland.toc", "Bindings.xml", "LICENSE", "README.md", "media/rounded.tga", "media/cap.tga", "media/infinity.tga"]}
+    expected = {"XPIsland/" + name for name in [*files, "XPIsland.toc", "Bindings.xml", "LICENSE", "README.md", "media/rounded.tga", "media/cap.tga", "media/infinity.tga", "media/theme-shading.tga", "media/forever-chrome.tga", "media/soft-cap.tga", "media/soft-cap-shading.tga"]}
     assert set(z.namelist()) == expected, "Unexpected file in addon package"
     assert z.testzip() is None
     assert all(name.startswith("XPIsland/") for name in z.namelist())

@@ -169,6 +169,34 @@ function UI.Round(parent, color, inset)
     return holder
 end
 
+-- One nine-slice image owns both rim and translucent center. Adjacent slices
+-- share UV boundaries, avoiding holes between separately rounded layers.
+function UI.Chrome(parent)
+    local f=CreateFrame("Frame",nil,parent);f:SetAllPoints()
+    local radius=6
+    f.pieces={}
+    local uv={0,.25,.75,1}
+    for row=1,3 do for col=1,3 do
+        local t=f:CreateTexture(nil,"BACKGROUND")
+        t:SetTexture("Interface\\AddOns\\XPIsland\\media\\forever-chrome.tga")
+        t:SetTexCoord(uv[col],uv[col+1],uv[row],uv[row+1])
+        if row==2 and col==2 then
+            t:SetPoint("TOPLEFT",radius,-radius);t:SetPoint("BOTTOMRIGHT",-radius,radius)
+        elseif row==2 then
+            local side=col==1 and "LEFT" or "RIGHT"
+            t:SetWidth(radius);t:SetPoint("TOP"..side,0,-radius);t:SetPoint("BOTTOM"..side,0,radius)
+        elseif col==2 then
+            local side=row==1 and "TOP" or "BOTTOM"
+            t:SetHeight(radius);t:SetPoint(side.."LEFT",radius,0);t:SetPoint(side.."RIGHT",-radius,0)
+        else
+            t:SetSize(radius,radius)
+            t:SetPoint((row==1 and "TOP" or "BOTTOM")..(col==1 and "LEFT" or "RIGHT"))
+        end
+        f.pieces[#f.pieces+1]=t
+    end end
+    f:Hide();return f
+end
+
 function UI.Font(profile)
     local tooltip = GameTooltipTextLeft2 or GameTooltipText
     local default = tooltip and tooltip:GetFont() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
@@ -196,6 +224,14 @@ function UI.BarPiece(parent, layer, edge)
     if edge then
         f.cap=f:CreateTexture(nil,layer)
         f.cap:SetTexture("Interface\\AddOns\\XPIsland\\media\\cap.tga")
+    end
+    f.shading=f:CreateTexture(nil,layer,nil,1)
+    f.shading:SetTexture("Interface\\AddOns\\XPIsland\\media\\theme-shading.tga")
+    f.shading:SetAllPoints(f.body);f.shading:Hide()
+    if f.cap then
+        f.capShading=f:CreateTexture(nil,layer,nil,1)
+        f.capShading:SetTexture("Interface\\AddOns\\XPIsland\\media\\soft-cap-shading.tga")
+        f.capShading:SetAllPoints(f.cap);f.capShading:Hide()
     end
     -- Properties are cached separately: geometry changes every animation frame,
     -- but color, UVs, visibility and most anchors usually do not.
@@ -234,6 +270,7 @@ function UI.BarPiece(parent, layer, edge)
                 self.cap:SetSize(math.max(.001,capWidth),height)
                 local u=self.edge=="left" and 0 or .5
                 self.cap:SetTexCoord(u,u+.5*capWidth/radius,0,1)
+                if self.capShading then self.capShading:SetTexCoord(u,u+.5*capWidth/radius,0,1) end
             end
             if self.capVisible~=(capWidth>0) then self.capVisible=capWidth>0;self.cap:SetShown(self.capVisible) end
         end
@@ -452,6 +489,7 @@ function UI:Create(owner)
     f:SetMovable(true); f:RegisterForDrag("LeftButton")
     self.outer = UI.Round(f, {0.19,0.20,0.23,1}, 0)
     self.inner = UI.Round(f, {0.035,0.04,0.055,0.97}, 1)
+    self.chrome=UI.Chrome(f)
     local content = CreateFrame("Frame", nil, f)
     self.content = content; content:SetAllPoints(); content:SetFrameLevel(f:GetFrameLevel()+2)
     self.header=CreateFrame("Frame",nil,content)
@@ -615,6 +653,39 @@ function UI:Layout(preserveMotion)
     self.owner:RefreshAppearance(false,preserveMotion)
 end
 
+function UI:ApplyTheme()
+    local forever=self.owner.profile.theme=="forever"
+    if self.appliedForever==forever then return end
+    self.appliedForever=forever
+    self.trackColor=forever and {.32,.32,.30} or TRACK_COLOR
+    self.outer:SetShown(not forever);self.inner:SetShown(not forever)
+    self.chrome:SetShown(forever)
+    self.outer:Radius(17);self.inner:Radius(16)
+    self.headerInset=forever and 10 or 14
+    self.segmentHeight=forever and 14 or 10
+    self.divider:SetColorTexture(unpack(forever and {.32,.25,.14,1} or {.18,.18,.22,1}))
+    for _,cell in ipairs(self.cells) do
+        cell.title:SetTextColor(unpack(forever and {.83,.72,.49} or {.86,.79,.63}))
+        cell.value:SetTextColor(unpack(forever and {.94,.90,.80} or {.93,.94,.97}))
+        if cell.shareTrack then cell.shareTrack:SetColorTexture(unpack(self.trackColor)) end
+    end
+    for _,segment in ipairs(self.segments) do
+        segment.track:SetAlpha(forever and .85 or 1)
+        for _,part in ipairs({segment.track,segment.preview,segment.fill,segment.flash}) do
+            part.drawWidth=nil
+            if part.cap then
+                part.cap:SetTexture(forever and "Interface\\AddOns\\XPIsland\\media\\soft-cap.tga" or "Interface\\AddOns\\XPIsland\\media\\cap.tga")
+            end
+        end
+        segment.fill.shading:SetShown(forever)
+        segment.fill.shading:SetAlpha(.55)
+        if segment.fill.capShading then
+            segment.fill.capShading:SetShown(forever)
+            segment.fill.capShading:SetAlpha(.55)
+        end
+    end
+end
+
 function UI:LayoutContents(preserveMotion)
     if not self.frame or self.dragging then return end
     if not preserveMotion then self:CancelStatTooltip();self:ClearHighlights() end
@@ -665,14 +736,14 @@ function UI:LayoutContents(preserveMotion)
     self.layout=layout
     if not preserveMotion then self:StopAnimation();self.progress=self.expanded and 1 or 0 end
     f:SetScale(layout.scale);f:ClearAllPoints()
-    self.outer:Radius(17);self.inner:Radius(16)
-    self.label:ClearAllPoints();self.label:SetPoint("RIGHT",self.header,"RIGHT",-14,0)
+    self:ApplyTheme()
+    self.label:ClearAllPoints();self.label:SetPoint("RIGHT",self.header,"RIGHT",-self.headerInset,0)
     self.label:SetSize(labelWidth,layout.barHeight)
-    self.indicator:ClearAllPoints();self.indicator:SetPoint("RIGHT",self.header,"RIGHT",-14,0)
+    self.indicator:ClearAllPoints();self.indicator:SetPoint("RIGHT",self.header,"RIGHT",-self.headerInset,0)
     self.indicator:SetSize(labelWidth,layout.barHeight)
     -- Empty FontStrings need not provide drawable bounds. Keep the symbol in
     -- the numeric slot without anchoring it to the label we clear for infinity.
-    self.infinity:ClearAllPoints();self.infinity:SetPoint("CENTER",self.header,"RIGHT",-14-labelWidth/2,0)
+    self.infinity:ClearAllPoints();self.infinity:SetPoint("CENTER",self.header,"RIGHT",-self.headerInset-labelWidth/2,0)
     self.header:ClearAllPoints()
     local point=layout.up and "BOTTOM" or "TOP"
     self.header:SetPoint(point,self.content,point)
@@ -723,10 +794,12 @@ function UI:RenderGeometry(progress)
         -- SetPoint replaces this same anchor; avoid clearing the entire graph.
         f:SetPoint("TOP",UIParent,"TOP",layout.x/layout.scale,y/layout.scale)
         self.header:SetWidth(width)
-        local segWidth=(width-40-layout.labelWidth-38)/20
+        local inset=self.headerInset or 14
+        local gap=self.appliedForever and 8 or 12
+        local segWidth=(width-2*inset-gap-layout.labelWidth-38)/20
         for i,s in ipairs(self.segments) do
-            s.track:SetPoint("LEFT",self.header,"LEFT",14+(i-1)*(segWidth+2),0)
-            s.track:Draw(segWidth,10,1,TRACK_COLOR);s.width=segWidth
+            s.track:SetPoint("LEFT",self.header,"LEFT",inset+(i-1)*(segWidth+2),0)
+            s.track:Draw(segWidth,self.segmentHeight or 10,1,self.trackColor or TRACK_COLOR);s.width=segWidth
         end
         self:PaintBar(true)
         self.divider:SetWidth(width-28)
@@ -807,7 +880,7 @@ function UI:HighlightSegments(before,after,cap)
     if last<first then return end
     for i=first,last do
         local s=self.segments[i]
-        self.flashes[i]=0;s.flash:Draw(s.width,10,1,FLASH_COLOR)
+        self.flashes[i]=0;s.flash:Draw(s.width,self.segmentHeight or 10,1,FLASH_COLOR)
         s.flash:SetAlpha(.18);s.flash:Show()
     end
     self.flashDriver:SetScript("OnUpdate",self.flashStep)
@@ -853,22 +926,23 @@ function UI:PaintBar(geometryChanged)
     if o:Mode()=="pvp" then preview=0;color=p.normal end
     if preview<=fraction then preview=0 end
     local previewColor=self.restedColor
-    for i=1,3 do previewColor[i]=TRACK_COLOR[i]+(p.rested[i]-TRACK_COLOR[i])*.28 end
+    local trackColor=self.trackColor or TRACK_COLOR
+    for i=1,3 do previewColor[i]=trackColor[i]+(p.rested[i]-trackColor[i])*.28 end
     if geometryChanged or fraction~=self.barFraction or preview~=self.restedFraction or previewColor[1]~=self.previewR
         or previewColor[2]~=self.previewG or previewColor[3]~=self.previewB then
         for i,s in ipairs(self.segments) do
             local amount=fraction*20>=i and 0 or math.min(1,math.max(0,preview*20-(i-1)))
-            s.preview:Draw(s.width,10,amount,previewColor)
+            s.preview:Draw(s.width,self.segmentHeight or 10,amount,previewColor)
         end
         self.restedFraction,self.previewR,self.previewG,self.previewB=preview,unpack(previewColor)
     end
     if geometryChanged then
-        for i in pairs(self.flashes) do self.segments[i].flash:Draw(self.segments[i].width,10,1,FLASH_COLOR) end
+        for i in pairs(self.flashes) do self.segments[i].flash:Draw(self.segments[i].width,self.segmentHeight or 10,1,FLASH_COLOR) end
     end
     if geometryChanged or fraction~=self.barFraction or color[1]~=self.barR or color[2]~=self.barG or color[3]~=self.barB then
         for i,s in ipairs(self.segments) do
             local fill=math.min(1,math.max(0,fraction*20-(i-1)))
-            s.fill:Draw(s.width,10,fill,color)
+            s.fill:Draw(s.width,self.segmentHeight or 10,fill,color)
         end
         self.barFraction,self.barR,self.barG,self.barB=fraction,color[1],color[2],color[3]
     end
