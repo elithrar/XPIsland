@@ -24,7 +24,7 @@ W.choose(O.theme,"forever")
 assert(X.profile.theme=="forever")
 assert(UI.chrome:IsShown() and not UI.outer:IsShown() and not UI.inner:IsShown())
 assert(#UI.chrome.pieces==9)
-assert(UI.layout.barHeight==28 and UI.segmentHeight==14)
+assert(UI.layout.barHeight==28 and UI.segmentHeight==10)
 assert(UI.segments[1].fill.cap:IsShown())
 assert(UI.segments[1].fill.cap.texture:find("soft%-cap.tga"))
 assert(UI.trackColor[1]>.2,"empty segments remain readable")
@@ -33,7 +33,7 @@ for _,index in ipairs({1,20}) do
  local part=UI.segments[index].fill
  assert(part.capShading:IsShown() and part.capShading.alpha==part.shading.alpha)
  for _,amount in ipairs({.02,.5,1}) do
-  part:Draw(18,14,amount,normal)
+  part:Draw(18,UI.segmentHeight,amount,normal)
   for i=1,4 do assert(part.capShading.coords[i]==part.cap.coords[i],"cap gradient uses the same crop, including partial fills") end
   assert(part.shading:IsShown()==part.body:IsShown(),"body shading must follow partial-fill visibility")
   assert(part.capShading:IsShown()==part.cap:IsShown(),"cap shading must follow partial-fill visibility")
@@ -94,6 +94,10 @@ for i=1,1200 do
   assert(segment.width>0,"theme produced negative segment width")
   assert(segment.track.drawHeight==theme.segmentHeight)
   assert(segment.track.alpha==theme.trackAlpha)
+  assert(segment.border:IsShown()==(theme.segmentBorder~=nil))
+  assert(segment.border:GetFrameLevel()>segment.flash:GetFrameLevel())
+  assert(math.abs(segment.border:GetWidth()-segment.track:GetWidth())<.000001)
+  assert(math.abs(segment.border:GetHeight()-theme.segmentHeight)<.000001)
  end
  assert(#W.objects==objects,"switching themes allocated UI objects")
  assert(X.profile.font==originalFont)
@@ -101,6 +105,21 @@ for i=1,1200 do
   assert(X.profile.normal[channel]==originalNormal[channel] and X.profile.rested[channel]==originalRested[channel])
  end
 end
+-- A border stays on the full segment while the XP edge moves through it.
+W.choose(O.theme,"forever")
+for _,amount in ipairs({0,.02,.5,.99,1}) do
+ local segment=UI.segments[10]
+ segment.fill:Draw(segment.width,UI.segmentHeight,amount,X.profile.normal)
+ assert(segment.border:IsShown())
+ assert(math.abs(segment.border:GetWidth()-segment.width)<.000001)
+end
+for index=2,20 do
+ local left=UI.segments[index-1].track;local right=UI.segments[index].track
+ local lx,_,lw=left:Rect();local rx=right:Rect()
+ assert(math.abs((rx-lx-lw)/UI.frame:GetEffectiveScale()-3)<.000001,"Forever spacing")
+end
+assert(T.Get("forever").segmentHeight==T.Get("modern").segmentHeight)
+assert(T.Get("modern").segmentGap==2 and not T.Get("modern").segmentBorder)
 X.profile.fontSize=originalSize
 -- Saved-data restoration and profile copying must recognize a new theme.
 W.choose(O.theme,"test-bronze")

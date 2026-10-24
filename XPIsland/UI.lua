@@ -282,6 +282,28 @@ function UI.BarPiece(parent, layer, edge)
     return f
 end
 
+-- A fixed outline belongs to the whole segment, never to the moving XP edge.
+-- Anchors follow track geometry without per-frame border updates.
+function UI.SegmentBorder(parent,track,level)
+    local f=CreateFrame("Frame",nil,parent);f:SetAllPoints(track);f:SetFrameLevel(level)
+    f.top=UI.Solid(f,"OVERLAY",1,1,1);f.bottom=UI.Solid(f,"OVERLAY",1,1,1)
+    f.left=UI.Solid(f,"OVERLAY",1,1,1);f.right=UI.Solid(f,"OVERLAY",1,1,1)
+    f.top:SetPoint("TOPLEFT");f.top:SetPoint("TOPRIGHT")
+    f.bottom:SetPoint("BOTTOMLEFT");f.bottom:SetPoint("BOTTOMRIGHT")
+    function f:Apply(style)
+        self:SetShown(style~=nil)
+        if not style then return end
+        self.top:SetHeight(style.size);self.bottom:SetHeight(style.size)
+        self.top:SetColorTexture(unpack(style.top));self.bottom:SetColorTexture(unpack(style.bottom))
+        for _,side in ipairs({"left","right"}) do
+            local t=self[side];local anchor=side=="left" and "LEFT" or "RIGHT"
+            t:SetWidth(style.size);t:SetPoint("TOP"..anchor,0,-style.size);t:SetPoint("BOTTOM"..anchor,0,style.size)
+            t:SetColorTexture(unpack(style.side))
+        end
+    end
+    f:Hide();return f
+end
+
 local labels = {"XP remaining", "XP/hour", "Time to level", "Rested XP", "Kill XP", "Quest XP", "Dungeon XP", "Other XP"}
 local pvpLabels={"Honor available","PvP rank","Rank Points left","Current rank cap"}
 -- Retain functional stat explanations and Blizzard tooltip styling.
@@ -525,7 +547,8 @@ function UI:Create(owner)
         fill:SetFrameLevel(track:GetFrameLevel()+2);fill:SetPoint("LEFT",track,"LEFT")
         local flash=UI.BarPiece(self.bar,"OVERLAY",edge)
         flash:SetFrameLevel(track:GetFrameLevel()+3);flash:SetPoint("LEFT",track,"LEFT");flash:Hide()
-        self.segments[i] = {track=track,preview=preview,fill=fill,flash=flash}
+        local border=UI.SegmentBorder(self.bar,track,flash:GetFrameLevel()+1)
+        self.segments[i] = {track=track,preview=preview,fill=fill,flash=flash,border=border}
     end
     self.divider = UI.Solid(content, "ARTWORK", .18,.18,.22)
     self.details=CreateFrame("Frame",nil,content)
@@ -675,6 +698,7 @@ function UI:ApplyTheme()
     self.headerInset=theme.headerInset
     self.labelGap=theme.labelGap
     self.segmentHeight=theme.segmentHeight
+    self.segmentGap=theme.segmentGap
     self.divider:SetColorTexture(unpack(theme.dividerColor))
     for _,cell in ipairs(self.cells) do
         cell.title:SetTextColor(unpack(theme.titleColor))
@@ -683,6 +707,7 @@ function UI:ApplyTheme()
     end
     for _,segment in ipairs(self.segments) do
         segment.track:SetAlpha(theme.trackAlpha)
+        segment.border:Apply(theme.segmentBorder)
         for _,part in ipairs({segment.track,segment.preview,segment.fill,segment.flash}) do
             part.drawWidth=nil
             if part.cap then part.cap:SetTexture(theme.capTexture) end
@@ -810,9 +835,10 @@ function UI:RenderGeometry(progress)
         self.header:SetWidth(width)
         local inset=self.headerInset or 14
         local gap=self.labelGap
-        local segWidth=(width-2*inset-gap-layout.labelWidth-38)/20
+        local segmentGap=self.segmentGap
+        local segWidth=(width-2*inset-gap-layout.labelWidth-19*segmentGap)/20
         for i,s in ipairs(self.segments) do
-            s.track:SetPoint("LEFT",self.header,"LEFT",inset+(i-1)*(segWidth+2),0)
+            s.track:SetPoint("LEFT",self.header,"LEFT",inset+(i-1)*(segWidth+segmentGap),0)
             s.track:Draw(segWidth,self.segmentHeight,1,self.trackColor or TRACK_COLOR);s.width=segWidth
         end
         self:PaintBar(true)
