@@ -7,6 +7,7 @@
 ## SavedVariables: XPIslandDB
 ## SavedVariablesPerCharacter: XPIslandSession, XPIslandPlayed
 ## OptionalDeps: LibSharedMedia-3.0
+Themes.lua
 Model.lua
 Progression.lua
 Played.lua

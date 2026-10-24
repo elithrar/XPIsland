@@ -308,9 +308,7 @@ function O:Create(owner)
         self[key]=b
     end
     label(page,"Theme",28,-370)
-    self.theme=self:Dropdown(page,28,-390,260,function() return {
-        {value="modern",label="Modern"},{value="forever",label="Forever"}
-    } end,function() return owner.profile.theme end,function(v)
+    self.theme=self:Dropdown(page,28,-390,260,ns.Themes.Choices,function() return owner.profile.theme end,function(v)
         owner.profile.theme=v;owner:ApplyProfile()
     end)
     self:Check(page,"Lock position","locked",328,-104)

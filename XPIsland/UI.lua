@@ -2,7 +2,7 @@ local _, ns = ...
 local M, P = ns.Model, ns.Progression
 local UI = {}
 ns.UI = UI
-local TRACK_COLOR={.14,.14,.18}
+local TRACK_COLOR=ns.Themes.Get().trackColor
 local FLASH_COLOR={1,1,1}
 local SOURCE_KEYS={"kills","quests","dungeons","other"}
 local MEDIA = "Interface\\AddOns\\XPIsland\\media\\rounded.tga"
@@ -165,20 +165,23 @@ function UI.Round(parent, color, inset)
         left:ClearAllPoints(); left:SetPoint("TOPLEFT", 0, -radius); left:SetPoint("BOTTOMLEFT", 0, radius); left:SetWidth(radius)
         right:ClearAllPoints(); right:SetPoint("TOPRIGHT", 0, -radius); right:SetPoint("BOTTOMRIGHT", 0, radius); right:SetWidth(radius)
     end
+    function holder:Color(color)
+        for _,c in ipairs(corners) do c:SetVertexColor(unpack(color)) end
+        for _,t in ipairs({center,left,right}) do t:SetColorTexture(unpack(color)) end
+    end
     holder:Radius(14)
     return holder
 end
 
 -- One nine-slice image owns both rim and translucent center. Adjacent slices
 -- share UV boundaries, avoiding holes between separately rounded layers.
-function UI.Chrome(parent)
+function UI.Chrome(parent,texture,radius)
     local f=CreateFrame("Frame",nil,parent);f:SetAllPoints()
-    local radius=6
     f.pieces={}
     local uv={0,.25,.75,1}
     for row=1,3 do for col=1,3 do
         local t=f:CreateTexture(nil,"BACKGROUND")
-        t:SetTexture("Interface\\AddOns\\XPIsland\\media\\forever-chrome.tga")
+        t:SetTexture(texture)
         t:SetTexCoord(uv[col],uv[col+1],uv[row],uv[row+1])
         if row==2 and col==2 then
             t:SetPoint("TOPLEFT",radius,-radius);t:SetPoint("BOTTOMRIGHT",-radius,radius)
@@ -223,14 +226,11 @@ function UI.BarPiece(parent, layer, edge)
     f.body=UI.Solid(f,layer,1,1,1)
     if edge then
         f.cap=f:CreateTexture(nil,layer)
-        f.cap:SetTexture("Interface\\AddOns\\XPIsland\\media\\cap.tga")
     end
     f.shading=f:CreateTexture(nil,layer,nil,1)
-    f.shading:SetTexture("Interface\\AddOns\\XPIsland\\media\\theme-shading.tga")
     f.shading:SetAllPoints(f.body);f.shading:Hide()
     if f.cap then
         f.capShading=f:CreateTexture(nil,layer,nil,1)
-        f.capShading:SetTexture("Interface\\AddOns\\XPIsland\\media\\soft-cap-shading.tga")
         f.capShading:SetAllPoints(f.cap);f.capShading:Hide()
     end
     -- Properties are cached separately: geometry changes every animation frame,
@@ -261,6 +261,8 @@ function UI.BarPiece(parent, layer, edge)
             self.body:SetSize(math.max(.001,bodyWidth),height)
         end
         if self.bodyVisible~=(bodyWidth>0) then self.bodyVisible=bodyWidth>0;self.body:SetShown(self.bodyVisible) end
+        local shadeVisible=self.shaded and self.bodyVisible or false
+        if self.shadingVisible~=shadeVisible then self.shadingVisible=shadeVisible;self.shading:SetShown(shadeVisible) end
         if self.cap then
             local offset=self.edge=="left" and 0 or width-radius
             local capWidth=math.max(0,math.min(radius,visible-offset))
@@ -273,6 +275,8 @@ function UI.BarPiece(parent, layer, edge)
                 if self.capShading then self.capShading:SetTexCoord(u,u+.5*capWidth/radius,0,1) end
             end
             if self.capVisible~=(capWidth>0) then self.capVisible=capWidth>0;self.cap:SetShown(self.capVisible) end
+            local capShadeVisible=self.shaded and self.capVisible or false
+            if self.capShadingVisible~=capShadeVisible then self.capShadingVisible=capShadeVisible;self.capShading:SetShown(capShadeVisible) end
         end
     end
     return f
@@ -487,9 +491,12 @@ function UI:Create(owner)
     -- and TOOLTIP. Children inherit the same strata and relative frame levels.
     f:SetFrameStrata("HIGH"); f:SetFrameLevel(100); f:SetClampedToScreen(true)
     f:SetMovable(true); f:RegisterForDrag("LeftButton")
-    self.outer = UI.Round(f, {0.19,0.20,0.23,1}, 0)
-    self.inner = UI.Round(f, {0.035,0.04,0.055,0.97}, 1)
-    self.chrome=UI.Chrome(f)
+    self.outer = UI.Round(f, {1,1,1,1}, 0)
+    self.inner = UI.Round(f, {1,1,1,1}, 1)
+    self.chromeFrames={}
+    for _,theme in ipairs(ns.Themes.definitions) do
+        if theme.chromeTexture then self.chromeFrames[theme.id]=UI.Chrome(f,theme.chromeTexture,theme.chromeRadius) end
+    end
     local content = CreateFrame("Frame", nil, f)
     self.content = content; content:SetAllPoints(); content:SetFrameLevel(f:GetFrameLevel()+2)
     self.header=CreateFrame("Frame",nil,content)
@@ -654,34 +661,41 @@ function UI:Layout(preserveMotion)
 end
 
 function UI:ApplyTheme()
-    local forever=self.owner.profile.theme=="forever"
-    if self.appliedForever==forever then return end
-    self.appliedForever=forever
-    self.trackColor=forever and {.32,.32,.30} or TRACK_COLOR
-    self.outer:SetShown(not forever);self.inner:SetShown(not forever)
-    self.chrome:SetShown(forever)
-    self.outer:Radius(17);self.inner:Radius(16)
-    self.headerInset=forever and 10 or 14
-    self.segmentHeight=forever and 14 or 10
-    self.divider:SetColorTexture(unpack(forever and {.32,.25,.14,1} or {.18,.18,.22,1}))
+    local theme=ns.Themes.Get(self.owner.profile.theme)
+    if self.appliedTheme==theme.id then return end
+    self.appliedTheme=theme.id
+    self.trackColor=theme.trackColor
+    self.outer:SetShown(not theme.chromeTexture);self.inner:SetShown(not theme.chromeTexture)
+    for id,chrome in pairs(self.chromeFrames) do chrome:SetShown(id==theme.id) end
+    self.chrome=self.chromeFrames[theme.id]
+    if not theme.chromeTexture then
+        self.outer:Radius(theme.outerRadius);self.inner:Radius(theme.innerRadius)
+        self.outer:Color(theme.outerColor);self.inner:Color(theme.innerColor)
+    end
+    self.headerInset=theme.headerInset
+    self.labelGap=theme.labelGap
+    self.segmentHeight=theme.segmentHeight
+    self.divider:SetColorTexture(unpack(theme.dividerColor))
     for _,cell in ipairs(self.cells) do
-        cell.title:SetTextColor(unpack(forever and {.83,.72,.49} or {.86,.79,.63}))
-        cell.value:SetTextColor(unpack(forever and {.94,.90,.80} or {.93,.94,.97}))
+        cell.title:SetTextColor(unpack(theme.titleColor))
+        cell.value:SetTextColor(unpack(theme.valueColor))
         if cell.shareTrack then cell.shareTrack:SetColorTexture(unpack(self.trackColor)) end
     end
     for _,segment in ipairs(self.segments) do
-        segment.track:SetAlpha(forever and .85 or 1)
+        segment.track:SetAlpha(theme.trackAlpha)
         for _,part in ipairs({segment.track,segment.preview,segment.fill,segment.flash}) do
             part.drawWidth=nil
-            if part.cap then
-                part.cap:SetTexture(forever and "Interface\\AddOns\\XPIsland\\media\\soft-cap.tga" or "Interface\\AddOns\\XPIsland\\media\\cap.tga")
-            end
+            if part.cap then part.cap:SetTexture(theme.capTexture) end
         end
-        segment.fill.shading:SetShown(forever)
-        segment.fill.shading:SetAlpha(.55)
+        segment.fill.shaded=theme.shadingAlpha>0
+        segment.fill.shadingVisible=nil;segment.fill.capShadingVisible=nil
+        segment.fill.shading:SetTexture(theme.shadingTexture)
+        segment.fill.shading:SetShown(theme.shadingAlpha>0)
+        segment.fill.shading:SetAlpha(theme.shadingAlpha)
         if segment.fill.capShading then
-            segment.fill.capShading:SetShown(forever)
-            segment.fill.capShading:SetAlpha(.55)
+            segment.fill.capShading:SetTexture(theme.capShadingTexture)
+            segment.fill.capShading:SetShown(theme.shadingAlpha>0)
+            segment.fill.capShading:SetAlpha(theme.shadingAlpha)
         end
     end
 end
@@ -795,11 +809,11 @@ function UI:RenderGeometry(progress)
         f:SetPoint("TOP",UIParent,"TOP",layout.x/layout.scale,y/layout.scale)
         self.header:SetWidth(width)
         local inset=self.headerInset or 14
-        local gap=self.appliedForever and 8 or 12
+        local gap=self.labelGap
         local segWidth=(width-2*inset-gap-layout.labelWidth-38)/20
         for i,s in ipairs(self.segments) do
             s.track:SetPoint("LEFT",self.header,"LEFT",inset+(i-1)*(segWidth+2),0)
-            s.track:Draw(segWidth,self.segmentHeight or 10,1,self.trackColor or TRACK_COLOR);s.width=segWidth
+            s.track:Draw(segWidth,self.segmentHeight,1,self.trackColor or TRACK_COLOR);s.width=segWidth
         end
         self:PaintBar(true)
         self.divider:SetWidth(width-28)
@@ -880,7 +894,7 @@ function UI:HighlightSegments(before,after,cap)
     if last<first then return end
     for i=first,last do
         local s=self.segments[i]
-        self.flashes[i]=0;s.flash:Draw(s.width,self.segmentHeight or 10,1,FLASH_COLOR)
+        self.flashes[i]=0;s.flash:Draw(s.width,self.segmentHeight,1,FLASH_COLOR)
         s.flash:SetAlpha(.18);s.flash:Show()
     end
     self.flashDriver:SetScript("OnUpdate",self.flashStep)
@@ -932,17 +946,17 @@ function UI:PaintBar(geometryChanged)
         or previewColor[2]~=self.previewG or previewColor[3]~=self.previewB then
         for i,s in ipairs(self.segments) do
             local amount=fraction*20>=i and 0 or math.min(1,math.max(0,preview*20-(i-1)))
-            s.preview:Draw(s.width,self.segmentHeight or 10,amount,previewColor)
+            s.preview:Draw(s.width,self.segmentHeight,amount,previewColor)
         end
         self.restedFraction,self.previewR,self.previewG,self.previewB=preview,unpack(previewColor)
     end
     if geometryChanged then
-        for i in pairs(self.flashes) do self.segments[i].flash:Draw(self.segments[i].width,self.segmentHeight or 10,1,FLASH_COLOR) end
+        for i in pairs(self.flashes) do self.segments[i].flash:Draw(self.segments[i].width,self.segmentHeight,1,FLASH_COLOR) end
     end
     if geometryChanged or fraction~=self.barFraction or color[1]~=self.barR or color[2]~=self.barG or color[3]~=self.barB then
         for i,s in ipairs(self.segments) do
             local fill=math.min(1,math.max(0,fraction*20-(i-1)))
-            s.fill:Draw(s.width,self.segmentHeight or 10,fill,color)
+            s.fill:Draw(s.width,self.segmentHeight,fill,color)
         end
         self.barFraction,self.barR,self.barG,self.barB=fraction,color[1],color[2],color[3]
     end

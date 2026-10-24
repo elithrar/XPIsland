@@ -1,5 +1,5 @@
 local ns={}
-assert(loadfile("XPIsland/Model.lua"))("XPIsland",ns)
+assert(loadfile("XPIsland/Themes.lua"))("XPIsland",ns);assert(loadfile("XPIsland/Model.lua"))("XPIsland",ns)
 local M=ns.Model
 local count=0
 local function equal(a,b,label)

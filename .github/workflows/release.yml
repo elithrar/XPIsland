@@ -70,6 +70,7 @@ jobs:
           mkdir -p dist
           luajit tests/model_test.lua
           luajit tests/runtime_test.lua
+          luajit tests/theme_test.lua
           luajit tests/revision_test.lua
           luajit tests/rate_test.lua
           luajit tests/kills_test.lua

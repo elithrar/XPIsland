@@ -1,4 +1,4 @@
-local ns={};assert(loadfile('XPIsland/Model.lua'))('XPIsland',ns);local M=ns.Model
+local ns={};assert(loadfile('XPIsland/Themes.lua'))('XPIsland',ns);assert(loadfile('XPIsland/Model.lua'))('XPIsland',ns);local M=ns.Model
 local n=0
 local function near(a,b,msg) n=n+1;assert(a and math.abs(a-b)<1e-6,(msg or 'rate')..': '..tostring(a)..' ~= '..b) end
 local function eq(a,b,msg) n=n+1;assert(a==b,(msg or 'check')..': '..tostring(a)..' ~= '..tostring(b)) end

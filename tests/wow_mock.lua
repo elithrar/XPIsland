@@ -336,7 +336,7 @@ function RequestTimePlayed(...)
 end
 function W.load()
     local ns={}
-    for _,name in ipairs({"Model","Progression","Played","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
+    for _,name in ipairs({"Themes","Model","Progression","Played","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
     return ns
 end
 
