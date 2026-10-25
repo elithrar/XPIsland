@@ -101,6 +101,7 @@ end
 function methods:CloseMenu() self.menuOpen=false end
 function methods:GetScript(event) return self.scripts[event] end
 function methods:SetScript(event,f) self.scripts[event]=f end
+function methods:HookScript(event,f) local old=self.scripts[event];self.scripts[event]=function(...) if old then old(...) end;f(...) end end
 function methods:IsEventRegistered(e) return self.events and self.events[e] or false end
 function methods:RegisterEvent(e) self.events=self.events or {};self.events[e]=true end
 function methods:RegisterUnitEvent(e) self:RegisterEvent(e) end
@@ -197,7 +198,11 @@ GetOwner=function() return W.tooltip and W.tooltip.owner end,
 IsShown=function() return W.tooltip and W.tooltip.shown or false end}
 DEFAULT_CHAT_FRAME={AddMessage=function(_,msg) W.lastMessage=msg end}
 Settings={KEYBINDINGS_CATEGORY_ID=7,OpenToCategory=function(...) W.settingsOpened={...} end}
-ColorPickerFrame={SetupColorPickerAndShow=function(_,info) W.colorInfo=info end,GetColorRGB=function() return .1,.2,.3 end}
+ColorPickerFrame=CreateFrame("Frame",nil,UIParent)
+ColorPickerFrame:Hide()
+function ColorPickerFrame:SetupColorPickerAndShow(info) W.colorInfo=info;self:Show() end
+function ColorPickerFrame:GetExtraInfo() return W.colorInfo and W.colorInfo.extraInfo end
+function ColorPickerFrame:GetColorRGB() return .1,.2,.3 end
 function GetBuildInfo() return "1.60.1","70205","Oct 3 2026",16001 end
 function GetTime() return W.time end
 function GetServerTime() return W.wall end
