@@ -226,14 +226,43 @@ function O:Duration(parent,toggle,key,y)
     self.durationSliders[key]=slider
 end
 
+function O:CloseColor()
+    local edit=self.colorEdit;self.colorEdit=nil
+    local picker=ColorPickerFrame
+    if not edit or not picker or picker:GetExtraInfo()~=edit or not picker:IsShown() then return end
+    edit.profile[edit.key]=edit.original
+    picker:Hide()
+    if self.owner.profile==edit.profile then self.owner:ApplyProfile() end
+end
+
 function O:Color(key)
-    local p=self.owner.profile
-    local original=M.Copy(p[key])
-    ColorPickerFrame:SetupColorPickerAndShow({r=original[1],g=original[2],b=original[3],hasOpacity=false,
+    self:CloseColor()
+    local picker=ColorPickerFrame;local p=self.owner.profile
+    local original=M.Copy(p[key]);local edit={profile=p,key=key,original=original,opening=true}
+    self.colorEdit=edit
+    if self.colorHook~=picker then
+        -- Forever hides before its Okay/Cancel callback. Let that callback
+        -- finish before retiring this edit, without clearing a newer picker.
+        picker:HookScript("OnHide",function()
+            local hidden=self.colorEdit
+            C_Timer.After(0,function()
+                if self.colorEdit==hidden and not picker:IsShown() then self.colorEdit=nil end
+            end)
+        end)
+        self.colorHook=picker
+    end
+    local function owns() return self.colorEdit==edit and picker:GetExtraInfo()==edit and self.owner.profile==p end
+    picker:SetupColorPickerAndShow({r=original[1],g=original[2],b=original[3],hasOpacity=false,extraInfo=edit,
         swatchFunc=function()
-            p[key]={ColorPickerFrame:GetColorRGB()};self.owner:ApplyProfile()
+            if not owns() then return end
+            p[key]={picker:GetColorRGB()};self.owner:ApplyProfile()
+            if not edit.opening and not picker:IsShown() then self.colorEdit=nil end
         end,
-        cancelFunc=function() p[key]=original;self.owner:ApplyProfile() end})
+        cancelFunc=function()
+            if not owns() then return end
+            p[key]=original;self.colorEdit=nil;self.owner:ApplyProfile()
+        end})
+    edit.opening=false
 end
 
 function O:Create(owner)
@@ -334,6 +363,7 @@ function O:Create(owner)
     info:SetWidth(260);info:SetWordWrap(true)
     button(page,"Use shared",28,-172,124,function() self:Switch("Shared") end)
     button(page,"Use character",164,-172,124,function()
+        self:CloseColor()
         local name=owner.characterName
         if not owner.db.profiles[name] then owner.db.profiles[name]=M.Copy(owner.profile) end
         self:Switch(name)
@@ -341,6 +371,7 @@ function O:Create(owner)
     label(page,"New profile name",28,-228)
     self.name=edit(page,28,-250,260)
     button(page,"Duplicate and use",328,-250,260,function()
+        self:CloseColor()
         local name,err=M.Duplicate(owner.db,owner.profileName,self.name:GetText())
         if name then self:Switch(name);self.name:SetText("") else self.status:SetText(err) end
     end)
@@ -351,6 +382,7 @@ function O:Create(owner)
     self.copyButton=button(page,"Copy settings",328,-330,260,function()
         if not self.copySource then self.status:SetText("Choose a source profile.");return end
         if not self.confirmCopy then self.confirmCopy=true;self.copyButton.text:SetText("Confirm overwrite");fitBounded(self.copyButton.text);return end
+        self:CloseColor()
         owner.db.profiles[owner.profileName]=M.Copy(owner.db.profiles[self.copySource]);owner.profile=owner.db.profiles[owner.profileName]
         self.confirmCopy=nil;owner:ApplyProfile()
     end)
@@ -374,7 +406,7 @@ function O:Create(owner)
     killHint:SetWidth(260);killHint:SetWordWrap(true)
     local inlineHint=label(page,"Hover over a stat for details.",328,-328,12)
     inlineHint:SetWidth(260);inlineHint:SetWordWrap(true)
-    f:SetScript("OnHide",function() self:CloseMenu();self.confirmCopy=nil;owner:InteractionChanged() end)
+    f:SetScript("OnHide",function() self:CloseColor();self:CloseMenu();self.confirmCopy=nil;owner:InteractionChanged() end)
     f:SetScript("OnShow",function() self:Refresh();owner:InteractionChanged() end)
     UISpecialFrames[#UISpecialFrames+1]="XPIslandOptions"
     self:Page(false);f:Hide()
@@ -386,13 +418,14 @@ function O:ProfileEntries()
 end
 
 function O:Switch(name)
+    self:CloseColor()
     local owner=self.owner
     owner.profile=M.SelectProfile(owner.db,owner.character,name);owner.profileName=name;self.confirmCopy=nil
     owner:ApplyProfile()
 end
 
 function O:Page(profiles)
-    self:CloseMenu();self.confirmCopy=nil
+    self:CloseColor();self:CloseMenu();self.confirmCopy=nil
     self.profiles:SetShown(profiles==true);self.options:SetShown(not profiles);self.tracking:SetShown(profiles=="tracking")
     for _,entry in ipairs({{self.optionsTab,not profiles},{self.profilesTab,profiles==true},{self.trackingTab,profiles=="tracking"}}) do
         entry[1].activeLine:SetShown(entry[2]);entry[1].text:SetTextColor(1,entry[2] and 1 or .82,entry[2] and 1 or .2)
