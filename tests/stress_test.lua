@@ -3,7 +3,7 @@ if jit then jit.off();jit.flush() end -- isolate retained Lua data from JIT trac
 local W=dofile('tests/wow_mock.lua');local ns=W.load()
 local X,UI,O,M=ns.owner,ns.UI,ns.Options,ns.Model
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
-SlashCmdList.XPISLAND('');W.click(O.format);O:CloseMenu();O.frame:Hide()
+SlashCmdList.XPISLAND_SND_XPISLAND('');W.click(O.format);O:CloseMenu();O.frame:Hide()
 M.Duplicate(X.db,'Shared','Stress')
 local function count(t) local n=0;for _ in pairs(t) do n=n+1 end;return n end
 local function activeTimers() local n=0;for _,t in ipairs(W.timers) do if not t.cancelled then n=n+1 end end;return n end
@@ -12,7 +12,7 @@ for _,o in ipairs(W.objects) do
  assert(not o.scripts.OnUpdate,'No per-frame update script')
  if o.events then eventFrames=eventFrames+1;events=events+count(o.events) end
 end
-assert(eventFrames==1);assert(activeTimers()==1)
+assert(eventFrames==1,"one SND event owner including the logout checkpoint");assert(activeTimers()==1)
 local function cycle(i)
  O:Toggle(X);W.click(O.format);O:CloseMenu();O:Page(i%2==0);O:Switch(i%2==0 and 'Shared' or 'Stress');O.frame:Hide()
  UI:SetExpanded(i%2==0)

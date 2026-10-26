@@ -58,7 +58,7 @@ X:LevelUp();W.advance(.3);eq(X.db.expandedOnce,false)
 X:Toggle();eq(X.db.expandedOnce,false,'closing automatic preview is not deliberate expansion')
 W.click(UI.frame);eq(X.db.expandedOnce,true)
 X:Toggle();W.advance(.3);eq(#hover(),2)
-SlashCmdList.XPISLAND('');M.Duplicate(X.db,'Shared','Independent');O:Switch('Independent')
+SlashCmdList.XPISLAND_SND_XPISLAND('');M.Duplicate(X.db,'Shared','Independent');O:Switch('Independent')
 eq(X.db.expandedOnce,true);eq(X.profile.expandedOnce,nil)
 X.db.profiles.Shared=M.Copy(X.profile);O:Switch('Shared');eq(X.db.expandedOnce,true)
 local saved=M.Copy(X.db);local restored=M.Database(saved)
@@ -70,7 +70,7 @@ for _,format in ipairs({'percent','fraction','left','leftPercent'}) do
  X.profile.format=format;UI:Layout();lines=hover();eq(#lines,1);eq(lines[1][1],'12,345 / 95,000 (13.0%)')
 end
 -- Resetting a session leaves the learned interaction intact.
-SlashCmdList.XPISLAND('reset');eq(X.db.expandedOnce,true)
+SlashCmdList.XPISLAND_SND_XPISLAND('reset');eq(X.db.expandedOnce,true)
 fresh();X.session.total=100;X.session.buckets.other=100;M.RateAward(X.session,100);UI:Update()
 eq(UI.infinity:IsShown(),false);eq(UI.label:GetText(),'—')
 eq(hover()[1][1],M.ETAMessages.warming)

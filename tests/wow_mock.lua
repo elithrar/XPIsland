@@ -105,6 +105,7 @@ function methods:HookScript(event,f) local old=self.scripts[event];self.scripts[
 function methods:IsEventRegistered(e) return self.events and self.events[e] or false end
 function methods:RegisterEvent(e) self.events=self.events or {};self.events[e]=true end
 function methods:RegisterUnitEvent(e) self:RegisterEvent(e) end
+function methods:UnregisterEvent(event) self.events[event]=nil end
 function methods:UnregisterAllEvents() self.events={} end
 function methods:Show() local changed=not self.shown;self.shown=true;if changed and self.scripts.OnShow then self.scripts.OnShow(self) end end
 function methods:Hide() local changed=self.shown;self.shown=false;if changed and self.scripts.OnHide then self.scripts.OnHide(self) end end
@@ -189,6 +190,7 @@ function methods:SetValue(v)
 end
 
 UIParent=object("Frame","UIParent");UIParent:SetSize(1728,1080)
+SLASH_XPISLAND_SND_XPISLAND1=nil
 UISpecialFrames={};SlashCmdList={}
 GameTooltipText={GetFont=function() return "Fonts\\FRIZQT__.TTF",12,"" end}
 GameTooltip={SetOwner=function(_,owner,anchor) W.tooltip={owner=owner,anchor=anchor,lines={}} end,
@@ -284,6 +286,9 @@ function W.event(event,...)
     for _,o in ipairs(W.objects) do
         if o.events and o.events[event] and o.scripts.OnEvent then o.scripts.OnEvent(o,event,...) end
     end
+    if W.ns and W.ns.App then
+        for _,record in ipairs(W.ns.App.log:Entries()) do assert(record.level~="Error",record.message) end
+    end
 end
 function W.click(button,mouseButton)
     mouseButton=mouseButton or "LeftButton"
@@ -341,7 +346,10 @@ function RequestTimePlayed(...)
 end
 function W.load()
     local ns={}
-    for _,name in ipairs({"Model","Progression","Played","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
+    for line in io.lines("XPIsland/" .. "XPIsland.toc") do
+        if line:match("%.lua$") then assert(loadfile("XPIsland/" .. line))("XPIsland", ns) end
+    end
+    W.ns=ns
     return ns
 end
 

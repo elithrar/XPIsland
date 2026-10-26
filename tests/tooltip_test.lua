@@ -150,7 +150,7 @@ local function sessionLine()
 end
 sessionLine();W.advance(65);sessionLine()
 W.xp=W.xp+30;W.event('PLAYER_XP_UPDATE','player');W.advance(0);sessionLine()
-SlashCmdList.XPISLAND('reset');sessionLine();eq(X.session.total,0);eq(X.session.seconds,0)
+SlashCmdList.XPISLAND_SND_XPISLAND('reset');sessionLine();eq(X.session.total,0);eq(X.session.seconds,0)
 leave(2)
 -- ETA and kill estimates decay on the shared clock while the pointer stays still.
 enter(3);W.advance(.751);local before=W.tooltip

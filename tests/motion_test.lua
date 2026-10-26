@@ -27,7 +27,7 @@ W.hover=nil;UI.frame.scripts.OnLeave();W.advance(14.9);eq(UI.expanded,true);W.ad
 X:Toggle();W.hover=UI.frame;W.advance(15);eq(UI.expanded,true);eq(timers(),1)
 W.hover=nil;W.advance(1);eq(timers(),2);W.advance(15);eq(UI.expanded,false)
 -- Settings hold the panel open. Profile changes replace the old policy/deadline.
-X:Toggle();SlashCmdList.XPISLAND('');eq(timers(),1);W.advance(30);eq(UI.expanded,true)
+X:Toggle();SlashCmdList.XPISLAND_SND_XPISLAND('');eq(timers(),1);W.advance(30);eq(UI.expanded,true)
 eq(O.frame.template,'BackdropTemplate');eq(#O.dropdowns,7)
 for _,d in ipairs(O.dropdowns) do eq(d.template,'WowStyle1DropdownTemplate') end
 W.choose(O.format,'leftPercent');eq(X.profile.format,'leftPercent')
