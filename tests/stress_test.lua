@@ -3,18 +3,19 @@ if jit then jit.off();jit.flush() end -- isolate retained Lua data from JIT trac
 local W=dofile('tests/wow_mock.lua');local ns=W.load()
 local X,UI,O,M=ns.owner,ns.UI,ns.Options,ns.Model
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
-SlashCmdList.XPISLAND_SND_XPISLAND('');W.click(O.format);O:CloseMenu();O.frame:Hide()
-M.Duplicate(X.db,'Shared','Stress')
+SlashCmdList.XPISLAND_SND_XPISLAND('')
+for _,page in ipairs({'appearance','behavior','tracking','profiles'})do W.open(page) end
+O.panel:Close();assert(ns.App.profiles:Duplicate('Stress'))
 local function count(t) local n=0;for _ in pairs(t) do n=n+1 end;return n end
 local function activeTimers() local n=0;for _,t in ipairs(W.timers) do if not t.cancelled then n=n+1 end end;return n end
-local objects,fonts,eventFrames,events=#W.objects,#O.fontObjects,0,0
+local objects,fonts,eventFrames,events=#W.objects,count(O.panel._texts),0,0
 for _,o in ipairs(W.objects) do
  assert(not o.scripts.OnUpdate,'No per-frame update script')
  if o.events then eventFrames=eventFrames+1;events=events+count(o.events) end
 end
 assert(eventFrames==1,"one SND event owner including the logout checkpoint");assert(activeTimers()==1)
 local function cycle(i)
- O:Toggle(X);W.click(O.format);O:CloseMenu();O:Page(i%2==0);O:Switch(i%2==0 and 'Shared' or 'Stress');O.frame:Hide()
+ W.open('tracking');local menu=W.control('format','tracking');W.click(menu);menu:CloseMenu();W.advance(0);O:Page(i%2==0);O:Switch(i%2==0 and 'Shared' or 'Stress');O.panel:Close()
  UI:SetExpanded(i%2==0)
  X:LevelUp();X:CancelAutoCollapse();W.advance(.01)
  W.event('PLAYER_ENTERING_WORLD',false,false);W.advance(0) -- drain the coalesced entry read
@@ -25,10 +26,10 @@ local started=os.clock()
 for i=1,3000 do cycle(i) end
 collectgarbage('collect');local after=collectgarbage('count')
 assert(#W.objects==objects,'Repeated UI operations created additional objects')
-assert(#O.fontObjects==fonts,'Font registry grew')
+assert(count(O.panel._texts)==fonts,'Font registry grew')
 assert(activeTimers()==1,'More than one live ticker after canceled level timers')
-assert(count(X.db.profiles)==2,'Profiles grew without explicit creation')
-assert(count(X.db.characters)==1,'Character selectors grew')
+assert(count(XPIslandDB.profiles)==2,'Profiles grew without explicit creation')
+assert(count(XPIslandDB.characters)==1,'Character selectors grew')
 local eventsAfter=0
 for _,o in ipairs(W.objects) do eventsAfter=eventsAfter+count(o.events or {}) end
 assert(eventsAfter==events,'Event registrations grew')
@@ -60,5 +61,5 @@ for i=1,600 do W.advance(1) end
 assert(draws==0,'Idle bar geometry redrawn')
 W.xp=W.xp+1;X:Sample();assert(draws==20,'XP changes still redraw')
 local f=assert(io.open('dist/performance-results.txt','w'))
-local result=string.format('PASS: 6,000 UI/profile/timer cycles; objects %d -> %d; font entries %d -> %d; event registrations %d -> %d; live timers %d; first/second-window retained Lua deltas %.2f/%.2f KiB after GC (JIT disabled for memory measurement).\n100,000 XP awards + hints; peak awards/hints/dedup %d/%d/%d; queues empty after expiry; total conserved.\n600 idle simulated seconds: 0 segment redraws; one XP change: 20 redraws. CPU %.3f sec (LuaJIT interpreter/mock, not in-game profiling).\n',objects,#W.objects,fonts,#O.fontObjects,events,eventsAfter,activeTimers(),after-before,steady-after,peakAwards,peakHints,peakSeen,os.clock()-started)
+local result=string.format('PASS: 6,000 UI/profile/timer cycles; objects %d -> %d; font entries %d -> %d; event registrations %d -> %d; live timers %d; first/second-window retained Lua deltas %.2f/%.2f KiB after GC (JIT disabled for memory measurement).\n100,000 XP awards + hints; peak awards/hints/dedup %d/%d/%d; queues empty after expiry; total conserved.\n600 idle simulated seconds: 0 segment redraws; one XP change: 20 redraws. CPU %.3f sec (LuaJIT interpreter/mock, not in-game profiling).\n',objects,#W.objects,fonts,count(O.panel._texts),events,eventsAfter,activeTimers(),after-before,steady-after,peakAwards,peakHints,peakSeen,os.clock()-started)
 f:write(result);f:close();print(result)

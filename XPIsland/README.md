@@ -5,7 +5,7 @@ A compact XP bar for World of Warcraft: Forever, inspired by Dynamic Island.
 - Track rested XP, XP remaining and estimated time to level.
 - Expand for session XP sources, pet XP, PvP rank and estimated kills to level.
 - Track Honor and Rank Points in PvP mode, including at level cap. Enable it in Tracking settings or opt into switching at level cap.
-- Choose shared or character profiles, fonts and scale. The island fits your UI and stays compact on ultrawide screens.
+- Choose Modern or WoW Forever themes, shared or character profiles, fonts and scale. The island fits your UI and stays compact on ultrawide screens.
 - Hide Blizzard's XP, reputation and Honor bars. Other addons keep control of their bars.
 
 ## Installation
@@ -28,4 +28,4 @@ See [behavior details](https://github.com/elithrar/XPIsland/blob/main/docs/BEHAV
 
 BSD 3-Clause. See [LICENSE](LICENSE).
 
-SomethingNeedDoing 0.3.0 by Matt Silverlock is bundled under Apache-2.0. See `Libs/SomethingNeedDoing/LICENSE` for the full license and `Libs/SomethingNeedDoing/UPSTREAM.json` for source provenance.
+SomethingNeedDoing 0.4.0 by Matt Silverlock is bundled under Apache-2.0. See `Libs/SomethingNeedDoing/LICENSE` for the full license and `Libs/SomethingNeedDoing/UPSTREAM.json` for source provenance.

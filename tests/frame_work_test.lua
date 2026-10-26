@@ -4,7 +4,7 @@ local n=0
 local function check(value,why) n=n+1;assert(value,why) end
 local function near(a,b,why) check(math.abs(a-b)<.000001,why) end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
-X.profile.autoCollapse=false
+W.set('autoCollapse',false)
 local scans=0;local estimate=M.Estimate;M.Estimate=function(...) scans=scans+1;return estimate(...) end
 local out=assert(io.open('dist/frame-work-results.txt','w'))
 for _,rested in ipairs({0,250,2000}) do
@@ -46,7 +46,7 @@ UI:SetExpanded(false);UI:Animate(.04);local before=UI.progress
 UI:SetExpanded(true);near(UI.progress,before,'interruption remains position-continuous')
 UI:Animate(.5);check(UI.progress==1 and not UI.frame.scripts.OnUpdate,'interrupted long frame settles')
 -- Model changes remain a separate update, including label-width remeasurement.
-UI:SetExpanded(false);UI:Animate(.02);before=UI.progress;X.profile.format='fraction';X.tracker.cap=95000000;X.tracker.xp=65000000
+UI:SetExpanded(false);UI:Animate(.02);before=UI.progress;W.set('format','fraction');X.tracker.cap=95000000;X.tracker.xp=65000000
 UI:Update();near(UI.progress,before,'model update preserves in-flight position');UI:Animate(.5)
 check(UI.progress==0 and not UI.animation,'model update preserves target')
 UI:Update() -- one normal refresh accommodates the new settled cell width

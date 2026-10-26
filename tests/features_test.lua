@@ -6,7 +6,7 @@ local function boot()
  XPIslandDB=nil;XPIslandSession=nil
  local W=dofile('tests/wow_mock.lua');local ns=W.load()
  W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false);W.advance(0)
- ns.owner.profile.autoCollapse=false
+ W.set('autoCollapse',false)
  return W,ns.owner,ns.UI,ns.Model
 end
 local W,X,UI,M=boot()
@@ -52,7 +52,7 @@ near(UI.previewB,.18+(1-.18)*.28,'muted configurable rested color')
 W.rested=2000;W.event('UPDATE_EXHAUSTION');near(UI.restedFraction,1)
 eq(UI.cells[4].value:GetText(),M.Compact(2000),'numeric overflow is preserved')
 near(UI.segments[20].preview.drawAmount,1)
-X.profile.rested={.9,.2,.1};UI:Layout();near(UI.previewR,.14+(.9-.14)*.28)
+W.set('rested',{.9,.2,.1});UI:Layout();near(UI.previewR,.14+(.9-.14)*.28)
 near(UI.segments[1].fill.body.color[1],.9,'solid earned uses configured rested color')
 W.rested=nil;W.event('UPDATE_EXHAUSTION');eq(UI.restedFraction,0);eq(UI.cells[4].value:GetText(),'—')
 for _,s in ipairs(UI.segments) do eq(s.preview:IsShown(),false) end
@@ -78,7 +78,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
   for _,scale in ipairs({.5,1,1.5}) do
    for _,placement in ipairs({'top','bottom','custom'}) do
     for _,viewport in ipairs({{320,180},{900,600},{1728,1080},{2560,1440}}) do
-     UIParent:SetSize(unpack(viewport));X.profile.font=font;X.profile.fontSize=size;X.profile.scale=scale;X.profile.placement=placement
+     UIParent:SetSize(unpack(viewport));W.set('font',font);W.set('fontSize',size);W.set('scale',scale);W.set('placement',placement)
      UI:SetExpanded(true,true)
      local dx,dy,dw,dh=UI.details:Rect();local actual=UI.frame:GetEffectiveScale()
      for i=5,8 do
@@ -116,7 +116,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
  for _,size in ipairs({10,14,18}) do
   for _,scale in ipairs({.5,1,1.5}) do
    for _,viewport in ipairs({{320,180},{900,600},{1728,1080}}) do
-    UIParent:SetSize(unpack(viewport));X.profile.font=font;X.profile.fontSize=size;X.profile.scale=scale
+    UIParent:SetSize(unpack(viewport));W.set('font',font);W.set('fontSize',size);W.set('scale',scale)
     UI:SetExpanded(true,true)
     for _,duration in ipairs({36*60,102*60}) do
      X:LevelUp();X:ShowLevelDuration(10,duration);UI:SetExpanded(true,true)
@@ -133,7 +133,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
  end
 end
 -- Actual renderer fixtures for visual inspection, explicitly offline.
-UIParent:SetSize(1728,1080);X.profile=M.Profile();W.xp=375;W.rested=225;X:Sample();UI:ClearHighlights()
+UIParent:SetSize(1728,1080);assert(W.ns.App.profiles:Reset());W.xp=375;W.rested=225;X:Sample();UI:ClearHighlights()
 X.session.total=15000;X.session.buckets={kills=7500,quests=3000,dungeons=3750,other=750}
 X.session.seconds=7200;M.RateAward(X.session,15000)
 UI:SetExpanded(false,true);W.svg('dist/preview-rested-05.svg',UI.frame)
@@ -141,6 +141,6 @@ UI:SetExpanded(true,true);W.svg('dist/preview-sources-05.svg',UI.frame)
 X:LevelUp();X:ShowLevelDuration(10,6120);UI:SetExpanded(true,true)
 W.svg('dist/preview-level-05.svg',UI.frame)
 UI:HighlightSegments(300,350,1000);W.svg('dist/preview-highlight-05.svg',UI.frame)
-UIParent:SetSize(1300,1080);X.profile.fontSize=18;X:LevelUp();X:ShowLevelDuration(10,2160);UI:SetExpanded(true,true)
+UIParent:SetSize(1300,1080);W.set('fontSize',18);X:LevelUp();X:ShowLevelDuration(10,2160);UI:SetExpanded(true,true)
 W.svg('dist/preview-level-wrap-05.svg',UI.frame)
 print('PASS: '..n..' feature assertions (segment highlights, rested preview, source shares, whole-level duration)')

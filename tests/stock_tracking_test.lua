@@ -57,10 +57,10 @@ assert(not shown and X.hiddenStockManager==manager)
 assert(X.profile.hideBlizzard and X.profile.scale==1.25 and X.profile.showPet==false)
 -- Native eligibility is unchanged even while the whole manager is hidden.
 assert(manager:CanShowBar(1) and manager:CanShowBar(2) and manager:CanShowBar(3))
-W.combat=true;X.profile.hideBlizzard=false;X:ApplyProfile()
+W.combat=true;W.set('hideBlizzard',false);X:ApplyProfile()
 assert(not shown,"restoration waits for combat to end")
 W.combat=false;W.event("PLAYER_REGEN_ENABLED");assert(shown and not X.hiddenStockManager)
-W.combat=true;X.profile.hideBlizzard=true;X:ApplyProfile();assert(shown)
+W.combat=true;W.set('hideBlizzard',true);X:ApplyProfile();assert(shown)
 W.combat=false;W.event("PLAYER_REGEN_ENABLED");assert(not shown)
 -- Edit Mode reconciliation is deferred out of the native callback stack.
 W.editing=true;callbacks["EditMode.Enter"]();assert(not shown);W.advance(0);assert(shown)
@@ -70,15 +70,15 @@ local eab={db={profile={useBlizzardDataBars=false}}}
 EllesmereUI={Lite={GetAddon=function() return eab end}}
 W.event("ADDON_LOADED","EllesmereUIActionBars")
 assert(not shown and not X.hiddenStockManager)
-X.profile.hideBlizzard=false;X:ApplyProfile();assert(not shown)
-EllesmereUI=nil;X.profile.hideBlizzard=true;X:ApplyProfile()
-X.profile.hideBlizzard=false;X:ApplyProfile()
+W.set('hideBlizzard',false);X:ApplyProfile();assert(not shown)
+EllesmereUI=nil;W.set('hideBlizzard',true);X:ApplyProfile()
+W.set('hideBlizzard',false);X:ApplyProfile()
 assert(not shown,"a frame already hidden by another owner stays hidden")
 -- Restricted IsShown results must not turn into an ownership claim or mutation.
 local secret={};function issecretvalue(v) return rawequal(v,secret) end
-shown=secret;X.profile.hideBlizzard=true;X:ApplyProfile()
+shown=secret;W.set('hideBlizzard',true);X:ApplyProfile()
 assert(rawequal(shown,secret) and not X.hiddenStockManager)
 shown=true;issecretvalue=nil;X:ApplyProfile();assert(not shown)
-X.profile.hideBlizzard=false;X:ApplyProfile();assert(shown)
+W.set('hideBlizzard',false);X:ApplyProfile();assert(shown)
 StatusTrackingBarManager=nil;X:ApplyProfile()
 print("PASS: stock frame ownership, combat/Edit Mode deferral, restricted visibility and native eligibility"..(arg[1] and " against pinned Blizzard contracts" or ""))

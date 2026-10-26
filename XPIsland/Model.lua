@@ -16,7 +16,7 @@ function M.Copy(t)
 end
 
 M.defaults = {
-    format = "percent", scale = 1, font = "Game tooltip", fontSize = 14,
+    theme = "modern", format = "percent", scale = 1, font = "Game tooltip", fontSize = 14,
     fontCustomized = false, fontSizeCustomized = false, placement = "top",
     normal = {0.64, 0.35, 0.94}, rested = {0.24, 0.61, 1},
     locked = true, levelUp = true, hideBlizzard = false,
@@ -30,6 +30,7 @@ M.defaults = {
 function M.Profile(p)
     p = type(p) == "table" and p or {}
     local clean = M.Copy(M.defaults)
+    if p.theme == "forever" then clean.theme = "forever" end
     if p.format == "percent" or p.format == "fraction" or p.format == "left" or p.format == "leftPercent" or p.format == "eta" or p.format == "kills" then clean.format = p.format end
     if p.mode == "pvp" then clean.mode = "pvp" end
     if p.pvpFormat == "rankLeft" then clean.pvpFormat = "rankLeft" end

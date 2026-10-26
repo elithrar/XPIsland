@@ -20,10 +20,10 @@ assert "## X-Curse-Project-ID: 1727059" in toc
 assert "## SavedVariables: XPIslandDB" in toc
 assert "## SavedVariablesPerCharacter: XPIslandSession, XPIslandPlayed" in toc
 files = [line.strip() for line in toc.splitlines() if line.strip() and not line.startswith("#")]
-assert files == ['Libs/SomethingNeedDoing/Core.lua', 'Libs/SomethingNeedDoing/Diagnostics.lua', 'Libs/SomethingNeedDoing/Scope.lua', 'Libs/SomethingNeedDoing/State.lua', 'Libs/SomethingNeedDoing/Settings.lua', 'Libs/SomethingNeedDoing/UI.lua', 'Libs/SomethingNeedDoing/Options.lua'] + ["Model.lua", "Progression.lua", "Played.lua", "UI.lua", "Options.lua", "Core.lua"]
+assert files == ['Libs/SomethingNeedDoing/Core.lua', 'Libs/SomethingNeedDoing/Diagnostics.lua', 'Libs/SomethingNeedDoing/Scope.lua', 'Libs/SomethingNeedDoing/State.lua', 'Libs/SomethingNeedDoing/Settings.lua', 'Libs/SomethingNeedDoing/UI.lua', 'Libs/SomethingNeedDoing/Options.lua'] + ["Model.lua", "Settings.lua", "Progression.lua", "Played.lua", "UI.lua", "Options.lua", "Core.lua"]
 upstream = addon / "Libs/SomethingNeedDoing"
 pin = json.loads((upstream / "UPSTREAM.json").read_text())
-assert pin["tag"] == "v0.3.0" and pin["version"] == "0.3.0" and pin["commit"] == "2b6a1d355e6fb174ea696c62953b0556c08700f0"
+assert "tag" not in pin and pin["version"] == "0.4.0" and pin["commit"] == "83434ef8d9141cca1309de3948109a894862bf48"
 assert set(pin["sha256"]) == {"Core.lua", "Diagnostics.lua", "Scope.lua", "State.lua", "Settings.lua", "UI.lua", "Options.lua", "LICENSE"}
 for name, checksum in pin["sha256"].items():
     assert hashlib.sha256((upstream / name).read_bytes()).hexdigest() == checksum, name
