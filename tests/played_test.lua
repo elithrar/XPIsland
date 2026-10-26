@@ -75,7 +75,7 @@ for _,first in ipairs({true,false}) do
  reply(W,10000,2000);eq(f.messages,1,'automatic response follows native chat dispatch in either event order')
  eq(XPIslandPlayed.current.start,8000);eq(X.levelTiming,nil,'no per-level elapsed clock')
  W.advance(120);eq(W.playedRequests,1,'no polling')
- SlashCmdList.XPISLAND('reset');eq(XPIslandPlayed.current.start,8000,'session reset independent')
+ SlashCmdList.XPISLAND_SND_XPISLAND('reset');eq(XPIslandPlayed.current.start,8000,'session reset independent')
  X:ApplyProfile();eq(XPIslandPlayed.current.start,8000)
  levelup(W,11);reply(W,11200,200)
  eq(X.levelNotice.seconds,3000,'duration uses server difference, not wall/elapsed time')

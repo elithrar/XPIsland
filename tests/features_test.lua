@@ -93,7 +93,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
   end
  end
 end
-SlashCmdList.XPISLAND('reset');for i=5,8 do eq(UI.cells[i].shareFraction,0) end
+SlashCmdList.XPISLAND_SND_XPISLAND('reset');for i=5,8 do eq(UI.cells[i].shareFraction,0) end
 -- Highlight workload and cleanup at multiple render cadences; no repeated objects.
 W,X,UI,M=boot();local objects=#W.objects
 for _,hz in ipairs({30,60,120}) do

@@ -27,3 +27,5 @@ See [behavior details](https://github.com/elithrar/XPIsland/blob/main/docs/BEHAV
 ## License
 
 BSD 3-Clause. See [LICENSE](LICENSE).
+
+SomethingNeedDoing 0.2.0 by Matt Silverlock is bundled under Apache-2.0. See `Libs/SomethingNeedDoing/LICENSE` for the full license and `Libs/SomethingNeedDoing/UPSTREAM.json` for source provenance.

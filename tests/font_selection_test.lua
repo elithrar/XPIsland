@@ -1,3 +1,11 @@
+-- CallbackHandler accepts method names and multiple owners for each event.
+local function registerMedia(callbacks, owner, event, callback)
+    local previous = callbacks[event]
+    callbacks[event] = function(...)
+        if previous then previous(...) end
+        if type(callback)=="string" then owner[callback](owner, ...) else callback(...) end
+    end
+end
 -- Native menu compositor contract, font propagation, and failed-family recovery.
 -- Font loading here is simulated; real client glyph/raster validation is separate.
 local W=dofile("tests/wow_mock.lua")
@@ -10,7 +18,7 @@ function lsm:HashTable(kind) assert(kind=="font");return fonts end
 function lsm:IsValid(kind,name) return kind=="font" and fonts[name]~=nil end
 function lsm:Fetch(kind,name) assert(kind=="font");return fonts[self.override or name] end
 function lsm.RegisterCallback(receiver,event,callback)
-    lsm.callbacks[event]=callback;lsm.registrations=lsm.registrations+1
+    registerMedia(lsm.callbacks,receiver,event,callback);lsm.registrations=lsm.registrations+1
 end
 function LibStub(name,silent) assert(name=="LibSharedMedia-3.0" and silent);return lsm end
 local ns=W.load()
@@ -20,7 +28,7 @@ local function eq(a,b,why) assertions=assertions+1;assert(a==b,(why or "assertio
 W.event("ADDON_LOADED","XPIsland");W.event("PLAYER_ENTERING_WORLD",true,false)
 W.event("UPDATE_BINDINGS");W.event("PLAYER_REGEN_ENABLED")
 eq(O.frame,nil,"events before first options open preserve lazy construction")
-SlashCmdList.XPISLAND("")
+SlashCmdList.XPISLAND_SND_XPISLAND("")
 local tooltipFont=GameTooltipText:GetFont()
 local function islandChild(o)
     while o do if o==UI.frame then return true end;o=o.parent end
@@ -196,7 +204,7 @@ lsm.override=nil
 lsm.callbacks.LibSharedMedia_SetGlobal("LibSharedMedia_SetGlobal","font",nil)
 allSurfaces(fonts["Late font"])
 for _=1,3 do W.event("ADDON_LOADED","AnotherFontProvider") end
-eq(lsm.registrations,2,"callbacks are registered once per library")
+eq(lsm.registrations,3,"two consumer callbacks and one SND callback register once per library")
 -- Every explicit single-line options allocation shares the same padded fit.
 -- Exercise font advances and physical scale independently, including a native
 -- dropdown's selected text after menu regeneration and both tabs' buttons.

@@ -1,9 +1,17 @@
 local addon, ns = ...
 local M, UI, Options, P = ns.Model, ns.UI, ns.Options, ns.Progression
-local X = {version="0.6.7", formats={}}
+local X = {version="0.6.8", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
+-- SND owns ordinary subscriptions; gameplay and SavedVariables retain their existing owners.
+local app = ns.SomethingNeedDoing:NewAddon(addon, {version=X.version})
+ns.App = app
+local scope = app:Scope("core")
+local function required(ok, result)
+    if not ok then error(addon .. ": " .. result.message) end
+    return result
+end
 XPIsland=X
 BINDING_HEADER_XPISLAND="XPIsland"
 BINDING_NAME_XPISLAND_TOGGLE="Expand / collapse XPIsland"
@@ -443,11 +451,9 @@ function X:Initialize(reloading)
     end)
 end
 
-events:SetScript("OnEvent",function(_,event,...)
+local function onEvent(_,event,...)
     if event=="ADDON_LOADED" then
-        if ...==addon then
-            events:RegisterEvent("PLAYER_ENTERING_WORLD")
-        elseif X.session then X:Integration();X:WatchFonts() end
+        if ...~=addon and X.session then X:Integration();X:WatchFonts() end
         return
     end
     if event=="LOADING_SCREEN_ENABLED" or event=="PLAYER_LEAVING_WORLD" then
@@ -549,23 +555,29 @@ events:SetScript("OnEvent",function(_,event,...)
         C_Timer.After(0,function() X:RefreshAppearance(false,false,true) end)
     elseif event=="UPDATE_BINDINGS" then Options:Refresh()
     else X:Sample() end
-end)
+end
 
-for _,event in ipairs({"ADDON_LOADED","TIME_PLAYED_MSG","UNIT_CONNECTION","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
+for _,event in ipairs({"PLAYER_ENTERING_WORLD","ADDON_LOADED","TIME_PLAYED_MSG","UNIT_CONNECTION","PLAYER_XP_UPDATE","PLAYER_LEVEL_UP","UPDATE_EXHAUSTION","QUEST_TURNED_IN",
     "UNIT_PET","UNIT_PET_EXPERIENCE","UNIT_LEVEL","UPDATE_FACTION","MAJOR_FACTION_RENOWN_LEVEL_CHANGED","CURRENCY_DISPLAY_UPDATE",
     "CHAT_MSG_COMBAT_XP_GAIN","LOADING_SCREEN_ENABLED","LOADING_SCREEN_DISABLED","PLAYER_LEAVING_WORLD","PLAYER_LOGOUT","PLAYER_CAMPING","PLAYER_QUITING","LOGOUT_CANCEL",
     "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
     "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN","TRAIT_CONFIG_UPDATED","TRAIT_CONFIG_CREATED","TRAIT_CONFIG_LIST_UPDATED",
-    "TRAIT_NODE_CHANGED","TRAIT_NODE_CHANGED_PARTIAL","MAJOR_FACTION_UNLOCKED"}) do events:RegisterEvent(event) end
+    "TRAIT_NODE_CHANGED","TRAIT_NODE_CHANGED_PARTIAL","MAJOR_FACTION_UNLOCKED"}) do
+    if event ~= "PLAYER_LOGOUT" then
+        required(scope:Event(event, function(...) onEvent(nil, event, ...) end))
+    end
+end
+-- Checkpoint remains available even after SND disposal; never scope this event.
+events:RegisterEvent("PLAYER_LOGOUT")
+events:SetScript("OnEvent", onEvent)
 
-hooksecurefunc("Logout",function() X.cleanIntent=true end)
-hooksecurefunc("Quit",function() X.cleanIntent=true end)
-hooksecurefunc("CancelLogout",function() X.cleanIntent=nil end)
-hooksecurefunc("ReloadUI",function() X.reloadIntent=true end)
-if C_UI and C_UI.Reload then hooksecurefunc(C_UI,"Reload",function() X.reloadIntent=true end) end
+required(scope:PostHook("Logout",function() X.cleanIntent=true end))
+required(scope:PostHook("Quit",function() X.cleanIntent=true end))
+required(scope:PostHook("CancelLogout",function() X.cleanIntent=nil end))
+required(scope:PostHook("ReloadUI",function() X.reloadIntent=true end))
+if C_UI and C_UI.Reload then required(scope:PostHook(C_UI,"Reload",function() X.reloadIntent=true end)) end
 
-SLASH_XPISLAND1="/xpisland"
-SlashCmdList.XPISLAND=function(message)
+local slashOK, slashError = app:Slash("/xpisland", function(message)
     if not X.session then say("Waiting for your character to enter the world.");return end
     if message:lower():match("^%s*reset%s*$") then
         X:Clock()
@@ -574,4 +586,5 @@ SlashCmdList.XPISLAND=function(message)
         X.tracker=M.NewTracker(X.session);X.clockAt=GetTime();X:Sample()
         say("Session reset.")
     else Options:Toggle(X) end
-end
+end)
+if not slashOK then app.log:Warn("Slash command unavailable", {command="/xpisland", reason=slashError.message}) end

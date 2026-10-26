@@ -40,7 +40,7 @@ X:LevelUp();W.advance(5);X:LevelUp();W.advance(5)
 eq(UI.expanded,true,"replacement level-up timer restarts its full duration")
 W.advance(5);eq(UI.expanded,false,"replacement timer expires after ten seconds")
 
-SlashCmdList.XPISLAND("")
+SlashCmdList.XPISLAND_SND_XPISLAND("")
 eq(O.frame:IsShown(),true,"slash opens options")
 O.scaleEdit:SetText("125");O.scaleEdit.scripts.OnEnterPressed(O.scaleEdit)
 eq(X.profile.scale,1.25,"numeric scale updates model")
@@ -111,9 +111,7 @@ O:Page(false)
 W.capped=true;W.event("PLAYER_MAX_LEVEL_UPDATE");eq(UI.frame:IsShown(),false,"hide at cap")
 W.capped=false;W.event("PLAYER_MAX_LEVEL_UPDATE");eq(UI.frame:IsShown(),true)
 W.event("PLAYER_CAMPING");W.event("LOGOUT_CANCEL");eq(X.cleanIntent,nil)
-Logout();W.event("PLAYER_LOGOUT");eq(XPIslandSession.reason,"clean")
-X.cleanIntent=nil;ReloadUI();W.event("PLAYER_LOGOUT");eq(XPIslandSession.reason,"reload")
-X.reloadIntent=nil;W.event("PLAYER_LOGOUT");eq(XPIslandSession.reason,"departed")
+
 
 for _,vw in ipairs({1024,1399,1400,1999,2000,3840}) do
     UIParent:SetWidth(vw)
@@ -150,3 +148,15 @@ UI:SetExpanded(true,true);W.svg("dist/preview-expanded.svg",UI.frame)
 O.frame:Show();W.svg("dist/preview-options.svg",O.frame)
 O:Page(true);W.svg("dist/preview-profiles.svg",O.frame)
 print("PASS: "..n.." runtime/UI assertions; SVG previews use a mocked WoW UI")
+
+-- Each logout ends a native client lifetime: SND deliberately disposes its scopes.
+-- Verify every checkpoint reason in a fresh lifetime, including scope cleanup.
+for _,reason in ipairs({"clean","reload","departed"}) do
+    local client=dofile("tests/wow_mock.lua");local fresh=client.load()
+    client.event("ADDON_LOADED","XPIsland");client.event("PLAYER_ENTERING_WORLD",true,false)
+    if reason=="clean" then Logout() elseif reason=="reload" then ReloadUI() end
+    client.event("PLAYER_LOGOUT")
+    eq(XPIslandSession.reason,reason)
+    eq(fresh.App:IsReady(),false,"logout disposes scoped callbacks")
+    eq(SlashCmdList.XPISLAND_SND_XPISLAND,nil,"logout removes owned slash command")
+end

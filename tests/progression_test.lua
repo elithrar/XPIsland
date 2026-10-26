@@ -117,7 +117,7 @@ X.profile.showRank=false;X:ApplyProfile();eq(UI.inlineCount,1)
 X.profile.showKills=false;X:ApplyProfile();eq(UI.inlineCount,0)
 X.profile.showPet=true;X.profile.showRank=true;X.profile.showKills=true;X:ApplyProfile()
 -- True level cap vs disabled XP; opt-in automatic mode, explicit overrides.
-SlashCmdList.XPISLAND('');O:Page('tracking')
+SlashCmdList.XPISLAND_SND_XPISLAND('');O:Page('tracking')
 eq(O.tracking:IsShown(),true);eq(O.options:IsShown(),false);eq(O.profiles:IsShown(),false)
 W.svg('dist/preview-progression-settings.svg',O.frame)
 W.capped=true;W.level=10;X.profile.pvpAtCap=true;X:ApplyProfile();eq(X:Mode(),'xp');eq(UI.frame:IsShown(),false)

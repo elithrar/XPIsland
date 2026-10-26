@@ -104,7 +104,7 @@ close();X.profile.autoCollapse=true;X:Toggle();toggle('autoCollapse',false);eq(X
 W.advance(20);eq(UI.expanded,true);toggle('autoCollapse',true)
 -- Combat, cap, repeated level-ups, session reset, and exact 750ms tooltip dwell.
 close();showLevel(5);local old=X.levelNoticeTimer;W.advance(2);showLevel(15);old.callback();eq(X.levelNotice~=nil,true)
-SlashCmdList.XPISLAND('reset');eq(X.profile.levelUpDuration,15);eq(X.levelNotice~=nil,true)
+SlashCmdList.XPISLAND_SND_XPISLAND('reset');eq(X.profile.levelUpDuration,15);eq(X.levelNotice~=nil,true)
 W.combat=true;W.event('PLAYER_REGEN_DISABLED');eq(X.levelNotice,nil);eq(X.autoCollapse,nil);eq(UI.expanded,false)
 W.combat=false;showLevel(5);W.capped=true;X:Sample();eq(X.levelNotice,nil);eq(UI.frame:IsShown(),false)
 W.capped=false;X:Sample();UI:SetExpanded(true,true);W.hover=UI.cells[3];UI.cells[3].scripts.OnEnter()
