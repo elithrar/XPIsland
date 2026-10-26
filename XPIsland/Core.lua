@@ -16,7 +16,6 @@ XPIsland=X
 BINDING_HEADER_XPISLAND="XPIsland"
 BINDING_NAME_XPISLAND_TOGGLE="Expand / collapse XPIsland"
 
-local events=CreateFrame("Frame")
 local function safe(v)
     return not (issecretvalue and issecretvalue(v))
 end
@@ -563,13 +562,8 @@ for _,event in ipairs({"PLAYER_ENTERING_WORLD","ADDON_LOADED","TIME_PLAYED_MSG",
     "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
     "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN","TRAIT_CONFIG_UPDATED","TRAIT_CONFIG_CREATED","TRAIT_CONFIG_LIST_UPDATED",
     "TRAIT_NODE_CHANGED","TRAIT_NODE_CHANGED_PARTIAL","MAJOR_FACTION_UNLOCKED"}) do
-    if event ~= "PLAYER_LOGOUT" then
-        required(scope:Event(event, function(...) onEvent(nil, event, ...) end))
-    end
+    required(scope:Event(event, function(...) onEvent(nil, event, ...) end))
 end
--- Checkpoint remains available even after SND disposal; never scope this event.
-events:RegisterEvent("PLAYER_LOGOUT")
-events:SetScript("OnEvent", onEvent)
 
 required(scope:PostHook("Logout",function() X.cleanIntent=true end))
 required(scope:PostHook("Quit",function() X.cleanIntent=true end))

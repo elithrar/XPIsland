@@ -12,7 +12,7 @@ for _,o in ipairs(W.objects) do
  assert(not o.scripts.OnUpdate,'No per-frame update script')
  if o.events then eventFrames=eventFrames+1;events=events+count(o.events) end
 end
-assert(eventFrames==2,"one SND event owner plus the native logout checkpoint");assert(activeTimers()==1)
+assert(eventFrames==1,"one SND event owner including the logout checkpoint");assert(activeTimers()==1)
 local function cycle(i)
  O:Toggle(X);W.click(O.format);O:CloseMenu();O:Page(i%2==0);O:Switch(i%2==0 and 'Shared' or 'Stress');O.frame:Hide()
  UI:SetExpanded(i%2==0)

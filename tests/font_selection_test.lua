@@ -204,7 +204,7 @@ lsm.override=nil
 lsm.callbacks.LibSharedMedia_SetGlobal("LibSharedMedia_SetGlobal","font",nil)
 allSurfaces(fonts["Late font"])
 for _=1,3 do W.event("ADDON_LOADED","AnotherFontProvider") end
-eq(lsm.registrations,3,"two consumer callbacks and one SND callback register once per library")
+eq(lsm.registrations,2,"two consumer callbacks; unused SND fonts stay dormant")
 -- Every explicit single-line options allocation shares the same padded fit.
 -- Exercise font advances and physical scale independently, including a native
 -- dropdown's selected text after menu regeneration and both tabs' buttons.

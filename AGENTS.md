@@ -34,6 +34,6 @@ luajit tests/runtime_test.lua
 
 ## SomethingNeedDoing dependency
 
-`XPIsland/Libs/SomethingNeedDoing/UPSTREAM.json` pins the bundled SND runtime and its file hashes. Keep its Lua files and Apache license byte-identical to that commit; fix framework issues upstream. Load order is explicit in the TOC. `Core.lua` creates the private app and core scope; SND owns ordinary core event subscriptions and slash commands. Check the `ok, valueOrError` tuple at registration boundaries. Native logout work must remain outside scoped events: SND 0.2.0 disposes scopes before logout delivery.
+`XPIsland/Libs/SomethingNeedDoing/UPSTREAM.json` pins the bundled SND runtime and its file hashes. Keep its Lua files and Apache license byte-identical to that commit; fix framework issues upstream. Load order is explicit in the TOC. `Core.lua` creates the private app and core scope; SND owns ordinary core event subscriptions and slash commands. Check the `ok, valueOrError` tuple at registration boundaries. Keep the logout checkpoint in the core scope: SND delivers scoped logout callbacks before disposal.
 
 SavedVariables and gameplay models retain their existing owners. Do not copy a live settings table into SND state and continue mutating both. A future settings/UI migration must cover every write path, including profile changes, previews, drag and dock callbacks, together. Use the pinned upstream `API.md` for API contracts; this file describes consumer boundaries rather than duplicating the API.
