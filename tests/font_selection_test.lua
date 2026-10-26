@@ -118,4 +118,39 @@ local menuFont=O.panel._menuFont
 for _=1,10 do O.panel:Close();W.open();O:Refresh() end
 eq(O.panel._menuFont,menuFont,'menu font reused across refresh/reopen')
 eq(GameTooltipText:GetFont(),tooltipFont,'global tooltip font never mutated')
+-- These real consumer actions were wider than the shared fixed buttons. Keep
+-- their complete captions legible after font/settings refresh, including physical
+-- pixel rounding; checking only dropdowns misses this independent clipping risk.
+local priorWidths,priorPixels=W.fontWidths,W.pixelMetrics
+W.pixelMetrics=true
+local function fitsButton(button,caption)
+ local text=button.text
+ eq(text:GetText(),caption,'action caption is never shortened')
+ eq(text:IsTruncated(),false,'complete action caption fits its text allocation')
+ local x,y,w,h=button:Rect();local tx,ty,tw,th=text:Rect();local scale=button:GetEffectiveScale()
+ eq(tx>=x+6*scale-.001 and tx+tw<=x+w-6*scale+.001,true,'caption stays inside horizontal button padding')
+ eq(ty>=y+3*scale-.001 and ty+th<=y+h-3*scale+.001,true,'caption stays inside vertical button padding')
+ local natural=text:GetUnboundedStringWidth()*text:GetEffectiveScale()
+ eq(natural<=w-12*scale+.001,true,'rendered glyph width fits button interior')
+end
+UIParent:SetSize(384,300);UIParent:SetScale(.64)
+local characterButton,confirmButton
+for _,advance in ipairs({.52,.8})do
+ W.fontWidths={[fonts.Expressway]=advance}
+ for _,size in ipairs({10,18})do
+  W.patch({font='Expressway',fontSize=size})
+  W.open('behavior');local character=W.control('character','behavior')
+  fitsButton(character,'Use character profile')
+  if characterButton then eq(character,characterButton,'appearance refresh reuses character action')end
+  characterButton=character
+  local panel=W.open('profiles')
+  W.click(panel._pool['profile-reset'])
+  local confirm=panel._pool['profile-confirm'];fitsButton(confirm,'Confirm replacement')
+  if confirmButton then eq(confirm,confirmButton,'confirmation reuses its button')end
+  confirmButton=confirm
+  W.click(panel._pool['profile-cancel'])
+ end
+end
+W.fontWidths,W.pixelMetrics=priorWidths,priorPixels
+UIParent:SetSize(1920,1080);UIParent:SetScale(1)
 print('PASS: '..assertions..' font/menu assertions (simulated native loading and compositor)')
