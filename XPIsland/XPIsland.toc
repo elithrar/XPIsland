@@ -3,7 +3,7 @@
 ## Notes: Compact XP and PvP tracking for World of Warcraft: Forever.
 ## Author: Matt
 ## X-Curse-Project-ID: 1727059
-## Version: 0.7.0
+## Version: 0.7.1
 ## SavedVariables: XPIslandDB
 ## SavedVariablesPerCharacter: XPIslandSession, XPIslandPlayed
 ## OptionalDeps: LibSharedMedia-3.0
@@ -14,6 +14,7 @@ Libs/SomethingNeedDoing/State.lua
 Libs/SomethingNeedDoing/Settings.lua
 Libs/SomethingNeedDoing/UI.lua
 Libs/SomethingNeedDoing/Options.lua
+Themes.lua
 Model.lua
 Settings.lua
 Progression.lua

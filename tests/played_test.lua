@@ -169,7 +169,7 @@ eq(X.levelNotice,nil);eq(P.saved.current.start,10900)
 -- Full ten seconds in the header; ETA keeps its own live model value.
 W,X,P,UI=boot();W.advance(1);reply(W,10000,2000);levelup(W,11);reply(W,11000,100)
 local rate,eta
-local M={};assert(loadfile('XPIsland/Model.lua'))('XPIsland',M)
+local M={};assert(loadfile('XPIsland/Themes.lua'))('XPIsland',M);assert(loadfile('XPIsland/Model.lua'))('XPIsland',M)
 rate,eta=M.Model.Estimate(X.session,X.tracker.xp,X.tracker.cap,X:IsCapped())
 eq(UI.cells[3].value:GetText(),M.Model.Duration(eta));eq(UI.cells[3].title:GetText(),'Time to level')
 W.hover=UI.frame;W.advance(9.9);eq(UI.levelText:IsShown(),true)

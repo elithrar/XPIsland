@@ -16,7 +16,7 @@ function M.Copy(t)
 end
 
 M.defaults = {
-    theme = "modern", format = "percent", scale = 1, font = "Game tooltip", fontSize = 14,
+    theme = ns.Themes.default, format = "percent", scale = 1, font = "Game tooltip", fontSize = 14,
     fontCustomized = false, fontSizeCustomized = false, placement = "top",
     normal = {0.64, 0.35, 0.94}, rested = {0.24, 0.61, 1},
     locked = true, levelUp = true, hideBlizzard = false,
@@ -30,8 +30,8 @@ M.defaults = {
 function M.Profile(p)
     p = type(p) == "table" and p or {}
     local clean = M.Copy(M.defaults)
-    if p.theme == "forever" then clean.theme = "forever" end
     if p.format == "percent" or p.format == "fraction" or p.format == "left" or p.format == "leftPercent" or p.format == "eta" or p.format == "kills" then clean.format = p.format end
+    clean.theme = ns.Themes.Get(p.theme).id
     if p.mode == "pvp" then clean.mode = "pvp" end
     if p.pvpFormat == "rankLeft" then clean.pvpFormat = "rankLeft" end
     if M.Number(p.scale) then clean.scale = max(0.5, min(1.5, p.scale)) end
@@ -311,7 +311,8 @@ end
 function M.Placement(viewWidth, viewHeight, p, minimumHeader, detailHeight)
     local cw, ew, scale = M.Layout(viewWidth, p.scale)
     cw=max(cw,min(440,minimumHeader or cw))
-    local barHeight, panelHeight = 34, 34+(detailHeight or 102)
+    local barHeight = ns.Themes.Get(p.theme).headerHeight
+    local panelHeight = barHeight+(detailHeight or 102)
     scale = min(scale, max(.01, (viewHeight-16)/panelHeight))
     local bh, ph = barHeight*scale, panelHeight*scale
     local xLimit = max(0,(viewWidth-ew*scale)/2-8)

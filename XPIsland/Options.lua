@@ -91,7 +91,7 @@ function O:Configure(app)
     end
     self.panel=app:Options({title='XPIsland',width=640,height=540,pages={
         {id='appearance',label='Appearance',sections={{title='Appearance',controls={
-            choice('theme','Theme',app.ui:Themes()),
+            choice('theme','Theme',ns.Themes.Choices()),
             {type='font',id='font',key='font',label='Font'},
             {type='number',id='fontSize',key='fontSize',label='Font size (10–18)'},
             {type='slider',id='scale',key='scale',label='Island scale',step=.01,format='percent'},

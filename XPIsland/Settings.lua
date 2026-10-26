@@ -15,7 +15,12 @@ function ns.ConfigureSettings(app)
     field('format','enum',{values={'percent','fraction','left','leftPercent','eta','kills'}})
     field('mode','enum',{values={'xp','pvp'}});field('pvpFormat','enum',{values={'honor','rankLeft'}})
     field('placement','enum',{values={'top','bottom','custom'}})
-    field('theme','enum',{values={'modern','forever'}})
+    local themeIDs,appearances={},{}
+    for _,theme in ipairs(ns.Themes.definitions) do
+        themeIDs[#themeIDs+1]=theme.id
+        appearances[theme.id]={label=theme.label,border=theme.optionsBorder,colors=theme.palette}
+    end
+    field('theme','enum',{values=themeIDs})
     for _,key in ipairs({'normal','rested'}) do field(key,'color') end
     for _,key in ipairs({'levelUpDuration','autoCollapseDuration'}) do field(key,'enum',{values={5,10,15}}) end
     for _,key in ipairs({'x','y'}) do fields['position.'..key]={type='number',default=M.defaults.position[key],min=-10000,max=10000} end
@@ -66,5 +71,5 @@ function ns.ConfigureSettings(app)
         return true,result(db,identity,false)
     end
     app:Settings({savedVariables={'XPIslandDB'},fields=fields,adapter=adapter})
-    app:Appearance({themes={modern=ns.SomethingNeedDoing.Themes.modern,forever=ns.SomethingNeedDoing.Themes.forever},defaultTheme='modern'})
+    app:Appearance({themes=appearances,defaultTheme=ns.Themes.default})
 end
