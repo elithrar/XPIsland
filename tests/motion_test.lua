@@ -27,26 +27,25 @@ W.hover=nil;UI.frame.scripts.OnLeave();W.advance(14.9);eq(UI.expanded,true);W.ad
 X:Toggle();W.hover=UI.frame;W.advance(15);eq(UI.expanded,true);eq(timers(),1)
 W.hover=nil;W.advance(1);eq(timers(),2);W.advance(15);eq(UI.expanded,false)
 -- Settings hold the panel open. Profile changes replace the old policy/deadline.
-X:Toggle();SlashCmdList.XPISLAND('');eq(timers(),1);W.advance(30);eq(UI.expanded,true)
-eq(O.frame.template,'BackdropTemplate');eq(#O.dropdowns,8)
-for _,d in ipairs(O.dropdowns) do eq(d.template,'WowStyle1DropdownTemplate') end
-W.choose(O.format,'leftPercent');eq(X.profile.format,'leftPercent')
-W.choose(O.placement,'bottom');eq(X.profile.placement,'bottom');eq(UI.layout.up,true)
-M.Duplicate(X.db,'Shared','No timeout');X.db.profiles['No timeout'].autoCollapse=false
-O:Switch('No timeout');O.frame:Hide();W.advance(30);eq(UI.expanded,true);eq(timers(),1)
+X:Toggle();SlashCmdList.XPISLAND_SND_XPISLAND('');eq(timers(),1);W.advance(30);eq(UI.expanded,true)
+eq(O.frame.template,'BackdropTemplate');eq(W.control('format','tracking').template,'WowStyle1DropdownTemplate')
+W.choose(W.control('format','tracking'),'leftPercent');eq(X.profile.format,'leftPercent')
+W.choose(W.control('placement','behavior'),'bottom');eq(X.profile.placement,'bottom');eq(UI.layout.up,true)
+assert(ns.App.profiles:Duplicate('No timeout'));W.set('autoCollapse',false)
+O:Switch('No timeout');O.panel:Close();W.advance(30);eq(UI.expanded,true);eq(timers(),1)
 O:Switch('Shared');eq(timers(),2);W.advance(15);eq(UI.expanded,false)
 -- Manual close, repeat level-up, disabled level preview, combat, no auto-reopen.
 X:Toggle();W.advance(2);X:Toggle();eq(timers(),1);W.advance(20);eq(UI.expanded,false)
 X:LevelUp();W.advance(8);X:LevelUp();W.advance(9.9);eq(UI.expanded,true);W.advance(.1);eq(UI.expanded,false)
-X.profile.levelUp=false;X:Toggle();W.advance(5);X:LevelUp();W.advance(10);eq(UI.expanded,false,'disabled preview preserves manual timeout')
-X.profile.levelUp=true;X:LevelUp();W.advance(.05);W.combat=true;W.event('PLAYER_REGEN_DISABLED')
+W.set('levelUp',false);X:Toggle();W.advance(5);X:LevelUp();W.advance(10);eq(UI.expanded,false,'disabled preview preserves manual timeout')
+W.set('levelUp',true);X:LevelUp();W.advance(.05);W.combat=true;W.event('PLAYER_REGEN_DISABLED')
 eq(UI.expanded,false);eq(X.collapseDelay,nil);settle();eq(UI.frame.scripts.OnUpdate,nil)
 X:LevelUp();eq(UI.expanded,false,'no automatic level-up opening in combat')
 W.combat=false;W.event('PLAYER_REGEN_ENABLED');eq(UI.expanded,false,'combat end never reopens')
-X.profile.collapseCombat=false;X:Toggle();W.combat=true;W.event('PLAYER_REGEN_DISABLED');eq(UI.expanded,true)
-W.combat=false;X.profile.collapseCombat=true;close()
+W.set('collapseCombat',false);X:Toggle();W.combat=true;W.event('PLAYER_REGEN_DISABLED');eq(UI.expanded,true)
+W.combat=false;W.set('collapseCombat',true);close()
 -- Drag suspends the same deadline and saves placement without animation drift.
-X.profile.locked=false;X:Toggle();W.advance(.05);UI.frame.scripts.OnDragStart()
+W.set('locked',false);X:Toggle();W.advance(.05);UI.frame.scripts.OnDragStart()
 eq(UI.progress,1);eq(UI.animation,nil);eq(timers(),1)
 W.advance(30);eq(UI.expanded,true);UI.frame.scripts.OnDragStop();eq(X.profile.placement,'custom')
 eq(timers(),2);W.advance(15);eq(UI.expanded,false)
@@ -59,11 +58,11 @@ X.session=M.NewSession(X.character,GetServerTime());X.tracker.session=X.session;
 UI:ShowStatTooltip(UI.cells[3],3);eq(#W.tooltip.lines,2);eq(W.tooltip.lines[1][1],'Time to level')
 -- Every animated frame stays within the reserved footprint, keeps the bar's
 -- vertical position, stretches segments and pins the measured label to the right.
-X.profile.autoCollapse=false
+W.set('autoCollapse',false)
 for _,placement in ipairs({'top','bottom','custom'}) do
  for _,scale in ipairs({.5,1,1.5}) do
-  close();X.profile.placement=placement;X.profile.position={x=150,y=-850};X.profile.scale=scale
-  X.profile.format='leftPercent';X.profile.fontSize=18;UI:Layout()
+  close();W.set('placement',placement);W.set('position',{x=150,y=-850});W.set('scale',scale)
+  W.set('format','leftPercent');W.set('fontSize',18);UI:Layout()
   local hx,hy,hw,hh=UI.header:Rect();local prevWidth=UI.frame:GetWidth()
   X:Toggle()
   for i=1,24 do
@@ -96,18 +95,18 @@ end
 -- Repeated interactive transitions/profile switches own a constant frame set.
 local objects=#W.objects
 for i=1,2000 do
- X.profile.autoCollapse=true;X:Toggle();W.advance(.013)
+ W.set('autoCollapse',true);X:Toggle();W.advance(.013)
  W.hover=UI.frame;X:InteractionChanged();W.hover=nil;X:InteractionChanged()
  O:Switch(i%2==0 and 'Shared' or 'No timeout')
  W.event('PLAYER_REGEN_DISABLED');W.advance(.25)
  eq(timers(),1);eq(UI.frame.scripts.OnUpdate,nil)
 end
-eq(#W.objects,objects);eq(#O.fontObjects,60)
+eq(#W.objects,objects)
 -- Fresh layout fixtures, including a partially expanded clipped/faded frame.
-X.profile=M.Profile();X.db.profiles.Shared=X.profile;X.profileName='Shared';X:CancelAutoCollapse()
+assert(ns.App.profiles:Switch('Shared'));assert(ns.App.profiles:Reset());X:CancelAutoCollapse()
 X.tracker.xp=60800;X.tracker.cap=95000;X.rested=12000;UI:SetExpanded(false,true)
 UI:SetExpanded(true);W.advance(.055);W.svg('dist/preview-transition.svg',UI.frame);settle()
 W.svg('dist/preview-centered.svg',UI.frame)
-O:Page(false);O.frame:Show();W.svg('dist/preview-settings-03.svg',O.frame)
-O:Page(true);W.svg('dist/preview-profiles-03.svg',O.frame);O.frame:Hide();X:CancelAutoCollapse()
+O:Page(false);W.open();W.svg('dist/preview-settings-03.svg',O.frame)
+O:Page(true);W.svg('dist/preview-profiles-03.svg',O.frame);O.panel:Close();X:CancelAutoCollapse()
 print('PASS: '..n..' motion/timer/menu assertions; 2,000 interrupted interaction cycles')

@@ -7,62 +7,17 @@ local FLASH_COLOR={1,1,1}
 local SOURCE_KEYS={"kills","quests","dungeons","other"}
 local MEDIA = "Interface\\AddOns\\XPIsland\\media\\rounded.tga"
 
--- Resolve one usable family before applying it anywhere. SharedMedia can list
--- locale-only or missing files; SetFont then fails and retains the old font.
--- Keep the saved preference so a later registration can make it available.
-local fontResults={}
-local fontProbe
-UI.fontRevision=0
-function UI.ResetFonts() fontResults={} end
-
-local function setFont(text,path,size,flags)
-    local ok,result=pcall(text.SetFont,text,path,size,flags or "")
-    if not ok or result==false then return false end
-    local actual,actualSize=text:GetFont()
-    local same=actual==path or (type(actual)=="string" and type(path)=="string"
-        and actual:gsub("/","\\"):lower()==path:gsub("/","\\"):lower())
-    -- GetFont returns a native uiUnit, not an exact echo of the requested
-    -- height. Height conversion/float round trips must not reject a loaded font.
-    return same and type(actualSize)=="number" and actualSize>0
+local function applyColor(object,role)
+    local ok,err=ns.App.ui:Color(object,role)
+    if not ok then ns.App.log:Warn(err.message,{code=err.code}) end
 end
 
-function UI.ApplyFont(text,profile,size,flags)
-    local path,state=UI.Font(profile)
-    local key=path..":"..size..":"..(flags or "")
-    -- Native controls and global font passes can replace a previously assigned
-    -- face. Compare with the last native readback, not the requested height.
-    local actual,actualSize,actualFlags=text:GetFont()
-    local changed=actual~=text.xpFontPath or actualSize~=text.xpFontSize or actualFlags~=text.xpFontFlags
-    if state.native then
-        if text.xpNativeFont~=state.native or changed then text:SetFontObject(state.native) end
-        text.xpNativeFont=state.native;text.xpFontKey=nil
-        text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
-        return path
-    end
-    text.xpNativeFont=nil
-    if text.xpFontKey~=key or changed then
-        if not setFont(text,path,size,flags) then
-            -- Downgrade the shared resolution, not just this object. The owner
-            -- replays layout/options after a downgrade so earlier objects and
-            -- their measurements settle on the same family before returning.
-            path=state.default
-            state.path=path;UI.fontRevision=UI.fontRevision+1
-            if not setFont(text,path,size,flags) then
-                -- A font preference must never abort addon construction. A
-                -- native Font object supplies a usable face even if path-based
-                -- loading fails; don't cache that failed requested assignment.
-                state.native=GameFontNormal or GameTooltipText
-                state.path=state.native:GetFont()
-                text:SetFontObject(state.native);text.xpNativeFont=state.native
-                text.xpFontKey=nil
-                text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
-                return text:GetFont()
-            end
-        end
-        text.xpFontKey=path..":"..size..":"..(flags or "")
-        text.xpFontPath,text.xpFontSize,text.xpFontFlags=text:GetFont()
-    end
-    return path
+-- SND owns font resolution, fallback and late media callbacks. XPIsland keeps
+-- its physical-pixel clipping allowance and animation-time measurement cache.
+function UI.ApplyFont(text,size,flags)
+    local ok,err=ns.App.fonts:Apply(text,'body',{size=size,flags=flags or ''})
+    if not ok then ns.App.log:Warn(err.message,{code=err.code}) end
+    return text:GetFont()
 end
 
 -- Native glyph advances and clipping boxes round independently at fractional
@@ -107,7 +62,8 @@ function UI.Infinity(parent)
     local shadowLoaded=f.shadow:SetTexture(path)
     local symbolLoaded=f.symbol:SetTexture(path)
     if shadowLoaded==false or symbolLoaded==false then return f,false end
-    f.shadow:SetVertexColor(0,0,0,.8);f.symbol:SetVertexColor(.93,.94,.97,1)
+    f.shadow:SetVertexColor(0,0,0,.8)
+    applyColor(f.symbol,"text")
     f.shadow:SetPoint("CENTER",f,"CENTER",1,-1)
     f.symbol:SetAllPoints(f)
     f.shadow:Show();f.symbol:Show()
@@ -121,11 +77,11 @@ function UI.Infinity(parent)
     return f,true
 end
 
-function UI.Text(parent, size, r, g, b)
+function UI.Text(parent, size, role)
     local text = parent:CreateFontString(nil, "OVERLAY")
-    UI.ApplyFont(text,UI.owner and UI.owner.profile or {font="Game tooltip"},size)
+    UI.ApplyFont(text,size)
     text:SetShadowColor(0,0,0,.8); text:SetShadowOffset(1,-1)
-    text:SetTextColor(r or 0.93, g or 0.94, b or 0.97)
+    applyColor(text,role or "text")
     text:SetJustifyH("LEFT")
     text:SetJustifyV("MIDDLE")
     text:SetWordWrap(false)
@@ -138,7 +94,7 @@ function UI.Solid(parent, layer, r, g, b, a)
     return t
 end
 
-function UI.Round(parent, color, inset)
+function UI.Round(parent, role, inset)
     local holder = CreateFrame("Frame", nil, parent)
     holder:SetFrameLevel(parent:GetFrameLevel()+((inset or 0)>0 and 1 or 0))
     holder:SetPoint("TOPLEFT", inset or 0, -(inset or 0))
@@ -151,12 +107,13 @@ function UI.Round(parent, color, inset)
     for _, s in ipairs(specs) do
         local t = holder:CreateTexture(nil, "BACKGROUND")
         t:SetTexture(MEDIA); t:SetTexCoord(s[2],s[3],s[4],s[5])
-        t:SetVertexColor(unpack(color)); t:SetPoint(s[1])
+        applyColor(t,role); t:SetPoint(s[1])
         corners[#corners+1] = t
     end
-    local center = UI.Solid(holder, "BACKGROUND", unpack(color))
-    local left = UI.Solid(holder, "BACKGROUND", unpack(color))
-    local right = UI.Solid(holder, "BACKGROUND", unpack(color))
+    local center = UI.Solid(holder, "BACKGROUND", 1,1,1,1)
+    local left = UI.Solid(holder, "BACKGROUND", 1,1,1,1)
+    local right = UI.Solid(holder, "BACKGROUND", 1,1,1,1)
+    for _,texture in ipairs({center,left,right}) do applyColor(texture,role) end
     function holder:Radius(radius)
         if self.radius==radius then return end
         self.radius=radius
@@ -164,10 +121,6 @@ function UI.Round(parent, color, inset)
         center:ClearAllPoints(); center:SetPoint("TOPLEFT", radius, 0); center:SetPoint("BOTTOMRIGHT", -radius, 0)
         left:ClearAllPoints(); left:SetPoint("TOPLEFT", 0, -radius); left:SetPoint("BOTTOMLEFT", 0, radius); left:SetWidth(radius)
         right:ClearAllPoints(); right:SetPoint("TOPRIGHT", 0, -radius); right:SetPoint("BOTTOMRIGHT", 0, radius); right:SetWidth(radius)
-    end
-    function holder:Color(color)
-        for _,c in ipairs(corners) do c:SetVertexColor(unpack(color)) end
-        for _,t in ipairs({center,left,right}) do t:SetColorTexture(unpack(color)) end
     end
     holder:Radius(14)
     return holder
@@ -200,22 +153,16 @@ function UI.Chrome(parent,texture,radius)
     f:Hide();return f
 end
 
-function UI.Font(profile)
-    local tooltip = GameTooltipTextLeft2 or GameTooltipText
-    local default = tooltip and tooltip:GetFont() or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
-    local requested=default
-    local lsm = LibStub and LibStub("LibSharedMedia-3.0", true)
-    if profile.font=="Arial" then requested="Fonts\\ARIALN.TTF"
-    elseif profile.font=="Friz Quadrata" then requested="Fonts\\FRIZQT__.TTF"
-    elseif profile.font~="Game tooltip" then
-        requested=(lsm and lsm:IsValid("font",profile.font) and lsm:Fetch("font",profile.font)) or default
-    end
-    local key=requested..":"..default
-    if not fontResults[key] then
-        if not fontProbe then fontProbe=UIParent:CreateFontString(nil,"OVERLAY");fontProbe:Hide() end
-        fontResults[key]={path=setFont(fontProbe,requested,14,"") and requested or default,default=default}
-    end
-    return fontResults[key].path,fontResults[key]
+function UI.Font()
+    return UI.label and UI.label:GetFont() or GameTooltipText:GetFont()
+end
+
+function UI:PreviewColor(key,value)
+    self.previewColors=self.previewColors or {};self.previewColors[key]=value
+    if self.frame then self:Update() end
+end
+function UI:ColorValue(key)
+    return self.previewColors and self.previewColors[key] or self.owner.profile[key]
 end
 
 -- End caps use a fixed-radius circular texture, cropped (never compressed) at
@@ -390,7 +337,7 @@ function UI:ShowStatTooltip(cell,i)
         local text,maximum=M.RestedText(owner.rested,owner.restedMaximum)
         if text then
             if maximum then GameTooltip:AddLine(text,1,.1,.1)
-            else GameTooltip:AddLine(text,unpack(owner.profile.rested)) end
+            else GameTooltip:AddLine(text,unpack(self:ColorValue("rested"))) end
         end
     elseif i == 3 and owner.tracker then
         local t=owner.tracker
@@ -426,7 +373,7 @@ function UI:ShowBarTooltip()
         self:AddKillTooltip()
     end
     GameTooltip:AddLine(M.ExactXP(t.xp,t.cap),1,1,1)
-    if not owner.db.expandedOnce then
+    if not owner.profile.expandedOnce then
         GameTooltip:AddLine("Click to expand · /xpisland for settings",.8,.8,.85)
     end
     GameTooltip:Show();self.barTooltip=true
@@ -479,7 +426,7 @@ function UI:RefreshInline()
     local values={P.pet and M.Compact(P.pet.xp) or "—",P:RankText(),M.Compact(kills)}
     local visible={p.showPet and P.pet~=nil,p.showRank and xp,p.showKills and xp}
     local size=math.max(12,math.min(14,p.fontSize-2))
-    local font=UI.Font(p)
+    local font=UI.Font()
     local signature=font..":"..size..":"..o:Mode()..":"..self.frame:GetEffectiveScale()
     for i=1,3 do signature=signature..":"..tostring(visible[i])..":"..values[i] end
     if self.inlineSignature==signature then return false end
@@ -487,7 +434,7 @@ function UI:RefreshInline()
     self.inlineWidth,self.inlineHeight,self.inlineCount=0,0,0
     for i,c in ipairs(self.inlineCells) do
         c.active=visible[i];c:SetShown(c.active)
-        UI.ApplyFont(c.title,p,size);UI.ApplyFont(c.value,p,size);c.value:SetText(values[i])
+        UI.ApplyFont(c.title,size);UI.ApplyFont(c.value,size);c.value:SetText(values[i])
         local titleWidth,titleHeight=UI.Measure(c.title)
         local valueWidth,valueHeight=UI.Measure(c.value)
         c.titleWidth=titleWidth
@@ -503,7 +450,16 @@ function UI:RefreshInline()
     return true
 end
 
+-- A drag belongs to the settings revision at pointer-down. Profile switches,
+-- copies, resets and other settings edits cancel it before a delayed stop event.
+function UI:CancelDrag()
+    if not self.dragging then return end
+    self.dragging=nil;self.dragRevision=nil
+    self.frame:StopMovingOrSizing()
+end
+
 function UI:Create(owner)
+    self.constructing=true
     self.owner = owner
     local f = CreateFrame("Button", "XPIslandFrame", UIParent)
     self.frame = f
@@ -513,8 +469,8 @@ function UI:Create(owner)
     -- and TOOLTIP. Children inherit the same strata and relative frame levels.
     f:SetFrameStrata("HIGH"); f:SetFrameLevel(100); f:SetClampedToScreen(true)
     f:SetMovable(true); f:RegisterForDrag("LeftButton")
-    self.outer = UI.Round(f, {1,1,1,1}, 0)
-    self.inner = UI.Round(f, {1,1,1,1}, 1)
+    self.outer = UI.Round(f, "border", 0)
+    self.inner = UI.Round(f, "surface", 1)
     self.chromeFrames={}
     for _,theme in ipairs(ns.Themes.definitions) do
         if theme.chromeTexture then self.chromeFrames[theme.id]=UI.Chrome(f,theme.chromeTexture,theme.chromeRadius) end
@@ -550,14 +506,14 @@ function UI:Create(owner)
         local border=UI.SegmentBorder(self.bar,track,flash:GetFrameLevel()+1)
         self.segments[i] = {track=track,preview=preview,fill=fill,flash=flash,border=border}
     end
-    self.divider = UI.Solid(content, "ARTWORK", .18,.18,.22)
+    self.divider = UI.Solid(content, "ARTWORK", 1,1,1)
     self.details=CreateFrame("Frame",nil,content)
     self.details:SetClipsChildren(true)
     self.cells = {}
     for i=1,8 do
         local cell = CreateFrame("Frame", nil, self.details)
         cell:EnableMouse(true)
-        cell.title = UI.Text(cell, 12, .86,.79,.63)
+        cell.title = UI.Text(cell, 12, "accent")
         cell.value = UI.Text(cell, 14)
         cell.title:SetPoint("TOP"); cell.value:SetPoint("TOP",0,-18);cell.value:SetText("0")
         cell.title:SetJustifyH("CENTER");cell.value:SetJustifyH("CENTER")
@@ -581,7 +537,7 @@ function UI:Create(owner)
     self.inlineCells={}
     for i,title in ipairs({"Pet XP:","PvP rank:","Kills to level:"}) do
         local c=CreateFrame("Frame",nil,self.inlineGroup)
-        c.title=UI.Text(c,12,.86,.79,.63);c.title:SetText(title)
+        c.title=UI.Text(c,12,"accent");c.title:SetText(title)
         c.value=UI.Text(c,12)
         c.title:SetJustifyH("LEFT");c.value:SetJustifyH("LEFT")
         c:SetScript("OnEnter",function() owner:InteractionChanged();self:BeginStatTooltip(c,i+8) end)
@@ -598,18 +554,18 @@ function UI:Create(owner)
         if owner.profile.locked then return end
         ns.Options:CloseIndicatorMenu()
         self:CancelStatTooltip();self:ClearHighlights()
-        self.dragged = true; self.dragging = true
+        self.dragged = true; self.dragging = true;self.dragRevision=owner.settingsRevision
         owner:InteractionChanged(); self:StopAnimation(); self:RenderGeometry(self.expanded and 1 or 0); f:StartMoving()
     end)
     f:SetScript("OnDragStop", function()
         if not self.dragging then return end
-        self.dragging = nil; f:StopMovingOrSizing()
+        local revision=self.dragRevision
+        self.dragging = nil;self.dragRevision=nil; f:StopMovingOrSizing()
         local factor = f:GetEffectiveScale()/UIParent:GetEffectiveScale()
         local x = select(1,f:GetCenter()) * factor - UIParent:GetWidth()/2
         local y = self.header:GetTop()*factor - UIParent:GetTop()
-        owner.profile.position = {x=x, y=y}
-        owner.profile.placement = "custom"
-        self:Layout()
+        local ok,err=ns.App:SetMany({["position.x"]=math.max(-10000,math.min(10000,x)),["position.y"]=math.max(-10000,math.min(10000,y)),placement="custom"},revision)
+        if not ok then owner:SettingsResult(ok,err);self:Layout() end
         owner:InteractionChanged()
     end)
     f:SetScript("OnEnter", function()
@@ -640,7 +596,7 @@ function UI:Create(owner)
     for _,event in ipairs({"OnDragStart","OnDragStop","OnEnter","OnLeave"}) do
         self.indicator:SetScript(event,f:GetScript(event))
     end
-    self:Layout(); f:Hide()
+    self.constructing=nil;self:Layout(); f:Hide()
 end
 
 function UI:BarLabel(rate,duration)
@@ -680,7 +636,7 @@ end
 
 function UI:Layout(preserveMotion)
     if not self.frame or self.dragging then return end
-    self.owner:RefreshAppearance(false,preserveMotion)
+    self.owner:RefreshAppearance(preserveMotion)
 end
 
 function UI:ApplyTheme()
@@ -693,7 +649,6 @@ function UI:ApplyTheme()
     self.chrome=self.chromeFrames[theme.id]
     if not theme.chromeTexture then
         self.outer:Radius(theme.outerRadius);self.inner:Radius(theme.innerRadius)
-        self.outer:Color(theme.outerColor);self.inner:Color(theme.innerColor)
     end
     self.headerInset=theme.headerInset
     self.labelGap=theme.labelGap
@@ -701,8 +656,6 @@ function UI:ApplyTheme()
     self.segmentGap=theme.segmentGap
     self.divider:SetColorTexture(unpack(theme.dividerColor))
     for _,cell in ipairs(self.cells) do
-        cell.title:SetTextColor(unpack(theme.titleColor))
-        cell.value:SetTextColor(unpack(theme.valueColor))
         if cell.shareTrack then cell.shareTrack:SetColorTexture(unpack(self.trackColor)) end
     end
     for _,segment in ipairs(self.segments) do
@@ -729,12 +682,12 @@ function UI:LayoutContents(preserveMotion)
     if not self.frame or self.dragging then return end
     if not preserveMotion then self:CancelStatTooltip();self:ClearHighlights() end
     local p,f=self.owner.profile,self.frame
-    self.font=UI.Font(p)
+    self.font=UI.Font()
     -- Install the parent scale before measuring; stale 100% metrics must not
     -- size the 85% boxes. Reset only the optional footer's content-fit scale.
     local _,_,scale=M.Layout(UIParent:GetWidth(),p.scale)
-    UI.ApplyFont(self.label,p,p.fontSize)
-    UI.ApplyFont(self.levelText,p,p.fontSize)
+    UI.ApplyFont(self.label,p.fontSize)
+    UI.ApplyFont(self.levelText,p.fontSize)
     self.levelTextSource=nil
     if self.infinity.Layout then self.infinity:Layout(p.fontSize) end
     self.infinityWidth=p.fontSize*1.4+4
@@ -752,8 +705,8 @@ function UI:LayoutContents(preserveMotion)
         for _,c in ipairs(self.cells) do
             c.fitKey=nil
             c.title:SetScale(1);c.value:SetScale(1)
-            UI.ApplyFont(c.title,p,math.max(12,math.min(14,p.fontSize-2)))
-            UI.ApplyFont(c.value,p,p.fontSize)
+            UI.ApplyFont(c.title,math.max(12,math.min(14,p.fontSize-2)))
+            UI.ApplyFont(c.value,p.fontSize)
             local _,th=UI.Measure(c.title);local _,vh=UI.Measure(c.value)
             titleHeight=math.max(titleHeight,th)
             valueHeight=math.max(valueHeight,vh)
@@ -961,13 +914,13 @@ function UI:PaintBar(geometryChanged)
     local cap,xp=t and t.cap or 0,t and t.xp or 0
     if o:Mode()=="pvp" then cap=rank and rank.cap or 0;xp=rank and rank.xp or 0 end
     local fraction=rank and rank.maximum and 1 or cap>0 and math.min(1,math.max(0,xp/cap)) or 0
-    local color=(o.rested or 0)>0 and p.rested or p.normal
+    local color=(o.rested or 0)>0 and self:ColorValue("rested") or self:ColorValue("normal")
     local preview=cap>0 and math.min(1,(xp+math.max(0,o.rested or 0))/cap) or 0
-    if o:Mode()=="pvp" then preview=0;color=p.normal end
+    if o:Mode()=="pvp" then preview=0;color=self:ColorValue("normal") end
     if preview<=fraction then preview=0 end
     local previewColor=self.restedColor
     local trackColor=self.trackColor or TRACK_COLOR
-    for i=1,3 do previewColor[i]=trackColor[i]+(p.rested[i]-trackColor[i])*.28 end
+    for i=1,3 do previewColor[i]=trackColor[i]+(self:ColorValue("rested")[i]-trackColor[i])*.28 end
     if geometryChanged or fraction~=self.barFraction or preview~=self.restedFraction or previewColor[1]~=self.previewR
         or previewColor[2]~=self.previewG or previewColor[3]~=self.previewB then
         for i,s in ipairs(self.segments) do
@@ -997,7 +950,7 @@ function UI:Update()
     local xp, cap, rested = t and t.xp or 0, t and t.cap or 0, o.rested or 0
     local rate,duration=M.Estimate(o.session,xp,cap,o:IsCapped()~=false)
     local text,labelWidth=self:BarLabel(rate,duration)
-    if labelWidth~=self.layout.labelWidth or UI.Font(p)~=self.layout.font then self:Layout(true);return end
+    if labelWidth~=self.layout.labelWidth or UI.Font()~=self.layout.font then self:Layout(true);return end
     self:PaintBar()
     local s=o.session
     local left=math.max(0,cap-xp)

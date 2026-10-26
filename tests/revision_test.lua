@@ -27,19 +27,19 @@ W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 eq(UI.label.fontPath,'Fonts\\FRIZQT__.TTF','inherits tooltip font');eq(UI.label.fontSize,14)
 GameTooltipTextLeft2={GetFont=function() return 'ActualTooltipFont.ttf',12,'' end};UI:Layout()
 eq(UI.label.fontPath,'ActualTooltipFont.ttf','read actual tooltip line font')
-X.profile.font='Arial';UI:Layout();eq(UI.label.fontPath,'Fonts\\ARIALN.TTF','explicit choice wins')
-GameTooltipTextLeft2=nil;X.profile.font='Game tooltip';UI:Layout()
+W.set('font','Arial');UI:Layout();eq(UI.label.fontPath,'Fonts\\ARIALN.TTF','explicit choice wins')
+GameTooltipTextLeft2=nil;W.set('font','Game tooltip');UI:Layout()
 local originalTooltipFont=GameTooltipText:GetFont()
 for i,name in ipairs({'Kill XP','Quest XP','Dungeon XP','Other XP'}) do eq(UI.cells[i+4].title:GetText(),name) end
 UI:ShowStatTooltip(UI.cells[5],5);eq(W.tooltip.anchor,'ANCHOR_BOTTOM');eq(W.tooltip.lines[1][1],'Outdoor kills','existing tooltip title unchanged')
 eq(W.tooltip.lines[2][1],'Confirmed kill XP outside instances, including rested bonuses.')
 eq(GameTooltipText:GetFont(),originalTooltipFont,'no tooltip font mutation')
-SlashCmdList.XPISLAND('');eq(O.frame.template,'BackdropTemplate');eq(O.scale.template,'UISliderTemplate');eq(O.fontSize.template,'InputBoxTemplate')
-W.click(O.checks[1]);eq(X.profile.locked,false,'native checkbox updates profile')
-W.choose(O.font,'Arial');eq(X.profile.fontCustomized,true)
-X.profile.font='Game tooltip';X.profile.fontSize=14
-W.click(O.format);eq(#O.format.menuDescription.entries,6);eq(O.format.menuDescription.entries[2].label,'Current / total XP');eq(O.format.menuDescription.entries[5].label,'Time to level')
-W.choose(O.format,'eta');eq(UI.infinity:IsShown(),true,'no-activity infinity symbol')
+SlashCmdList.XPISLAND_SND_XPISLAND('');eq(O.frame.template,'BackdropTemplate');eq(W.control('scale','appearance').template,'OptionsSliderTemplate');eq(W.control('fontSize','appearance').template,'InputBoxTemplate')
+W.click(W.control('locked','behavior'));eq(X.profile.locked,false,'native checkbox updates profile')
+W.choose(W.control('font','appearance'),'Arial');eq(X.profile.fontCustomized,true)
+W.set('font','Game tooltip');W.set('fontSize',14)
+W.click(W.control('format','tracking'));eq(#W.control('format','tracking').menuDescription.entries,6);eq(W.control('format','tracking').menuDescription.entries[2].label,'Current / total XP');eq(W.control('format','tracking').menuDescription.entries[5].label,'Time to level')
+W.choose(W.control('format','tracking'),'eta');eq(UI.infinity:IsShown(),true,'no-activity infinity symbol')
 X.session.total=6000;X.session.buckets.other=6000;X.session.seconds=3600
 W.xp=60800;W.cap=95000;X:Sample();W.advance(2.1);X.session.total=6000;X.session.buckets={kills=0,quests=0,dungeons=0,other=6000};X.session.rate={version=1,startedAt=0,buckets={}};M.RateAward(X.session,6000);UI:Update()
 eq(UI.label:GetText(),UI.cells[3].value:GetText(),'same ETA in bar and cell')
@@ -49,7 +49,7 @@ local previous=UI.label:GetText();W.event('PLAYER_LEAVING_WORLD');W.advance(120)
 W.event('PLAYER_ENTERING_WORLD',false,false)
 W.level=11;W.xp=10;W.cap=120000;X:Sample();W.advance(2.1);UI:Update()
 eq(UI.label:GetText(),M.Duration(select(2,M.Estimate(X.session,10,120000,false))),'rollover estimate uses new level')
-O.frame:Hide()
+O.panel:Close()
 -- Full rectangle containment and stable bar across every supported layout tier.
 for _,vw in ipairs({420,1024,1399,1400,1999,2000,3840}) do
  for _,vh in ipairs({220,768,1080}) do
@@ -57,9 +57,9 @@ for _,vw in ipairs({420,1024,1399,1400,1999,2000,3840}) do
   for _,scale in ipairs({.5,1,1.5}) do
    for _,placement in ipairs({'top','bottom','custom'}) do
     for _,position in ipairs({{x=0,y=-8},{x=-9000,y=-9000},{x=9000,y=-80},{x=100,y=-vh/2}}) do
-     X.profile.scale=scale;X.profile.placement=placement;X.profile.position=position
+     W.set('scale',scale);W.set('placement',placement);W.set('position',position)
      for _,format in ipairs({'percent','fraction','left','leftPercent','eta'}) do
-      X.profile.format=format;X.profile.fontSize=18
+      W.set('format',format);W.set('fontSize',18)
       UI:SetExpanded(false,true);local bx,by,bw,bh=UI.header:Rect()
       UI:SetExpanded(true,true);local ax,ay,aw,ah=UI.header:Rect()
       near(ax+aw/2,bx+bw/2,'header center stable');near(ay,by,'bar Y stable');eq(aw>=bw,true,'header grows with island');near(ah,bh,'bar height stable')
@@ -75,12 +75,12 @@ for _,vw in ipairs({420,1024,1399,1400,1999,2000,3840}) do
   end
  end
 end
-UIParent:SetSize(1728,1080);X.profile.scale=1;X.profile.fontSize=14;X.profile.placement='custom'
-X.profile.position={x=0,y=-50};UI:Layout();eq(UI.layout.up,false)
-X.profile.position.y=-1000;UI:Layout();eq(UI.layout.up,true,'direction changes after moving')
+UIParent:SetSize(1728,1080);W.set('scale',1);W.set('fontSize',14);W.set('placement','custom')
+W.set('position',{x=0,y=-50});UI:Layout();eq(UI.layout.up,false)
+W.set('position.y',-1000);UI:Layout();eq(UI.layout.up,true,'direction changes after moving')
 -- UIParent's already shifted top is inherited, never offset a second time.
 UIParent:SetHeight(1040);UI:SetExpanded(true,true);local _,y,_,h=UI.frame:Rect();eq(y+h<=1040,true,'uses reduced notch-safe viewport')
-X.profile.placement='top';W.event('NOTCHED_DISPLAY_MODE_CHANGED');W.advance(.01)
+W.set('placement','top');W.event('NOTCHED_DISPLAY_MODE_CHANGED');W.advance(.01)
 near(UI.header:GetTop(),UIParent:GetTop()-8,'inherits shifted parent top')
 for _,fraction in ipairs({0,.001,.025,.05,.471,.975,.999,1}) do
  X.tracker.xp=fraction*10000;X.tracker.cap=10000;UI:Update()
@@ -92,8 +92,8 @@ X.tracker.xp=100;X.tracker.cap=10000;UI:Update()
 local first=UI.segments[1].fill
 near(first.cap:GetWidth(),first.visibleWidth,'partial cap clips at exact XP boundary')
 eq(first.cap.coords[2]<.5,true,'partial cap UV is cropped')
-X.profile.placement='bottom';X.profile.format='leftPercent';X.profile.fontSize=18
+W.set('placement','bottom');W.set('format','leftPercent');W.set('fontSize',18)
 X.tracker.xp=60800;X.tracker.cap=95000;UIParent:SetSize(1728,1080);UI:Layout()
 W.svg('dist/preview-bottom.svg',UI.frame)
-X.profile.placement='top';X.profile.fontSize=14;UI:Layout();W.svg('dist/preview-readable.svg',UI.frame)
+W.set('placement','top');W.set('fontSize',14);UI:Layout();W.svg('dist/preview-readable.svg',UI.frame)
 print('PASS: '..n..' revision assertions (migration, typography, XP/ETA, pill clipping, placement)')

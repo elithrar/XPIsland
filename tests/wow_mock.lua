@@ -2,7 +2,7 @@
 local W={objects={},time=0,wall=1000,timers={},level=10,xp=100,cap=1000,rested=0,instance="none",capped=false,combat=false,
     legacyConfig=42,legacyRank=0,legacyStaged=false}
 local methods={}
-local mt={__index=function(_,key) return methods[key] end}
+local mt={__index=function(o,key) if o.kind=='Texture' and key=='SetTextColor' then return nil end;return methods[key] end}
 local function object(kind,name,parent)
     local o=setmetatable({kind=kind,name=name,parent=parent,scripts={},points={},shown=true,scale=1,alpha=1,frameLevel=parent and parent.frameLevel+1 or 0,width=0,height=0},mt)
     W.objects[#W.objects+1]=o
@@ -12,7 +12,9 @@ local function object(kind,name,parent)
 end
 function CreateFrame(kind,name,parent,template)
     local o=object(kind,name,parent);o.template=template
-    if template=="UIPanelButtonTemplate" then
+    if template=="InputBoxTemplate" then
+        o.fontPath,o.fontSize,o.fontFlags="Fonts\\FRIZQT__.TTF",12,""
+    elseif template=="UIPanelButtonTemplate" then
         o.fontString=o:CreateFontString(nil,"OVERLAY");o.fontString:SetPoint("CENTER");o.fontString:SetFont("Fonts\\FRIZQT__.TTF",14,"")
     elseif template=="BasicFrameTemplateWithInset" then
         o.TitleText=o:CreateFontString(nil,"OVERLAY");o.TitleText:SetPoint("TOP",0,-4)
@@ -77,6 +79,8 @@ function methods:GetWidth() local _,_,w=self:Rect();return w/self:GetEffectiveSc
 function methods:GetHeight() local _,_,_,h=self:Rect();return h/self:GetEffectiveScale() end
 function methods:GetSize() return self:GetWidth(),self:GetHeight() end
 function methods:GetCenter() local x,y,w,h=self:Rect();local s=self:GetEffectiveScale();return (x+w/2)/s,(y+h/2)/s end
+function methods:GetLeft() local x=self:Rect();return x/self:GetEffectiveScale() end
+function methods:GetBottom() local _,y=self:Rect();return y/self:GetEffectiveScale() end
 function methods:GetTop() local _,y,_,h=self:Rect();return (y+h)/self:GetEffectiveScale() end
 function methods:SetFrameLevel(n) self.frameLevel=n end
 function methods:GetFrameLevel() return self.frameLevel end
@@ -85,10 +89,15 @@ function methods:GetFrameStrata() return self.strata or (self.parent and self.pa
 function methods:SetAlpha(v) self.alpha=v end
 function methods:SetClipsChildren(v) self.clipsChildren=v end
 function methods:IsMouseOver() return W.hover==self or false end
-function methods:SetDefaultText(text) self.defaultText=text end
+function methods:SetDefaultText(text) self.defaultText=text;self.Text:SetText(text) end
+function methods:GetParent() return self.parent end
+function methods:SetScrollChild(child) self.scrollChild=child end
+function methods:SetVerticalScroll(value) self.scroll=value end
+function methods:EnableMouseWheel(value) self.mouseWheel=value end
+function methods:IsMenuOpen() return self.menuOpen==true end
 function methods:SetupMenu(generator) self.generator=generator;self:GenerateMenu() end
 function methods:GenerateMenu()
-    local root={entries={},SetScrollMode=function(self,height) self.scrollHeight=height end}
+    local root={entries={},SetScrollMode=function(self,height) self.scrollHeight=height end,AddMenuReleasedCallback=function(self,callback)self.released=callback end}
     function root:CreateRadio(text,isSelected,select,value)
         local entry={label=text,value=value,isSelected=isSelected,select=select,AddInitializer=function(self,f) self.initializer=f end}
         self.entries[#self.entries+1]=entry;return entry
@@ -98,12 +107,14 @@ function methods:GenerateMenu()
     for _,entry in ipairs(root.entries) do if entry.isSelected(entry.value) then text=entry.label end end
     self.Text:SetText(text)
 end
-function methods:CloseMenu() self.menuOpen=false end
+function methods:CloseMenu() local was=self.menuOpen;self.menuOpen=false;if was and self.menuDescription and self.menuDescription.released then self.menuDescription.released() end end
 function methods:GetScript(event) return self.scripts[event] end
 function methods:SetScript(event,f) self.scripts[event]=f end
+function methods:HookScript(event,f) local old=self.scripts[event];self.scripts[event]=function(...) if old then old(...) end;f(...) end end
 function methods:IsEventRegistered(e) return self.events and self.events[e] or false end
 function methods:RegisterEvent(e) self.events=self.events or {};self.events[e]=true end
 function methods:RegisterUnitEvent(e) self:RegisterEvent(e) end
+function methods:UnregisterEvent(event) self.events[event]=nil end
 function methods:UnregisterAllEvents() self.events={} end
 function methods:Show() local changed=not self.shown;self.shown=true;if changed and self.scripts.OnShow then self.scripts.OnShow(self) end end
 function methods:Hide() local changed=self.shown;self.shown=false;if changed and self.scripts.OnHide then self.scripts.OnHide(self) end end
@@ -188,8 +199,10 @@ function methods:SetValue(v)
 end
 
 UIParent=object("Frame","UIParent");UIParent:SetSize(1728,1080)
-UISpecialFrames={};SlashCmdList={}
+SLASH_XPISLAND_SND_XPISLAND1=nil
+UISpecialFrames={};SlashCmdList={};XPIsland_SND_Options=nil -- fresh client lifetime
 GameTooltipText={GetFont=function() return "Fonts\\FRIZQT__.TTF",12,"" end}
+GameFontNormal=GameTooltipText
 GameTooltip={SetOwner=function(_,owner,anchor) W.tooltip={owner=owner,anchor=anchor,lines={}} end,
 AddLine=function(_,...) W.tooltip.lines[#W.tooltip.lines+1]={...} end,Show=function() W.tooltip.shown=true end,
 Hide=function() if W.tooltip then W.tooltip.shown=false end end,
@@ -197,7 +210,11 @@ GetOwner=function() return W.tooltip and W.tooltip.owner end,
 IsShown=function() return W.tooltip and W.tooltip.shown or false end}
 DEFAULT_CHAT_FRAME={AddMessage=function(_,msg) W.lastMessage=msg end}
 Settings={KEYBINDINGS_CATEGORY_ID=7,OpenToCategory=function(...) W.settingsOpened={...} end}
-ColorPickerFrame={SetupColorPickerAndShow=function(_,info) W.colorInfo=info end,GetColorRGB=function() return .1,.2,.3 end}
+ColorPickerFrame=CreateFrame("Frame",nil,UIParent)
+ColorPickerFrame:Hide()
+function ColorPickerFrame:SetupColorPickerAndShow(info) W.colorInfo=info;self:Show() end
+function ColorPickerFrame:GetExtraInfo() return W.colorInfo and W.colorInfo.extraInfo end
+function ColorPickerFrame:GetColorRGB() return .1,.2,.3 end
 function GetBuildInfo() return "1.60.1","70205","Oct 3 2026",16001 end
 function GetTime() return W.time end
 function GetServerTime() return W.wall end
@@ -279,6 +296,9 @@ function W.event(event,...)
     for _,o in ipairs(W.objects) do
         if o.events and o.events[event] and o.scripts.OnEvent then o.scripts.OnEvent(o,event,...) end
     end
+    if W.ns and W.ns.App then
+        for _,record in ipairs(W.ns.App.log:Entries()) do assert(record.level~="Error",record.message) end
+    end
 end
 function W.click(button,mouseButton)
     mouseButton=mouseButton or "LeftButton"
@@ -336,8 +356,32 @@ function RequestTimePlayed(...)
 end
 function W.load()
     local ns={}
-    for _,name in ipairs({"Themes","Model","Progression","Played","UI","Options","Core"}) do assert(loadfile("XPIsland/"..name..".lua"))("XPIsland",ns) end
+    for line in io.lines("XPIsland/" .. "XPIsland.toc") do
+        if line:match("%.lua$") then assert(loadfile("XPIsland/" .. line))("XPIsland", ns) end
+    end
+    W.ns=ns
     return ns
+end
+
+-- Test setup uses the same settings command boundary as user actions. 'position'
+-- is convenient fixture input; production schema exposes its two finite axes.
+function W.set(path,value)
+    if path=='position' then return W.patch({['position.x']=value.x,['position.y']=value.y}) end
+    local ok,err=W.ns.App:Set(path,value);assert(ok,err and err.message);return ok
+end
+function W.patch(values)
+    local ok,err=W.ns.App:SetMany(values);assert(ok,err and err.message);return ok
+end
+function W.open(page)
+    local o=W.ns.Options
+    if not o.panel:IsShown() then o:Toggle(W.ns.owner) end
+    if page then assert(o.panel:SelectPage(page)) end
+    return o.panel
+end
+function W.control(id,page)
+    local panel=W.ns.Options.panel;local key=(page or 'appearance')..':1:'..id
+    if not panel._pool[key] then W.open(page or 'appearance') end
+    local control=assert(panel._pool[key],id);return control
 end
 
 function W.svg(path,root)
@@ -361,6 +405,9 @@ function W.svg(path,root)
     for i,o in ipairs(ordered) do
         local x,y,w,h=o:Rect();y=rh-y-h
         local c=o.color or o.tint or {1,1,1,1}
+        if o.kind=='Texture' and o.color and o.tint then
+            c={};for channel=1,4 do c[channel]=(o.color[channel] or 1)*(o.tint[channel] or 1) end
+        end
         local alpha=1;local parent=o;local cx,cy,cw,ch=0,0,rw,rh
         while parent do
             alpha=alpha*(parent.alpha or 1)

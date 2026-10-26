@@ -81,7 +81,7 @@ for i=1,5 do W.event('CHAT_MSG_COMBAT_XP_GAIN','Wolf dies, you gain 20 experienc
 near(X.tracker.hints[1].observed,.2,'original event timestamp uses online clock')
 W.xp=200;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
 eq(M.KillsToLevel(X.session,200,1000),40)
-X.profile.format='kills';X:ApplyProfile();eq(UI.label:GetText(),'40 kills')
+W.set('format','kills');X:ApplyProfile();eq(UI.label:GetText(),'40 kills')
 UI:ShowStatTooltip(UI.inlineCells[3],11);eq(W.tooltip.lines[2][1],M.KillMessages.ready)
 -- Mature reference fixture, matching approved single inline row / exact header.
 X.session.killHistory={version=1,buckets={[1]={index=0,xp=500,count=5}}}
@@ -95,7 +95,7 @@ for _,fontSize in ipairs({10,12,14,18}) do
  for _,scale in ipairs({.5,1,1.5}) do
   for _,placement in ipairs({'top','bottom','custom'}) do
    for _,width in ipairs({800,1399,1920,3440}) do
-    X.profile.fontSize=fontSize;X.profile.scale=scale;X.profile.placement=placement
+    W.set('fontSize',fontSize);W.set('scale',scale);W.set('placement',placement)
     UIParent:SetSize(width,900);UI:SetExpanded(true,true)
     local gx,gy,gw,gh=UI.inlineGroup:Rect();local dx,dy,dw,dh=UI.details:Rect()
     near(gx+gw/2,dx+dw/2,'inline group centered')
@@ -110,24 +110,24 @@ for _,fontSize in ipairs({10,12,14,18}) do
   end
  end
 end
-UIParent:SetSize(1920,1080);X.profile.fontSize=14;X.profile.scale=1;X.profile.placement='top'
+UIParent:SetSize(1920,1080);W.set('fontSize',14);W.set('scale',1);W.set('placement','top')
 -- Footer visibility recenters remaining pairs and preserves the old two rows.
-X.profile.showPet=false;X:ApplyProfile();eq(UI.inlineCount,2)
-X.profile.showRank=false;X:ApplyProfile();eq(UI.inlineCount,1)
-X.profile.showKills=false;X:ApplyProfile();eq(UI.inlineCount,0)
-X.profile.showPet=true;X.profile.showRank=true;X.profile.showKills=true;X:ApplyProfile()
+W.set('showPet',false);X:ApplyProfile();eq(UI.inlineCount,2)
+W.set('showRank',false);X:ApplyProfile();eq(UI.inlineCount,1)
+W.set('showKills',false);X:ApplyProfile();eq(UI.inlineCount,0)
+W.set('showPet',true);W.set('showRank',true);W.set('showKills',true);X:ApplyProfile()
 -- True level cap vs disabled XP; opt-in automatic mode, explicit overrides.
-SlashCmdList.XPISLAND('');O:Page('tracking')
-eq(O.tracking:IsShown(),true);eq(O.options:IsShown(),false);eq(O.profiles:IsShown(),false)
+SlashCmdList.XPISLAND_SND_XPISLAND('');O:Page('tracking')
+eq(O.panel._page,'tracking')
 W.svg('dist/preview-progression-settings.svg',O.frame)
-W.capped=true;W.level=10;X.profile.pvpAtCap=true;X:ApplyProfile();eq(X:Mode(),'xp');eq(UI.frame:IsShown(),false)
+W.capped=true;W.level=10;W.set('pvpAtCap',true);X:ApplyProfile();eq(X:Mode(),'xp');eq(UI.frame:IsShown(),false)
 W.level=60;W.cap=0;W.xp=0;X:Sample();eq(X:Mode(),'pvp');eq(UI.frame:IsShown(),true)
 X:Toggle();W.advance(.3);eq(UI.expanded,true);eq(UI.cells[1].value:GetText(),'400')
 eq(UI.cells[5]:IsShown(),false);eq(UI.inlineCells[3]:IsShown(),false)
-W.choose(O.mode,'xp');eq(X.profile.pvpAtCap,false);eq(UI.frame:IsShown(),false)
-W.choose(O.mode,'pvp');eq(UI.frame:IsShown(),true);eq(UI.expanded,false)
+W.choose(W.control('mode','tracking'),'xp');eq(X.profile.pvpAtCap,false);eq(UI.frame:IsShown(),false)
+W.choose(W.control('mode','tracking'),'pvp');eq(UI.frame:IsShown(),true);eq(UI.expanded,false)
 X:Toggle();W.advance(.3);eq(UI.expanded,true);eq(UI.label:GetText(),'PvP rank · 400 Honor')
-W.choose(O.pvpFormat,'rankLeft');eq(UI.label:GetText(),'PvP · 400 RP left')
+W.choose(W.control('pvpFormat','tracking'),'rankLeft');eq(UI.label:GetText(),'PvP · 400 RP left')
 UI:ShowStatTooltip(UI.cells[1],1);eq(W.tooltip.lines[1][1],'Honor available')
 -- Weekly ceiling vs seasonal max, valid zero and unavailable remain visible.
 W.rank=rank(6,0,1000,6);W.event('MAJOR_FACTION_RENOWN_LEVEL_CHANGED',2800)
@@ -138,30 +138,30 @@ W.rank=nil;W.honor=nil;W.event('UPDATE_FACTION');eq(UI.label:GetText(),'PvP · �
 eq(UI.frame:IsShown(),true);eq(UI.cells[1].value:GetText(),'—')
 W.rank=rank(0,0,1000,6);W.honor=0;W.event('UPDATE_FACTION')
 eq(UI.cells[1].value:GetText(),'0');eq(UI.cells[2].value:GetText(),'Unranked')
-W.rank=rank(3,600,1000,6);W.honor=12450;W.event('UPDATE_FACTION');W.choose(O.pvpFormat,'honor')
-O.frame:Hide();UI:SetExpanded(true,true);W.svg('dist/preview-progression-pvp.svg',UI.frame)
+W.rank=rank(3,600,1000,6);W.honor=12450;W.event('UPDATE_FACTION');W.choose(W.control('pvpFormat','tracking'),'honor')
+O.panel:Close();UI:SetExpanded(true,true);W.svg('dist/preview-progression-pvp.svg',UI.frame)
 -- Season change refreshes existing snapshot without another timer.
 W.rank=rank(0,0,1000,1);W.season=2;W.advance(1);eq(P.rank.level,0)
 local timers=0;for _,timer in ipairs(W.timers) do if not timer.cancelled and timer.repeatEvery then timers=timers+1 end end
 eq(timers,1);eq(UI.frame.scripts.OnUpdate,nil)
 -- Mode changes dismiss pending tooltips/notices and combat never auto-reopens.
-W.hover=UI.cells[1];UI.cells[1].scripts.OnEnter();W.choose(O.mode,'xp');eq(UI.tooltipTimer,nil)
+W.hover=UI.cells[1];UI.cells[1].scripts.OnEnter();W.choose(W.control('mode','tracking'),'xp');eq(UI.tooltipTimer,nil)
 eq(X.levelNotice,nil);eq(X.levelWindow,nil)
-W.choose(O.mode,'pvp');X:Toggle();W.advance(.3);W.event('PLAYER_REGEN_DISABLED');eq(UI.expanded,false)
+W.choose(W.control('mode','tracking'),'pvp');X:Toggle();W.advance(.3);W.event('PLAYER_REGEN_DISABLED');eq(UI.expanded,false)
 W.event('PLAYER_REGEN_ENABLED');eq(UI.expanded,false)
 -- Mode changes clear header-owned tooltips, not only stat hover timers.
 UI.frame.scripts.OnEnter();eq(W.tooltip.shown,true)
-W.choose(O.mode,'xp');eq(W.tooltip.shown,false)
-W.choose(O.mode,'pvp')
+W.choose(W.control('mode','tracking'),'xp');eq(W.tooltip.shown,false)
+W.choose(W.control('mode','tracking'),'pvp')
 -- A visible pet tooltip cannot retain the previous pet name/identity.
 W.petGUID='Pet-D';W.petXP=100;W.event('UNIT_PET','player');UI:SetExpanded(true,true)
 W.hover=UI.inlineCells[1];UI.inlineCells[1].scripts.OnEnter();W.advance(.75);eq(W.tooltip.shown,true)
 W.petGUID='Pet-E';W.event('UNIT_PET','player');eq(W.tooltip.shown,false)
 -- An optional detail disappearing must invalidate even an already-dispatched hover.
 W.hover=UI.inlineCells[1];UI.inlineCells[1].scripts.OnEnter();local stale=UI.tooltipTimer
-X.profile.showPet=false;X:ApplyProfile();stale.callback()
+W.set('showPet',false);X:ApplyProfile();stale.callback()
 eq(W.tooltip.shown,false);eq(UI.tooltipTimer,nil);eq(UI.inlineCells[1]:IsShown(),false)
-X.profile.showPet=true;X:ApplyProfile()
+W.set('showPet',true);X:ApplyProfile()
 -- World transition clears the pet; the accepted new baseline restores it even
 -- when unit reads were not ready at the initial world-entry notification.
 W.event('LOADING_SCREEN_ENABLED');eq(P.pet,nil)
@@ -172,7 +172,7 @@ W.petGUID='Pet-F';W.event('LOADING_SCREEN_DISABLED');W.advance(0);eq(P.pet.guid,
 W.rank=rank(3,600,1000,6);W.honor=999999999;P:Refresh()
 for _,width in ipairs({800,1399,1920,3440}) do
  for _,size in ipairs({10,14,18}) do
-  UIParent:SetSize(width,700);X.profile.fontSize=size;UI:SetExpanded(true,true)
+  UIParent:SetSize(width,700);W.set('fontSize',size);UI:SetExpanded(true,true)
   for i=1,4 do
    local c=UI.cells[i]
    eq(c.title:GetUnboundedStringWidth()*c.titleScale<=c:GetWidth()+.001,true,'PvP title fits')
@@ -180,7 +180,7 @@ for _,width in ipairs({800,1399,1920,3440}) do
   end
  end
 end
-UIParent:SetSize(1920,1080);X.profile.fontSize=14;X:ApplyProfile()
+UIParent:SetSize(1920,1080);W.set('fontSize',14);X:ApplyProfile()
 -- Missing APIs fail closed without hiding an explicitly selected PvP mode.
 C_CurrencyInfo=nil;C_MajorFactions=nil;P:PvP();UI:Update();eq(P.honor,nil);eq(P.rank,nil);eq(UI.frame:IsShown(),true)
 GetPetExperience=nil;P:Pet();UI:Update();eq(P.pet,nil)

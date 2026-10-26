@@ -8,7 +8,7 @@ local function enter(i) W.hover=UI.cells[i];UI.cells[i].scripts.OnEnter() end
 local function leave(i) W.hover=nil;UI.cells[i].scripts.OnLeave() end
 local function open() UI.frame:Show();UI:SetExpanded(true,true) end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false);W.advance(0)
-X.profile.autoCollapse=false
+W.set('autoCollapse',false)
 open()
 local titles={'XP remaining','XP/hour','Time to level','Rested XP','Outdoor kills','Outdoor quests','Dungeons','Other'}
 for i=1,8 do
@@ -52,7 +52,7 @@ W.legacyNodeUnavailable=true;W.rested=1500;W.event('UPDATE_EXHAUSTION');enter(4)
 eq(#W.tooltip.lines,2,'unknown capacity leaves existing tooltip intact');leave(4)
 W.legacyNodeUnavailable=false;W.event('UPDATE_EXHAUSTION')
 local originalColor=X.profile.rested
-X.profile.rested={.12,.74,.38}
+W.set('rested',{.12,.74,.38})
 local function restedLine(text,maximum)
  eq(#W.tooltip.lines,3,'one secondary line like the source tooltips')
  eq(W.tooltip.lines[1][1],'Rested XP')
@@ -66,7 +66,7 @@ restedLine('50.0% of max. rested XP',false)
 W.rested=1500;W.event('UPDATE_EXHAUSTION');restedLine('Max',true)
 W.rested=1499;W.event('UPDATE_EXHAUSTION');restedLine('99.9% of max. rested XP',false)
 W.rested=nil;W.event('UPDATE_EXHAUSTION');restedLine('0.0% of max. rested XP',false)
-X.profile.rested={.9,.3,.7};UI:Update();restedLine('0.0% of max. rested XP',false)
+W.set('rested',{.9,.3,.7});UI:Update();restedLine('0.0% of max. rested XP',false)
 -- A tooltip reclaimed by another UI must not be repainted by our updates.
 GameTooltip:SetOwner(UI.frame,'ANCHOR_BOTTOM');GameTooltip:AddLine('Other owner');GameTooltip:Show()
 W.rested=1500;W.event('UPDATE_EXHAUSTION');eq(W.tooltip.lines[1][1],'Other owner');eq(#W.tooltip.lines,1)
@@ -77,7 +77,7 @@ enter(4);W.advance(.751);restedLine('50.0% of max. rested XP',false);leave(4)
 -- Character level cap/disabled XP never supplies the rested maximum label.
 W.capped=true;UI:ShowStatTooltip(UI.cells[4],4);eq(#W.tooltip.lines,2)
 W.capped=false;W.level=60;UI:ShowStatTooltip(UI.cells[4],4);eq(#W.tooltip.lines,2)
-W.level=10;W.xp=oldXP;W.rested=0;X.profile.rested=originalColor;X:Sample();W.advance(2.1);GameTooltip:Hide()
+W.level=10;W.xp=oldXP;W.rested=0;W.set('rested',originalColor);X:Sample();W.advance(2.1);GameTooltip:Hide()
 -- Rested XP can update before the tracker accepts the next level's requirement.
 W.rested=1500;W.event('UPDATE_EXHAUSTION');enter(4);W.advance(.751);restedLine('Max',true)
 W.level=11;W.xp=20;W.cap=2000;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
@@ -107,7 +107,7 @@ local actions={
  {'root hide',function() UI.frame:Hide() end},
  {'cell hide',function() UI.cells[4]:Hide() end},
  {'profile/layout',function() UI:Layout() end},
- {'drag',function() X.profile.locked=false;UI.frame.scripts.OnDragStart() end},
+ {'drag',function() W.set('locked',false);UI.frame.scripts.OnDragStart() end},
 }
 for _,case in ipairs(actions) do
  for _,visible in ipairs({false,true}) do
@@ -150,7 +150,7 @@ local function sessionLine()
 end
 sessionLine();W.advance(65);sessionLine()
 W.xp=W.xp+30;W.event('PLAYER_XP_UPDATE','player');W.advance(0);sessionLine()
-SlashCmdList.XPISLAND('reset');sessionLine();eq(X.session.total,0);eq(X.session.seconds,0)
+SlashCmdList.XPISLAND_SND_XPISLAND('reset');sessionLine();eq(X.session.total,0);eq(X.session.seconds,0)
 leave(2)
 -- ETA and kill estimates decay on the shared clock while the pointer stays still.
 enter(3);W.advance(.751);local before=W.tooltip
@@ -160,7 +160,7 @@ UI:Update();eq(W.tooltip.lines[2][1],'Based on your current XP/hour.')
 X.session.seconds=3720;W.advance(1)
 eq(W.tooltip.lines[2][1],M.ETAMessages.idle,'hovered ETA becomes idle after rate expiry')
 leave(3)
-X.profile.showKills=true;X:ApplyProfile();open()
+W.set('showKills',true);X:ApplyProfile();open()
 local function inlineEnter(i)
  local c=UI.inlineCells[i];W.hover=c;c.scripts.OnEnter();W.advance(.751);return c
 end
@@ -205,7 +205,7 @@ honor=41;W.event('CURRENCY_DISPLAY_UPDATE',1792);eq(W.tooltip.lines[2][1],'Honor
 UI.indicator.scripts.OnLeave();W.hover=nil;ns.Options:SetMode('xp')
 -- Collapsed bar and indicator retain immediate hover, refresh exact XP, and
 -- never resurrect or overwrite a tooltip reclaimed/hidden by another system.
-X.profile.format='percent';X:ApplyProfile();W.hover=UI.frame;UI.frame.scripts.OnEnter()
+W.set('format','percent');X:ApplyProfile();W.hover=UI.frame;UI.frame.scripts.OnEnter()
 W.xp=W.xp+11;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
 eq(W.tooltip.lines[1][1],M.ExactXP(W.xp,W.cap))
 before=W.tooltip;W.advance(1);eq(W.tooltip~=before,true,'collapsed default format uses existing ticker')

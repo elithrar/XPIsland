@@ -16,8 +16,9 @@ def write(name, pixel):
     for y in range(64):
         for x in range(64):
             samples = [pixel(x + sx, y + sy) for sy in offsets for sx in offsets]
-            alpha = sum(c[3] for c in samples) / 16
-            rgb = [sum(c[i] * c[3] for c in samples) / (16 * alpha) if alpha else 1 for i in range(3)]
+            # Stable accumulation keeps packaged bytes identical across Python versions.
+            alpha = math.fsum(c[3] for c in samples) / 16
+            rgb = [math.fsum(c[i] * c[3] for c in samples) / (16 * alpha) if alpha else 1 for i in range(3)]
             data.extend(round(max(0, min(1, c)) * 255) for c in (rgb[2], rgb[1], rgb[0], alpha))
     (ROOT / name).write_bytes(data)
 

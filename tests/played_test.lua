@@ -75,7 +75,7 @@ for _,first in ipairs({true,false}) do
  reply(W,10000,2000);eq(f.messages,1,'automatic response follows native chat dispatch in either event order')
  eq(XPIslandPlayed.current.start,8000);eq(X.levelTiming,nil,'no per-level elapsed clock')
  W.advance(120);eq(W.playedRequests,1,'no polling')
- SlashCmdList.XPISLAND('reset');eq(XPIslandPlayed.current.start,8000,'session reset independent')
+ SlashCmdList.XPISLAND_SND_XPISLAND('reset');eq(XPIslandPlayed.current.start,8000,'session reset independent')
  X:ApplyProfile();eq(XPIslandPlayed.current.start,8000)
  levelup(W,11);reply(W,11200,200)
  eq(X.levelNotice.seconds,3000,'duration uses server difference, not wall/elapsed time')
@@ -181,7 +181,7 @@ W.combat=true;W.event('PLAYER_REGEN_DISABLED');eq(X.levelNotice,nil);eq(UI.bar:I
 -- Timer cleanup and disabled/combat/capped presentation retain server tracking.
 for _,mode in ipairs({'disabled','combat','capped'}) do
  W,X,P,UI=boot();W.advance(1);reply(W,10000,2000)
- if mode=='disabled' then X.profile.levelUp=false elseif mode=='combat' then W.combat=true else W.capped=true end
+ if mode=='disabled' then W.set('levelUp',false) elseif mode=='combat' then W.combat=true else W.capped=true end
  levelup(W,11);reply(W,11000,100);eq(X.levelNotice,nil,mode);eq(P.saved.current.start,10900)
 end
 -- Header animation does not allocate or remeasure text on every frame.
