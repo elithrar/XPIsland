@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/elithrar/SomethingNeedDoing",
   "version": "0.4.0",
-  "commit": "ff47abf06901e91950314733797edcb16b797e10",
+  "commit": "3423323ca46cd2db16b41cff3aeae80d3c3aebbe",
   "sha256": {
     "Core.lua": "997a9e9ebb85179a1a82c1910db3d5fda8443470e97f287324cab6068a73cf10",
     "Diagnostics.lua": "c1b9608bd0539d4f70bffebb492e71c185233abb5ade87413f8124439c3d0c6e",
@@ -11,5 +11,6 @@
     "UI.lua": "d9cbe966400732239d2757ef7cfb83578422435b87d61210fb1f2301a5553ec6",
     "Options.lua": "15f5a89f703dc3c4ecc3bc85fbb37c1072385dece55acfa2afbbbf91b4e05d50",
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
-  }
+  },
+  "tag": "v0.4.0"
 }
