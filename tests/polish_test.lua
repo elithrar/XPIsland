@@ -7,10 +7,10 @@ local function near(a,b,why) n=n+1;assert(math.abs(a-b)<.001,(why or 'near')..':
 local function hover() UI.frame.scripts.OnEnter();return W.tooltip.lines end
 local function fresh()
  X.session=M.NewSession(X.character,GetServerTime());X.tracker.session=X.session
- X.tracker.xp=12345;X.tracker.cap=95000;X.profile.format='eta';UI:Layout()
+ X.tracker.xp=12345;X.tracker.cap=95000;W.set('format','eta');UI:Layout()
 end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
-eq(X.db.expandedOnce,false)
+eq(XPIslandDB.expandedOnce,false)
 fresh();local lines=hover()
 eq(lines[1][1],'No XP earned this session.')
 eq(lines[2][1],'12,345 / 95,000 (13.0%)');eq(#lines,3)
@@ -32,9 +32,9 @@ UI.label.Rect=function(self)
  return labelRect(self)
 end
 for _,scale in ipairs({.85,.9,1}) do
- X.profile.scale=scale
+ W.set('scale',scale)
  for _,size in ipairs({10,14,18}) do
-  X.profile.fontSize=size
+  W.set('fontSize',size)
  for _,expanded in ipairs({false,true}) do
   UI:SetExpanded(expanded,true)
   UI:Layout(true)
@@ -52,25 +52,25 @@ for _,scale in ipairs({.85,.9,1}) do
  end
  end
 end
-UI.label.Rect=nil;X.profile.scale=1;X.profile.fontSize=14;UI:SetExpanded(false,true)
+UI.label.Rect=nil;W.set('scale',1);W.set('fontSize',14);UI:SetExpanded(false,true)
 -- Automatic previews do not teach the interaction; actual clicks do.
-X:LevelUp();W.advance(.3);eq(X.db.expandedOnce,false)
-X:Toggle();eq(X.db.expandedOnce,false,'closing automatic preview is not deliberate expansion')
-W.click(UI.frame);eq(X.db.expandedOnce,true)
+X:LevelUp();W.advance(.3);eq(XPIslandDB.expandedOnce,false)
+X:Toggle();eq(XPIslandDB.expandedOnce,false,'closing automatic preview is not deliberate expansion')
+W.click(UI.frame);eq(XPIslandDB.expandedOnce,true)
 X:Toggle();W.advance(.3);eq(#hover(),2)
-SlashCmdList.XPISLAND_SND_XPISLAND('');M.Duplicate(X.db,'Shared','Independent');O:Switch('Independent')
-eq(X.db.expandedOnce,true);eq(X.profile.expandedOnce,nil)
-X.db.profiles.Shared=M.Copy(X.profile);O:Switch('Shared');eq(X.db.expandedOnce,true)
-local saved=M.Copy(X.db);local restored=M.Database(saved)
+SlashCmdList.XPISLAND_SND_XPISLAND('');assert(ns.App.profiles:Duplicate('Independent'))
+eq(XPIslandDB.expandedOnce,true);eq(X.profile.expandedOnce,true);eq(XPIslandDB.profiles.Independent.expandedOnce,nil)
+O:Switch('Shared');assert(ns.App.profiles:CopyFrom('Independent'));eq(XPIslandDB.expandedOnce,true)
+local saved=M.Copy(XPIslandDB);local restored=M.Database(saved)
 eq(restored.expandedOnce,true,'reload database normalization preserves account-wide state')
 M.SelectProfile(restored,'AnotherCharacter','Shared');eq(restored.expandedOnce,true)
 eq(M.Database({expandedOnce='true'}).expandedOnce,false,'malformed state does not suppress onboarding')
 -- Tooltip content is precise in all modes and no longer includes a tutorial.
 for _,format in ipairs({'percent','fraction','left','leftPercent'}) do
- X.profile.format=format;UI:Layout();lines=hover();eq(#lines,1);eq(lines[1][1],'12,345 / 95,000 (13.0%)')
+ W.set('format',format);UI:Layout();lines=hover();eq(#lines,1);eq(lines[1][1],'12,345 / 95,000 (13.0%)')
 end
 -- Resetting a session leaves the learned interaction intact.
-SlashCmdList.XPISLAND_SND_XPISLAND('reset');eq(X.db.expandedOnce,true)
+SlashCmdList.XPISLAND_SND_XPISLAND('reset');eq(XPIslandDB.expandedOnce,true)
 fresh();X.session.total=100;X.session.buckets.other=100;M.RateAward(X.session,100);UI:Update()
 eq(UI.infinity:IsShown(),false);eq(UI.label:GetText(),'—')
 eq(hover()[1][1],M.ETAMessages.warming)
@@ -89,29 +89,29 @@ UI.infinitySupported=true;UI:Update();eq(UI.infinity:IsShown(),true);eq(UI.label
 -- The shared dropdown factory replaces the actual Classic template's TOP
 -- anchors. Every field stays centered, single-line and left of its arrow.
 local longName=string.rep('Wideprofile-',4)
-M.Duplicate(X.db,'Shared',longName);O:Switch(longName)
+assert(ns.App.profiles:Duplicate(longName));W.open('profiles')
 for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom font'}) do
  for _,scale in ipairs({.5,1,1.5}) do
-  X.profile.font=font;X.profile.scale=scale;X:ApplyProfile();O:Refresh()
+  W.set('font',font);W.set('scale',scale);X:ApplyProfile();O:Refresh()
   O.frame:SetScale(scale)
-  for _,d in ipairs(O.dropdowns) do
+  for _,d in pairs(O.panel._menus) do
    local dx,dy,dw,dh=d:Rect();local tx,ty,tw,th=d.Text:Rect();local ax=d.Arrow:Rect()
-   eq(#d.Text.points,1);eq(d.Text.points[1][1],'LEFT')
-   near(ty+th/2,dy+dh/2,'dropdown vertical center');near(tx,dx+9*scale)
-   near(tx+tw,ax-3*scale,'text stops before arrow');eq(d.Text.justifyV,'MIDDLE');eq(d.Text.wrap,false)
+   eq(#d.Text.points,1);eq(d.Text.points[1][1],'CENTER')
+   near(ty+th/2,dy+dh/2,'dropdown vertical center');near(tx+tw/2,dx+dw/2-4*scale)
+   eq(tx+tw<ax,true,'text stops before arrow');eq(d.Text.justifyV,'MIDDLE');eq(d.Text.wrap,false)
    eq(ty>=dy and ty+th<=dy+dh,true,'selected text box inside border')
   end
  end
 end
-W.choose(O.format,'leftPercent');eq(O.format.Text:GetText(),'XP remaining (%)')
-eq(O.active.Text:GetText(),longName,'long profile selection preserved')
+W.choose(W.control('format','tracking'),'leftPercent');eq(W.control('format','tracking').Text:GetText(),'XP remaining (%)')
+eq(O.panel._pool['profile-select']._fullCaption,longName,'long profile selection preserved')
 -- Retain the two-row padding contract when optional inline details are disabled.
-X.profile.showRank=false;X.profile.showKills=false
+W.set('showRank',false);W.set('showKills',false)
 -- Measured rows with equally inset visible text, including larger font metrics.
 for _,size in ipairs({10,12,14,18}) do
  for _,placement in ipairs({'top','bottom'}) do
   for _,scale in ipairs({.5,1,1.5}) do
-   X.profile.fontSize=size;X.profile.scale=scale;X.profile.placement=placement;UI:SetExpanded(true,true)
+   W.set('fontSize',size);W.set('scale',scale);W.set('placement',placement);UI:SetExpanded(true,true)
    local _,fy,_,fh=UI.frame:Rect();local _,hy,_,hh=UI.header:Rect()
    local _,ty,_,th=UI.cells[1].title:Rect();local _,vy=UI.cells[5].shareTrack:Rect()
    local drawerTop=placement=='bottom' and fy+fh or hy
@@ -123,9 +123,9 @@ for _,size in ipairs({10,12,14,18}) do
   end
  end
 end
-X.profile=M.Profile();X.db.profiles.Shared=X.profile;X.profileName='Shared';X.profile.placement='bottom';X:CancelAutoCollapse()
-fresh();X.profile.placement='bottom';UI:SetExpanded(true,true);W.svg('dist/preview-padding-04.svg',UI.frame)
-X.profile.format='eta';UI:SetExpanded(false,true);W.svg('dist/preview-infinity-04.svg',UI.frame)
-O:Page(false);O.frame:Show();W.svg('dist/preview-settings-04.svg',O.frame)
-O:Page(true);O.frame:Show();W.svg('dist/preview-profiles-04.svg',O.frame)
+assert(ns.App.profiles:Switch('Shared'));assert(ns.App.profiles:Reset());W.set('placement','bottom');X:CancelAutoCollapse()
+fresh();W.set('placement','bottom');UI:SetExpanded(true,true);W.svg('dist/preview-padding-04.svg',UI.frame)
+W.set('format','eta');UI:SetExpanded(false,true);W.svg('dist/preview-infinity-04.svg',UI.frame)
+O:Page(false);W.open();W.svg('dist/preview-settings-04.svg',O.frame)
+O:Page(true);W.open();W.svg('dist/preview-profiles-04.svg',O.frame)
 print('PASS: '..n..' polish assertions (onboarding, exact tooltips, ETA states, dropdown anchors, drawer padding)')

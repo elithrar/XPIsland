@@ -102,10 +102,10 @@ eq(UI.frame.clickButtons,nil,'outer click registration unchanged')
 eq(target.dragButtons[1],'LeftButton')
 
 -- Compare every menu entry with the settings dropdown, then exercise every setter.
-O:Create(X);O.frame:Show()
+W.open()
 for _,mode in ipairs({'xp','pvp'}) do
-    X.profile.mode=mode;X:ApplyProfile()
-    local dropdown=mode=='xp' and O.format or O.pvpFormat
+    W.set('mode',mode);X:ApplyProfile()
+    local dropdown=mode=='xp' and W.control('format','tracking') or W.control('pvpFormat','tracking')
     local key=mode=='xp' and 'format' or 'pvpFormat'
     for _,row in ipairs(dropdown.menuDescription.entries) do
         menu=open()
@@ -119,36 +119,36 @@ for _,mode in ipairs({'xp','pvp'}) do
         menu=open();eq(entry(menu,row.value).isSelected(row.value),true,'reopened selection marked');menu:Close()
     end
 end
-X.profile.mode='xp';X:ApplyProfile();O.frame:Hide()
+W.set('mode','xp');X:ApplyProfile();O.panel:Close()
 menu=open();choose(menu,'left');eq(UI.label:GetText(),M.Label('left',X.tracker.xp,X.tracker.cap),'label updates immediately')
-O.frame:Show();eq(O.format.Text:GetText(),'XP remaining','settings reopened after quick change');O.frame:Hide()
+W.open();eq(W.control('format','tracking').Text:GetText(),'XP remaining','settings reopened after quick change');O.panel:Close()
 local restored=M.Database(M.Copy(XPIslandDB))
 eq(M.SelectProfile(restored,X.character,X.profileName).format,'left','database reload preserves choice')
-M.Duplicate(X.db,X.profileName,'Other');O:Switch('Other')
-menu=open();choose(menu,'fraction');eq(X.db.profiles.Other.format,'fraction');eq(X.db.profiles.Shared.format,'left','other profiles preserved')
+assert(ns.App.profiles:Duplicate('Other'))
+menu=open();choose(menu,'fraction');eq(XPIslandDB.profiles.Other.format,'fraction');eq(XPIslandDB.profiles.Shared.format,'left','other profiles preserved')
 menu=open();local stale=entry(menu,'eta');O:Switch('Shared');stale.select('eta')
 eq(X.profile.format,'left','stale callback cannot change switched profile')
 
 -- Auto-switching resolves choices from the displayed bar, without changing mode policy.
-X.profile.pvpAtCap=true;W.level=60;X:RefreshMode();UI:Update()
+W.set('pvpAtCap',true);W.level=60;X:RefreshMode();UI:Update()
 menu=open();eq(#menu.root.entries,5,'automatic PvP gets PvP choices');choose(menu,'rankLeft')
 eq(X.profile.pvpAtCap,true);eq(X.profile.mode,'xp');eq(X.profile.pvpFormat,'rankLeft')
 W.level=10;X:RefreshMode();UI:Update()
-menu=open();stale=entry(menu,'eta');X.profile.mode='pvp';X:ApplyProfile();stale.select('eta')
+menu=open();stale=entry(menu,'eta');W.set('mode','pvp');X:ApplyProfile();stale.select('eta')
 eq(X.profile.format,'left','stale callback cannot change previous bar mode')
-X.profile.mode='xp';X:ApplyProfile()
+W.set('mode','xp');X:ApplyProfile()
 
 -- Manual mode selection shares settings semantics, including choosing the
 -- displayed automatic mode. XP disabled below cap must not force PvP.
-W.level=60;X.profile.pvpAtCap=true;X:ApplyProfile()
+W.level=60;W.set('pvpAtCap',true);X:ApplyProfile()
 menu=open();eq(entry(menu,'pvp').isSelected('pvp'),true)
 choose(menu,'pvp');eq(X.profile.mode,'pvp');eq(X.profile.pvpAtCap,false)
-eq(O.mode.Text:GetText(),'Honor & PvP');eq(UI.expanded,false)
+W.open('tracking');eq(W.control('mode','tracking').Text:GetText(),'Honor & PvP');O.panel:Close();eq(UI.expanded,false)
 local totals=X.session.total;local xpFormat=X.profile.format;local pvpFormat=X.profile.pvpFormat
 menu=open();stale=entry(menu,'pvp');choose(menu,'xp')
 eq(X.profile.mode,'xp');eq(X.profile.pvpAtCap,false);eq(UI.frame:IsShown(),false,'XP at cap hides normally')
 stale.select('pvp');eq(X.profile.mode,'xp','dismissed mode callback is stale')
-W.level=10;W.capped=true;X.profile.pvpAtCap=true;X:ApplyProfile();eq(X:Mode(),'xp')
+W.level=10;W.capped=true;W.set('pvpAtCap',true);X:ApplyProfile();eq(X:Mode(),'xp')
 W.capped=false;X:ApplyProfile();menu=open();choose(menu,'pvp')
 eq(X.session.total,totals,'switching retains XP');eq(X.profile.format,xpFormat);eq(X.profile.pvpFormat,pvpFormat)
 eq(XPIslandDB.profiles[X.profileName].mode,'pvp','mode persists in active profile')
@@ -157,7 +157,7 @@ eq(M.SelectProfile(modeRestore,X.character,X.profileName).mode,'pvp')
 menu=open();stale=entry(menu,'xp');W.combat=true;stale.select('xp');eq(X.profile.mode,'pvp')
 W.event('PLAYER_REGEN_DISABLED');W.combat=false;W.event('PLAYER_REGEN_ENABLED');stale.select('xp')
 eq(X.profile.mode,'pvp','combat-dismissed mode choice stays stale')
-menu=open();choose(menu,'xp');eq(O.mode.Text:GetText(),'Experience')
+menu=open();choose(menu,'xp');W.open('tracking');eq(W.control('mode','tracking').Text:GetText(),'Experience');O.panel:Close()
 
 -- Native menu frame proxies are pooled. Old closures must not gain ownership
 -- when the exact same proxy is reused for a later menu on the same profile.
@@ -170,7 +170,7 @@ reopened:Close();W.poolMenus=false
 
 -- Combat opening, queued callbacks before event delivery, entry while open, and no reopening.
 for _,collapse in ipairs({true,false}) do
-    X.profile.collapseCombat=collapse;UI:SetExpanded(true,true);X:ArmCollapse(15)
+    W.set('collapseCombat',collapse);UI:SetExpanded(true,true);X:ArmCollapse(15)
     menu=open();stale=entry(menu,'eta')
     W.combat=true;stale.select('eta');eq(X.profile.format,'left','callback gates combat before event')
     opens=menuManager.opens;W.click(target,'RightButton');eq(menuManager.opens,opens,'combat never opens')
@@ -181,11 +181,11 @@ for _,collapse in ipairs({true,false}) do
 end
 
 -- Label slot remains isolated through fonts, scales, placements, formats and motion.
-X.profile.autoCollapse=false
+W.set('autoCollapse',false)
 for _,placement in ipairs({'top','bottom','custom'}) do
  for _,scale in ipairs({.5,1,1.5}) do
   for _,format in ipairs({'percent','fraction','leftPercent','eta','kills'}) do
-   X.profile.placement=placement;X.profile.scale=scale;X.profile.format=format;X.profile.fontSize=18;X:ApplyProfile()
+   W.set('placement',placement);W.set('scale',scale);W.set('format',format);W.set('fontSize',18);X:ApplyProfile()
    UI:SetExpanded(false,true);UI:SetExpanded(true)
    for step=1,4 do
     W.advance(.06)
@@ -197,21 +197,21 @@ for _,placement in ipairs({'top','bottom','custom'}) do
   end
  end
 end
-X.profile.format='eta';X.session=M.NewSession(X.character,GetServerTime());X.tracker.session=X.session;X:ApplyProfile()
+W.set('format','eta');X.session=M.NewSession(X.character,GetServerTime());X.tracker.session=X.session;X:ApplyProfile()
 eq(UI.showInfinity,true,'empty ETA renders the infinity placeholder')
 menu=open();eq(entry(menu,'eta').isSelected('eta'),true,'infinity remains clickable');menu:Close()
 
 -- Existing click/drag/hover behavior, locked drag, timer suspension and owned cleanup.
 UI:SetExpanded(false,true);W.click(target);eq(UI.expanded,true,'indicator left click preserves toggle');W.advance(.3)
-X.profile.locked=true;target.scripts.OnDragStart(target);eq(UI.dragging,nil,'locked label drag stays locked')
-X.profile.locked=false;menu=open();target.scripts.OnDragStart(target)
+W.set('locked',true);target.scripts.OnDragStart(target);eq(UI.dragging,nil,'locked label drag stays locked')
+W.set('locked',false);menu=open();target.scripts.OnDragStart(target)
 eq(menu.open,false,'drag closes popup');eq(UI.dragging,true);eq(UI.frame.moving,true)
 opens=menuManager.opens;W.click(target,'RightButton');eq(menuManager.opens,opens,'no menu while moving')
 target.scripts.OnDragStop(target);eq(UI.dragging,nil);eq(X.profile.placement,'custom');eq(UI.frame.moving,false)
 W.click(target);eq(UI.expanded,true,'post-drag synthetic click suppressed')
 W.hover=target;target.scripts.OnEnter(target);eq(W.tooltip.shown,true,'label hover preserves tooltip')
 W.hover=nil;target.scripts.OnLeave(target)
-X.profile.autoCollapse=true;X:ApplyProfile();UI:SetExpanded(true,true);X:ArmCollapse(15)
+W.set('autoCollapse',true);X:ApplyProfile();UI:SetExpanded(true,true);X:ArmCollapse(15)
 menu=open();W.advance(30);eq(UI.expanded,true,'popup interaction holds expanded island')
 menu:Close();W.advance(14.9);eq(UI.expanded,true);W.advance(.1);eq(UI.expanded,false,'dismissal arms a fresh interval')
 menu=open();UI.bar:Hide();eq(O.indicatorMenu,nil,'level notice hiding bar closes popup')
@@ -226,6 +226,6 @@ W2.event('ADDON_LOADED','XPIsland');W2.event('PLAYER_ENTERING_WORLD',true,false)
 eq(ns2.owner.profile.format,'leftPercent','fresh addon initialization restores saved selection')
 eq(ns2.owner.profile.mode,'pvp','fresh initialization restores manual mode')
 eq(ns2.owner.profile.pvpAtCap,false,'manual mode retains disabled auto-switch policy')
-ns2.Options:Create(ns2.owner)
-eq(ns2.Options.format.Text:GetText(),'XP remaining (%)','fresh settings reflect restored selection')
+W2.open('tracking')
+eq(W2.control('format','tracking').Text:GetText(),'XP remaining (%)','fresh settings reflect restored selection')
 print('PASS: '..n..' indicator menu assertions'..(arg[1] and '; pinned Forever MenuUtil executed' or ''))

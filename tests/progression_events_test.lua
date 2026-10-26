@@ -8,7 +8,10 @@ local function eq(a,b,why) n=n+1;assert(a==b,(why or 'check')..': '..tostring(a)
 XPIslandDB={version=3}
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 eq(XPIslandDB.version,3);eq(X.session,nil);eq(UI.frame,nil)
-local guid=UnitGUID;UnitGUID=function() return nil end;XPIslandDB=nil
+-- A new client lifetime restores a repaired database; live globals are not a second settings owner.
+XPIslandDB=nil;W=dofile('tests/wow_mock.lua');ns=W.load();X,M,UI=ns.owner,ns.Model,ns.UI
+W.event('ADDON_LOADED','XPIsland')
+local guid=UnitGUID;UnitGUID=function() return nil end
 W.event('PLAYER_ENTERING_WORLD',false,false);eq(X.session,nil);eq(UI.frame,nil)
 local secret={}
 function issecretvalue(v) return rawequal(v,secret) end
@@ -44,6 +47,6 @@ eq(X.session.killHistory.buckets[1].count,2);eq(X.session.buckets.kills,350)
 eq(X.session.total,470,'all observed XP retained exactly once')
 eq(select(2,M.KillsToLevel(X.session,W.xp,W.cap)),'warming')
 -- Mode changes preserve ongoing XP accounting.
-X.profile.mode='pvp';X:ApplyProfile()
+W.set('mode','pvp');X:ApplyProfile()
 eq(X.session.total,470,'mode and integration leave XP accounting alone')
 print('PASS: '..n..' progression event assertions (initialization, synthetic locale ingestion, ordering, duplicates and mode changes)')

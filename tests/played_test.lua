@@ -181,7 +181,7 @@ W.combat=true;W.event('PLAYER_REGEN_DISABLED');eq(X.levelNotice,nil);eq(UI.bar:I
 -- Timer cleanup and disabled/combat/capped presentation retain server tracking.
 for _,mode in ipairs({'disabled','combat','capped'}) do
  W,X,P,UI=boot();W.advance(1);reply(W,10000,2000)
- if mode=='disabled' then X.profile.levelUp=false elseif mode=='combat' then W.combat=true else W.capped=true end
+ if mode=='disabled' then W.set('levelUp',false) elseif mode=='combat' then W.combat=true else W.capped=true end
  levelup(W,11);reply(W,11000,100);eq(X.levelNotice,nil,mode);eq(P.saved.current.start,10900)
 end
 -- Header animation does not allocate or remeasure text on every frame.

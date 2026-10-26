@@ -19,7 +19,7 @@ local function separated(cell)
     check(ty+th<=cy+ch+.001 and vy>=cy-.001,'fitted title/value remain in their row')
 end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
-X.profile.autoCollapse=false;X.profile.fontSize=14;X.profile.scale=.85
+W.set('autoCollapse',false);W.set('fontSize',14);W.set('scale',.85)
 P.rank={level=0,xp=0,cap=75000,left=75000,total=0,ceiling=75000}
 UI:SetExpanded(true,true)
 for _,c in ipairs(UI.inlineCells) do
@@ -33,13 +33,13 @@ check(UI.inlineCells[2].title.fontSize==UI.cells[2].title.fontSize,'footer share
 -- Exact old-client screenshot cases: bottom drawer, 0 / 750 rank, and the
 -- transition through 85/90/95/100%. These checks preserve full source strings
 -- as well as their clipping boxes, so an ellipsis cannot count as a fix.
-X.profile.placement='bottom';X.profile.showPet=false
-X.profile.showRank=true;X.profile.showKills=true
+W.set('placement','bottom');W.set('showPet',false)
+W.set('showRank',true);W.set('showKills',true)
 P.rank={level=0,xp=0,cap=750,left=750,total=0,ceiling=750}
 for _,scale in ipairs({.85,.9,.95,1,.85}) do
- X.profile.scale=scale
+ W.set('scale',scale)
  for _,format in ipairs({'percent','eta'}) do
-  X.profile.format=format;UI:SetExpanded(true,true)
+  W.set('format',format);UI:SetExpanded(true,true)
   check(UI.layout.up,'screenshot drawer expands upward')
   check(UI.inlineCells[2].title:GetText()=='PvP rank:','full rank label survives scale changes')
   check(UI.inlineCells[2].value:GetText()=='0 / 750','full screenshot rank value survives scale changes')
@@ -55,7 +55,7 @@ for _,scale in ipairs({.85,.9,.95,1,.85}) do
   near(iy,ly,'bottom infinity shares numeric vertical slot')
  end
 end
-X.profile.placement='top'
+W.set('placement','top')
 -- Named boundary cases replace a Cartesian product of independent inputs.
 -- Keep the reported scales, scale/font extremes and cramped/ultrawide screens.
 local cases={
@@ -80,15 +80,15 @@ P.rank={level=0,xp=0,cap=75000,left=75000,total=123456789,ceiling=987654321}
 for _,case in ipairs(cases) do
  local name,rootScale,scale,size,shape,vw,vh=unpack(case)
  UIParent:SetScale(rootScale);UIParent:SetSize(vw,vh)
- X.profile.scale=scale;X.profile.fontSize=size
+ W.set('scale',scale);W.set('fontSize',size)
  W.fontWidths={['Fonts\\FRIZQT__.TTF']=shape}
  for _,o in ipairs(W.objects) do o.xpMeasureKey=nil end
  -- Cover all visibility combinations once at the tight wide-text boundary.
  -- Other cases retain all footer items, the largest geometry requirement.
  local masks=name=='wide text' and {0,1,2,3,4,5,6,7} or {7}
- X.profile.mode='xp'
+ W.set('mode','xp')
  for _,mask in ipairs(masks) do
-  X.profile.showPet=mask%2==1;X.profile.showRank=math.floor(mask/2)%2==1;X.profile.showKills=mask>=4
+  W.set('showPet',mask%2==1);W.set('showRank',math.floor(mask/2)%2==1);W.set('showKills',mask>=4)
   UI:SetExpanded(true,true)
   for _,c in ipairs(UI.cells) do
    check(not c.title:IsTruncated(),name..': stat title fits')
@@ -106,8 +106,8 @@ for _,case in ipairs(cases) do
   check(gw<=dw+.001,name..': footer stays inside drawer')
  end
  for _,header in ipairs(headers) do
-  X.profile.mode=header[1]
-  if header[1]=='xp' then X.profile.format=header[2] else X.profile.pvpFormat=header[2] end
+  W.set('mode',header[1])
+  if header[1]=='xp' then W.set('format',header[2]) else W.set('pvpFormat',header[2]) end
   UI:SetExpanded(true,true)
   check(not UI.label:IsTruncated(),name..': '..header[2]..' header fits')
   local ix,iy=UI.infinity:GetCenter();local lx,ly=UI.label:GetCenter()
@@ -121,20 +121,20 @@ for _,case in ipairs(cases) do
    end
   end
  end
- X.profile.mode='xp';X.levelNotice={seconds=3600};UI:Layout()
+ W.set('mode','xp');X.levelNotice={seconds=3600};UI:Layout()
  check(not UI.levelText:IsTruncated(),name..': level notice fits')
  X.levelNotice=nil;UI:Layout()
 end
 -- No font/measurement/symbol geometry work is introduced on animation frames.
 UIParent:SetScale(1);UIParent:SetSize(1920,1080)
-X.profile.scale=.85;X.profile.fontSize=14;X.profile.format='eta'
-X.profile.showRank=true;X.profile.showKills=true;X.profile.showPet=false
+W.set('scale',.85);W.set('fontSize',14);W.set('format','eta')
+W.set('showRank',true);W.set('showKills',true);W.set('showPet',false)
 UI:SetExpanded(false,true);UI:SetExpanded(true)
 W.beginWork();while UI.animation do UI:Animate(1/60) end;local work=W.endWork()
 for _,name in ipairs({'SetFont','GetUnboundedStringWidth','GetStringHeight'}) do
  check(not work[name],'no '..name..' work in animation')
 end
 W.svg('dist/preview-text-85.svg',UI.frame)
-X.profile.scale=1;UI:SetExpanded(true,true);W.svg('dist/preview-text-100.svg',UI.frame)
-X.profile.mode='pvp';UI:SetExpanded(true,true);W.svg('dist/preview-text-pvp.svg',UI.frame)
+W.set('scale',1);UI:SetExpanded(true,true);W.svg('dist/preview-text-100.svg',UI.frame)
+W.set('mode','pvp');UI:SetExpanded(true,true);W.svg('dist/preview-text-pvp.svg',UI.frame)
 print('PASS: '..count..' fractional typography assertions (synthetic raster metrics)')

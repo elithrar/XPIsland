@@ -11,7 +11,7 @@ end
 local function fresh()
  W.level=10;W.xp=100;W.cap=1000;W.instance='none';W.connected=true
  X.loading=false;X.inWorld=true;X.online=true;X.connected=true;X.transition=nil;X.levelPending=nil
- SlashCmdList.XPISLAND_SND_XPISLAND('reset');X.profile.format='eta';UI:Layout()
+ SlashCmdList.XPISLAND_SND_XPISLAND('reset');W.set('format','eta');UI:Layout()
 end
 local function valid()
  eq(M.ValidSession(X.session,X.character),true,'conservation and bounded rate history')

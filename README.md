@@ -7,7 +7,7 @@ A compact XP bar for World of Warcraft: Forever, inspired by Dynamic Island.
 - Track rested XP, XP remaining and estimated time to level.
 - Expand for session XP sources, pet XP, PvP rank and estimated kills to level.
 - Track Honor and Rank Points in PvP mode, including at level cap. Enable it in Tracking settings or opt into switching at level cap.
-- Choose shared or character profiles, fonts and scale. The island fits your UI and stays compact on ultrawide screens.
+- Choose Modern or WoW Forever themes, shared or character profiles, fonts and scale. The island fits your UI and stays compact on ultrawide screens.
 - Hide Blizzard's XP, reputation and Honor bars. Other addons keep control of their bars.
 
 <img width="556" height="299" alt="xp-island-collapsed" src="https://github.com/user-attachments/assets/b241fb90-beaf-42a0-8e35-8fb6bc308707" />
@@ -31,11 +31,6 @@ Expanded:
 Tooltip:
 
 <img width="601" height="267" alt="xp-island-tooltip" src="https://github.com/user-attachments/assets/dd3cd877-8c6c-43b9-b823-9b308926f2ac" />
-
-Options:
-
-<img width="744" height="566" alt="xp-island-options" src="https://github.com/user-attachments/assets/95bf43b0-da5d-448d-8805-2758c66d9e12" />
-
 
 ## Contributing
 
