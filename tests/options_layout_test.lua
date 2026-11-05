@@ -44,11 +44,25 @@ for _,id in ipairs({'appearance','tracking','profiles','behavior','appearance'})
 end
 local font=W.control('font','appearance')
 for _,key in ipairs({'normal','rested'})do
-    local swatch=W.control(key,'appearance');local label=panel._texts['appearance:1:'..key..':label']
-    assert(math.abs(swatch:GetLeft()-font:GetLeft())<.001,'color swatch shares field column')
+    local swatch=W.control(key,'appearance');local label=panel._texts['appearance:2:'..key..':label']
+    eq(swatch:GetWidth(),36,'compact swatch width')
     assert(swatch:GetLeft()>=label:GetLeft()+label:GetWidth()+15,'color label does not overlap its swatch')
     eq(swatch._swatch.color[1],ns.owner.profile[key][1]);eq(swatch.text:GetText(),'')
 end
+local normal,rested=W.control('normal'),W.control('rested')
+assert(math.abs(normal:GetTop()-rested:GetTop())<.001,'colors share a measured row')
+assert(rested:GetLeft()>normal:GetLeft(),'colors occupy separate columns')
+eq(W.control('fontSize'):GetWidth(),72,'numeric control stays compact')
+assert(math.abs(W.control('resetPosition'):GetLeft()-font:GetLeft())<.001,'placement action aligns with its field')
+local wideCount=#W.objects
+UIParent:SetSize(360,650);W.event('DISPLAY_SIZE_CHANGED')
+eq(panel.frame:GetEffectiveScale()/UIParent:GetEffectiveScale(),1,'narrow screens preserve selected font scale')
+assert(W.control('font'):GetTop()<panel._texts['appearance:1:font:label']:GetTop(),'font field stacks')
+assert(rested:GetTop()<normal:GetTop(),'color columns collapse')
+assert(panel._pool['tab:tracking']:GetTop()<panel._pool['tab:appearance']:GetTop(),'tabs wrap into reachable rows')
+for _,button in pairs(panel._buttons)do eq(button.text:GetEffectiveScale()/button:GetEffectiveScale(),1,'captions do not shrink')end
+W.svg('dist/options-narrow.svg',panel.frame)
+UIParent:SetSize(900,650);W.event('DISPLAY_SIZE_CHANGED');eq(#W.objects,wideCount,'responsive layout reuses controls')
 W.svg('dist/options-appearance.svg',panel.frame)
 assert(W.inputClick(panel._pool.close));eq(panel:IsShown(),false)
 assert(not W.inputClick(panel._pool['tab:behavior']));W.open('appearance')

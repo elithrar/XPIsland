@@ -390,9 +390,20 @@ function W.open(page)
     return o.panel
 end
 function W.control(id,page)
-    local panel=W.ns.Options.panel;local key=(page or 'appearance')..':1:'..id
-    if not panel._pool[key] then W.open(page or 'appearance') end
-    local control=assert(panel._pool[key],id);return control
+    local panel=W.ns.Options.panel;page=page or 'appearance'
+    local function find()
+        for _,declaration in ipairs(panel._pages)do
+            if declaration.id==page then
+                for si,section in ipairs(declaration.sections or {})do
+                    for ci,c in ipairs(section.controls or {})do
+                        if (c.id or tostring(ci))==id then return panel._pool[page..':'..si..':'..id]end
+                    end
+                end
+            end
+        end
+    end
+    local control=find();if not control then W.open(page);control=find()end
+    assert(control,id);return control
 end
 
 function W.svg(path,root)
