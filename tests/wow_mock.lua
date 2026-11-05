@@ -21,7 +21,9 @@ function CreateFrame(kind,name,parent,template)
         o.CloseButton=CreateFrame("Button",nil,o,"UIPanelButtonTemplate")
         o.CloseButton:SetSize(24,24);o.CloseButton:SetPoint("TOPRIGHT",0,0);o.CloseButton:SetText("×")
         o.CloseButton:SetScript("OnClick",function() o:Hide() end)
-    elseif template=="WowStyle1DropdownTemplate" then
+    elseif template and template:find("WowStyle1DropdownTemplate",1,true) then
+        o.OnButtonStateChanged=function(self) self.Text:SetTextColor(1,1,1,1)end
+        o.Background=o:CreateTexture(nil,"BACKGROUND")
         o.Arrow=o:CreateTexture(nil,"OVERLAY");o.Arrow:SetSize(18,18);o.Arrow:SetPoint("RIGHT",-1,0)
         o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetHeight(10)
         o.Text:SetPoint("TOPRIGHT",o.Arrow,"LEFT");o.Text:SetPoint("TOPLEFT",9,-7)
@@ -91,8 +93,8 @@ function methods:SetClipsChildren(v) self.clipsChildren=v end
 function methods:IsMouseOver() return W.hover==self or false end
 function methods:SetDefaultText(text) self.defaultText=text;self.Text:SetText(text) end
 function methods:GetParent() return self.parent end
-function methods:SetScrollChild(child) self.scrollChild=child end
-function methods:SetVerticalScroll(value) self.scroll=value end
+function methods:SetScrollChild(child) self.scrollChild=child;child:ClearAllPoints();child:SetPoint("TOPLEFT",self,"TOPLEFT",0,self.scroll or 0) end
+function methods:SetVerticalScroll(value) self.scroll=value;if self.scrollChild then self.scrollChild:SetPoint("TOPLEFT",self,"TOPLEFT",0,value) end end
 function methods:EnableMouseWheel(value) self.mouseWheel=value end
 function methods:IsMenuOpen() return self.menuOpen==true end
 function methods:SetupMenu(generator) self.generator=generator;self:GenerateMenu() end
@@ -164,7 +166,10 @@ end
 function methods:SetShadowColor() end
 function methods:SetShadowOffset() end
 function methods:GetFontString() return self.fontString end
-function methods:SetChecked(v) self.checked=v end
+function methods:SetRotation(value) self.rotation=value end
+function methods:SetDisabledCheckedTexture(texture) self.disabledCheckedTexture=texture end
+function methods:SetCheckedTexture(texture) self.checkedTexture=texture end
+function methods:SetChecked(v) self.checked=v;if self.checkedTexture then self.checkedTexture:SetShown(v) end end
 function methods:GetChecked() return self.checked end
 function methods:SetHitRectInsets(...) self.hitInsets={...} end
 function methods:SetJustifyH(v) self.justify=v end
@@ -177,9 +182,9 @@ function methods:RegisterForDrag(...) self.dragButtons={...} end
 function methods:RegisterForClicks(...) self.clickButtons={...} end
 function methods:StartMoving() self.moving=true end
 function methods:StopMovingOrSizing() self.moving=false end
+function methods:SetTextInsets(...) self.textInsets={...} end
 function methods:SetAutoFocus(v) self.autoFocus=v end
 function methods:SetMaxLetters(v) self.maxLetters=v end
-function methods:SetTextInsets() end
 function methods:ClearFocus() end
 function methods:SetBackdrop(v) self.backdrop=v end
 function methods:SetBackdropColor(...) self.backdropColor={...} end
@@ -190,7 +195,7 @@ function methods:SetOrientation() end
 function methods:SetMinMaxValues(a,b) self.minimum,self.maximum=a,b end
 function methods:SetValueStep(v) self.step=v end
 function methods:SetObeyStepOnDrag(v) self.obeyStep=v end
-function methods:SetThumbTexture(t) self.thumb=self:CreateTexture(nil,"OVERLAY");self.thumb:SetTexture(t) end
+function methods:SetThumbTexture(t) if type(t)=="table" then self.thumb=t else self.thumb=self:CreateTexture(nil,"OVERLAY");self.thumb:SetTexture(t) end end
 function methods:GetThumbTexture() return self.thumb end
 function methods:SetValue(v)
     self.value=v
@@ -424,7 +429,7 @@ function W.svg(path,root)
             local fill=o.backdropColor and color(o.backdropColor) or o.template=="UIPanelButtonTemplate" and "#681a16" or "#151515"
             local stroke=o.backdropBorder and color(o.backdropBorder) or "#66605a"
             f:write(string.format('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="3" fill="%s" stroke="%s" stroke-width="1"/>',x,y,w,h,fill,stroke))
-            if o.kind=="DropdownButton" then
+            if o.kind=="DropdownButton" and o.Arrow and o.Arrow:IsShown() then
                 f:write(string.format('<path d="M %f %f l 8 0 l -4 5 Z" fill="#d5b74c"/>',x+w-17,y+h/2-2))
             end
             if o.template=="UIPanelCloseButton" then
@@ -452,6 +457,8 @@ function W.svg(path,root)
             for li,line in ipairs(lines) do
                 f:write(string.format('<text x="%.2f" y="%.2f" font-family="Georgia" font-size="%.2f" fill="%s" text-anchor="%s">%s</text>',o.justify=="RIGHT" and x+w or o.justify=="CENTER" and x+w/2 or x,y+s+(li-1)*s*1.2,s,color(c),anchor,xml(line)))
             end
+        elseif o.parent and o.parent.checkedTexture==o then
+            -- Native check art is represented by a glyph in this offline fixture.
         elseif o.parent and o.parent.Arrow==o then
             f:write(string.format('<path d="M %f %f l 8 0 l -4 5 Z" fill="#d5b74c"/>',x+5,y+h/2-2))
         elseif o.texture and o.texture:find("infinity.tga",1,true) then

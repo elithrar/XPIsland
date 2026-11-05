@@ -139,7 +139,7 @@ for _,advance in ipairs({.52,.8})do
  W.fontWidths={[fonts.Expressway]=advance}
  for _,size in ipairs({10,18})do
   W.patch({font='Expressway',fontSize=size})
-  W.open('behavior');local character=W.control('character','behavior')
+  W.open('profiles');local character=W.control('character','profiles')
   fitsButton(character,'Use character profile')
   if characterButton then eq(character,characterButton,'appearance refresh reuses character action')end
   characterButton=character

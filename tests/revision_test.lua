@@ -34,7 +34,7 @@ for i,name in ipairs({'Kill XP','Quest XP','Dungeon XP','Other XP'}) do eq(UI.ce
 UI:ShowStatTooltip(UI.cells[5],5);eq(W.tooltip.anchor,'ANCHOR_BOTTOM');eq(W.tooltip.lines[1][1],'Outdoor kills','existing tooltip title unchanged')
 eq(W.tooltip.lines[2][1],'Confirmed kill XP outside instances, including rested bonuses.')
 eq(GameTooltipText:GetFont(),originalTooltipFont,'no tooltip font mutation')
-SlashCmdList.XPISLAND_SND_XPISLAND('');eq(O.frame.template,'BackdropTemplate');eq(W.control('scale','appearance').template,'OptionsSliderTemplate');eq(W.control('fontSize','appearance').template,'InputBoxTemplate')
+SlashCmdList.XPISLAND_SND_XPISLAND('');eq(O.frame.template,'BackdropTemplate');eq(W.control('scale','appearance').template,'BackdropTemplate');eq(W.control('fontSize','appearance').template,'InputBoxScriptTemplate,BackdropTemplate')
 W.click(W.control('locked','behavior'));eq(X.profile.locked,false,'native checkbox updates profile')
 W.choose(W.control('font','appearance'),'Arial');eq(X.profile.fontCustomized,true)
 W.set('font','Game tooltip');W.set('fontSize',14)
