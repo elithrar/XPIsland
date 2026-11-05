@@ -37,4 +37,20 @@ local offset=panel._maximum;W.open('appearance');W.open('behavior');eq(panel.scr
 local count=#W.objects;panel:Close();W.open('behavior');eq(#W.objects,count,'reopen reuses controls')
 UIParent:SetSize(900,650);W.event('DISPLAY_SIZE_CHANGED');eq(panel._maximum,0);eq(panel.scroll.scroll,0)
 W.set('theme','modern');W.svg('dist/options-behavior.svg',panel.frame)
+-- Dispatch user-facing clicks with mouse/visibility gates, not only SelectPage.
+for _,id in ipairs({'appearance','tracking','profiles','behavior','appearance'})do
+    assert(W.inputClick(panel._pool['tab:'..id]),'tab accepts mouse input')
+    eq(panel._page,id);eq(panel:IsShown(),true);eq(panel._pool['tab:'..id]._selected:IsShown(),true)
+end
+local font=W.control('font','appearance')
+for _,key in ipairs({'normal','rested'})do
+    local swatch=W.control(key,'appearance');local label=panel._texts['appearance:1:'..key..':label']
+    assert(math.abs(swatch:GetLeft()-font:GetLeft())<.001,'color swatch shares field column')
+    assert(swatch:GetLeft()>=label:GetLeft()+label:GetWidth()+15,'color label does not overlap its swatch')
+    eq(swatch._swatch.color[1],ns.owner.profile[key][1]);eq(swatch.text:GetText(),'')
+end
+W.svg('dist/options-appearance.svg',panel.frame)
+assert(W.inputClick(panel._pool.close));eq(panel:IsShown(),false)
+assert(not W.inputClick(panel._pool['tab:behavior']));W.open('appearance')
+assert(W.inputClick(panel._pool['tab:behavior']));eq(panel._page,'behavior')
 print('PASS compact Behavior layout, theme chrome, active tabs, profile shortcuts, disabled state, scrolling and reuse')
