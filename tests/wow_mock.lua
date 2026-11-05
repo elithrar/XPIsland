@@ -22,6 +22,7 @@ function CreateFrame(kind,name,parent,template)
         o.CloseButton:SetSize(24,24);o.CloseButton:SetPoint("TOPRIGHT",0,0);o.CloseButton:SetText("×")
         o.CloseButton:SetScript("OnClick",function() o:Hide() end)
     elseif template and template:find("WowStyle1DropdownTemplate",1,true) then
+        o.OnButtonStateChanged=function(self) self.Text:SetTextColor(1,1,1,1)end
         o.Background=o:CreateTexture(nil,"BACKGROUND")
         o.Arrow=o:CreateTexture(nil,"OVERLAY");o.Arrow:SetSize(18,18);o.Arrow:SetPoint("RIGHT",-1,0)
         o.Text=o:CreateFontString(nil,"OVERLAY");o.Text:SetHeight(10)
@@ -165,6 +166,8 @@ end
 function methods:SetShadowColor() end
 function methods:SetShadowOffset() end
 function methods:GetFontString() return self.fontString end
+function methods:SetRotation(value) self.rotation=value end
+function methods:SetDisabledCheckedTexture(texture) self.disabledCheckedTexture=texture end
 function methods:SetCheckedTexture(texture) self.checkedTexture=texture end
 function methods:SetChecked(v) self.checked=v;if self.checkedTexture then self.checkedTexture:SetShown(v) end end
 function methods:GetChecked() return self.checked end
