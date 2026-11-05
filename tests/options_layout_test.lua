@@ -68,3 +68,25 @@ assert(W.inputClick(panel._pool.close));eq(panel:IsShown(),false)
 assert(not W.inputClick(panel._pool['tab:behavior']));W.open('appearance')
 assert(W.inputClick(panel._pool['tab:behavior']));eq(panel._page,'behavior')
 print('PASS compact Behavior layout, theme chrome, active tabs, profile shortcuts, disabled state, scrolling and reuse')
+
+-- Exercise the player's slash command and actual tab callback, including an
+-- interrupted native hide with the previous page owner still retained.
+local command=SlashCmdList.XPISLAND_SND_XPISLAND
+panel:Close();command('');assert(panel:IsShown())
+local first=panel._view;local hideCount=0
+panel.frame:HookScript('OnHide',function()hideCount=hideCount+1 end)
+assert(W.inputClick(panel._pool['tab:tracking']));eq(panel._page,'tracking');assert(not first.active)
+eq(hideCount,0,'tabs do not hide the shell')
+assert(W.control('mode','tracking'):IsVisible(),'new page content is visible')
+command('');eq(panel:IsShown(),false);assert(panel._view==nil)
+command('');eq(panel:IsShown(),true)
+local stale=panel._view
+panel.frame.shown=false -- model an interrupted native OnHide, before ownership was released
+command('');assert(panel:IsShown() and not stale.active)
+assert(W.inputClick(panel._pool['tab:behavior']));eq(panel._page,'behavior')
+local locked=W.control('locked','behavior');local before=ns.App:Get('locked')
+assert(W.inputClick(locked));eq(ns.App:Get('locked'),not before,'reopened page still commits controls')
+local reused=#W.objects
+for _=1,10 do command('');assert(not panel:IsShown());command('');assert(panel:IsShown())end
+eq(#W.objects,reused,'slash close/reopen reuses native controls')
+print('PASS tab navigation without shell hiding and slash-command recovery after interrupted native hide')
