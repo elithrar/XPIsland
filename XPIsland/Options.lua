@@ -90,25 +90,27 @@ function O:Configure(app)
         return {type='select',id=key,key=key,label=label,choices={{value=5,label='5 seconds'},{value=10,label='10 seconds'},{value=15,label='15 seconds'}},enabled=function(a)return a:Get(toggle)end}
     end
     local profiles=ns.SomethingNeedDoing.Pages.Profiles()
-    profiles.sections={{title='Quick switch',controls={
-        {type='button',id='shared',label='Use shared profile',action=function()checked(app.profiles:Switch('Shared'))end},
-        {type='button',id='character',label='Use character profile',action=function()
+    profiles.sections={{title='Quick switch',layout={columns=2,minColumnWidth=200},controls={
+        {type='button',id='shared',label='Use shared profile',align='stretch',action=function()checked(app.profiles:Switch('Shared'))end},
+        {type='button',id='character',label='Use character profile',align='stretch',action=function()
             local name=ns.owner.characterName
             if not name then return end
             for _,existing in ipairs(app.profiles:List())do if existing==name then checked(app.profiles:Switch(name));return end end
             checked(app.profiles:Duplicate(name))
         end},
     }}}
-    self.panel=app:Options({title='XPIsland',width=560,height=520,pages={
+    self.panel=app:Options({title='XPIsland',width=560,height=520,layout={fieldWidth=230,minLabelWidth=160},pages={
         {id='appearance',label='Appearance',sections={{controls={
             choice('theme','Theme',ns.Themes.Choices()),
             {type='font',id='font',key='font',label='Font'},
-            {type='number',id='fontSize',key='fontSize',label='Font size (10–18)'},
+            {type='number',id='fontSize',key='fontSize',label='Font size (10–18)',width=72},
             {type='slider',id='scale',key='scale',label='Island scale',step=.01,format='percent'},
+        }},{title='Experience colors',layout={columns=2,minColumnWidth=220,fieldWidth=36,minLabelWidth=120},controls={
             {type='color',id='normal',key='normal',label='Normal XP',preview=function(value) UI:PreviewColor('normal',value) end},
             {type='color',id='rested',key='rested',label='Rested XP',preview=function(value) UI:PreviewColor('rested',value) end},
+        }},{controls={
             choice('placement','Placement',{{value='top',label='Top'},{value='bottom',label='Bottom'},{value='custom',label='Custom (dragged)'}}),
-            {type='button',id='resetPosition',label='Reset to top',action=function()checked(app:SetMany({['position.x']=0,['position.y']=-8,placement='top'}))end},
+            {type='button',id='resetPosition',label='Reset to top',align='field',action=function()checked(app:SetMany({['position.x']=0,['position.y']=-8,placement='top'}))end},
         }}}},
         {id='behavior',label='Behavior',sections={{controls={
             check('locked','Lock position'),check('levelUp','Expand at level-up'),duration('levelUpDuration','Level-up duration','levelUp'),
@@ -126,8 +128,9 @@ function O:Configure(app)
                 }
             end},
             {type='description',text='Auto-collapse waits while hovering, dragging or using settings.'},
-            {type='button',id='binding',label='Key binding',action=function()Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID,'XPIsland')end},
-            {type='button',id='expand',label='Expand/collapse',action=function()ns.owner:Toggle()end},
+        }},{layout={columns=2,minColumnWidth=200},controls={
+            {type='button',id='binding',label='Key binding',align='stretch',action=function()Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID,'XPIsland')end},
+            {type='button',id='expand',label='Expand/collapse',align='stretch',action=function()ns.owner:Toggle()end},
         }}}},
         {id='tracking',label='Tracking',sections={{controls={
             choice('mode','Track',modes),choice('format','Experience label',xpFormats),choice('pvpFormat','Honor label',pvpFormats),
