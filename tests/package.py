@@ -23,7 +23,7 @@ files = [line.strip() for line in toc.splitlines() if line.strip() and not line.
 assert files == ['Libs/SomethingNeedDoing/Core.lua', 'Libs/SomethingNeedDoing/Diagnostics.lua', 'Libs/SomethingNeedDoing/Scope.lua', 'Libs/SomethingNeedDoing/State.lua', 'Libs/SomethingNeedDoing/Settings.lua', 'Libs/SomethingNeedDoing/UI.lua', 'Libs/SomethingNeedDoing/Options.lua'] + ["Themes.lua", "Model.lua", "Settings.lua", "Progression.lua", "Played.lua", "UI.lua", "Options.lua", "Core.lua"]
 upstream = addon / "Libs/SomethingNeedDoing"
 pin = json.loads((upstream / "UPSTREAM.json").read_text())
-assert pin["tag"] == "v0.4.0" and pin["version"] == "0.4.0" and pin["commit"] == "3423323ca46cd2db16b41cff3aeae80d3c3aebbe"
+assert pin["version"] == "0.4.2" and pin["commit"] == "4c5e9776b3e72b496273ac1b408acf62fe793601"
 assert set(pin["sha256"]) == {"Core.lua", "Diagnostics.lua", "Scope.lua", "State.lua", "Settings.lua", "UI.lua", "Options.lua", "LICENSE"}
 for name, checksum in pin["sha256"].items():
     assert hashlib.sha256((upstream / name).read_bytes()).hexdigest() == checksum, name

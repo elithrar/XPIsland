@@ -65,6 +65,7 @@ jobs:
           luajit tests/played_test.lua .blizzard-api/Interface/AddOns
           luajit tests/stock_tracking_test.lua .blizzard-api/Interface/AddOns
           luajit tests/durations_test.lua
+          luajit tests/options_layout_test.lua
           luajit tests/frame_work_test.lua
           luajit tests/stress_test.lua
       - name: Test release guards

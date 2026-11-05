@@ -89,16 +89,28 @@ function O:Configure(app)
     local function duration(key,label,toggle)
         return {type='select',id=key,key=key,label=label,choices={{value=5,label='5 seconds'},{value=10,label='10 seconds'},{value=15,label='15 seconds'}},enabled=function(a)return a:Get(toggle)end}
     end
-    self.panel=app:Options({title='XPIsland',width=640,height=540,pages={
-        {id='appearance',label='Appearance',sections={{title='Appearance',controls={
+    local profiles=ns.SomethingNeedDoing.Pages.Profiles()
+    profiles.sections={{title='Quick switch',controls={
+        {type='button',id='shared',label='Use shared profile',action=function()checked(app.profiles:Switch('Shared'))end},
+        {type='button',id='character',label='Use character profile',action=function()
+            local name=ns.owner.characterName
+            if not name then return end
+            for _,existing in ipairs(app.profiles:List())do if existing==name then checked(app.profiles:Switch(name));return end end
+            checked(app.profiles:Duplicate(name))
+        end},
+    }}}
+    self.panel=app:Options({title='XPIsland',width=560,height=520,pages={
+        {id='appearance',label='Appearance',sections={{controls={
             choice('theme','Theme',ns.Themes.Choices()),
             {type='font',id='font',key='font',label='Font'},
             {type='number',id='fontSize',key='fontSize',label='Font size (10–18)'},
             {type='slider',id='scale',key='scale',label='Island scale',step=.01,format='percent'},
             {type='color',id='normal',key='normal',label='Normal XP',preview=function(value) UI:PreviewColor('normal',value) end},
             {type='color',id='rested',key='rested',label='Rested XP',preview=function(value) UI:PreviewColor('rested',value) end},
+            choice('placement','Placement',{{value='top',label='Top'},{value='bottom',label='Bottom'},{value='custom',label='Custom (dragged)'}}),
+            {type='button',id='resetPosition',label='Reset to top',action=function()checked(app:SetMany({['position.x']=0,['position.y']=-8,placement='top'}))end},
         }}}},
-        {id='behavior',label='Behavior',sections={{title='Behavior',controls={
+        {id='behavior',label='Behavior',sections={{controls={
             check('locked','Lock position'),check('levelUp','Expand at level-up'),duration('levelUpDuration','Level-up duration','levelUp'),
             check('autoCollapse','Auto-collapse'),duration('autoCollapseDuration','Auto-collapse duration','autoCollapse'),
             check('collapseCombat','Collapse on combat entry'),check('hideBlizzard','Hide Blizzard tracking bars'),
@@ -115,22 +127,13 @@ function O:Configure(app)
             end},
             {type='description',text='Auto-collapse waits while hovering, dragging or using settings.'},
             {type='button',id='binding',label='Key binding',action=function()Settings.OpenToCategory(Settings.KEYBINDINGS_CATEGORY_ID,'XPIsland')end},
-            choice('placement','Placement',{{value='top',label='Top'},{value='bottom',label='Bottom'},{value='custom',label='Custom (dragged)'}}),
-            {type='button',id='resetPosition',label='Reset to top',action=function()checked(app:SetMany({['position.x']=0,['position.y']=-8,placement='top'}))end},
             {type='button',id='expand',label='Expand/collapse',action=function()ns.owner:Toggle()end},
-            {type='button',id='shared',label='Use shared profile',action=function()checked(app.profiles:Switch('Shared'))end},
-            {type='button',id='character',label='Use character profile',action=function()
-                local name=ns.owner.characterName
-                if not name then return end
-                for _,existing in ipairs(app.profiles:List())do if existing==name then checked(app.profiles:Switch(name));return end end
-                checked(app.profiles:Duplicate(name))
-            end},
         }}}},
-        {id='tracking',label='Tracking',sections={{title='Tracking',controls={
+        {id='tracking',label='Tracking',sections={{controls={
             choice('mode','Track',modes),choice('format','Experience label',xpFormats),choice('pvpFormat','Honor label',pvpFormats),
             check('pvpAtCap','Track Honor at the level cap'),check('showPet','Show pet experience'),check('showRank','Show PvP rank'),check('showKills','Show kills to level'),
             {type='description',text='Estimates use recent confirmed kills. Rested XP and group rewards affect XP per kill. Hover over a stat for details.'},
-        }}}},ns.SomethingNeedDoing.Pages.Profiles(),
+        }}}},profiles,
     }})
 end
 function O:Refresh() if self.panel then return self.panel:Refresh() end end
