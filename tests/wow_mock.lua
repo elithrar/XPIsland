@@ -316,6 +316,12 @@ function W.click(button,mouseButton)
     if button.kind=="CheckButton" then button.checked=not button.checked end
     button.scripts.OnClick(button,mouseButton)
 end
+function W.inputClick(button)
+    if button.mouse~=true or not button:IsEnabled() then return false end
+    local owner=button
+    while owner do if not owner:IsShown() then return false end;owner=owner.parent end
+    W.click(button);return true
+end
 function W.choose(dropdown,value)
     dropdown:GenerateMenu()
     for _,e in ipairs(dropdown.menuDescription.entries) do
