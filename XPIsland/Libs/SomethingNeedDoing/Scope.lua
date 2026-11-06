@@ -119,7 +119,6 @@ SND._install[#SND._install + 1] = function(app)
             if type(key) == 'string' and key:match('^SLASH_.+%d+$') and type(value) == 'string' and value:lower() == command then return false, I.error('collision') end
         end
         local id = self.name:gsub('[^%w]', '_'):upper() .. '_SND_' .. command:sub(2):upper()
-        SlashCmdList = SlashCmdList or {}
         if SlashCmdList[id] then return false, I.error('collision') end
         _G['SLASH_' .. id .. '1'] = command
         local handler = function(text) if self._ready then I.call(self, callback, text) end end
