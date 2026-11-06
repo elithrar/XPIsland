@@ -186,6 +186,30 @@ for index=2,20 do
  local lx,_,lw=left:Rect();local rx=right:Rect()
  near((rx-lx-lw)/UI.frame:GetEffectiveScale(),3,'Forever spacing')
 end
+-- The lower bevel was almost indistinguishable from an empty track (about
+-- 1.09:1), making every segment look cut off despite valid containing geometry.
+-- Check the visible strip colors and their resolved bounds, not just the frame.
+local function luminance(rgb)
+ local function linear(v)return v<=.04045 and v/12.92 or ((v+.055)/1.055)^2.4 end
+ return .2126*linear(rgb[1])+.7152*linear(rgb[2])+.0722*linear(rgb[3])
+end
+local forever=T.Get('forever');local empty={}
+for channel=1,3 do empty[channel]=forever.trackColor[channel]*forever.trackAlpha+forever.palette.surface[channel]*(1-forever.trackAlpha)end
+local trackLight=luminance(empty)
+for _,scale in ipairs({.5,.85,1,1.5})do
+ W.set('scale',scale)
+ for _,segment in ipairs(UI.segments)do
+  local x,y,w,h=segment.track:Rect()
+  for _,edge in ipairs({'top','bottom','left','right'})do
+   local strip=segment.border[edge];local sx,sy,sw,sh=strip:Rect()
+   assert(sw>0 and sh>0 and sx>=x-.001 and sy>=y-.001 and sx+sw<=x+w+.001 and sy+sh<=y+h+.001,'outline stays inside its segment')
+   local light=luminance(strip.color)
+   assert((math.max(light,trackLight)+.05)/(math.min(light,trackLight)+.05)>=2,'Forever '..edge..' outline disappears into the empty track')
+  end
+  near(segment.border.bottom:GetBottom(),segment.track:GetBottom(),'bottom edge reaches the track boundary')
+ end
+end
+
 eq(T.Get('forever').segmentHeight,T.Get('modern').segmentHeight)
 eq(T.Get('modern').segmentGap,2);eq(T.Get('modern').segmentBorder,nil)
 W.set('fontSize',originalSize)

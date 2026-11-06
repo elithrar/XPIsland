@@ -9,7 +9,7 @@ Choose one existing frame renderer:
 - Rounded: provide outer/inner radii. SND applies the palette's `border` and `surface` colors.
 - Nine-slice: provide `chromeTexture` and `chromeRadius`. The image uses UV boundaries 0, .25, .75, 1. Each theme's frame is constructed once and reused.
 
-An optional `segmentBorder` defines an inward outline with `size` and RGBA `top`, `bottom` and `side` colors. It stays anchored to the full track above fill/highlight layers, including empty and partially filled segments. Border setup runs only on theme changes.
+An optional `segmentBorder` defines an inward outline with `size` and RGBA `top`, `bottom` and `side` colors. It stays anchored to the full track above fill/highlight layers, including empty and partially filled segments. Each edge should remain visibly distinct from the empty track; a dark lower bevel can make a valid segment look clipped. Border setup runs only on theme changes.
 
 For shaded fills, provide body and cap shading textures and a positive `shadingAlpha`; use zero to disable shading. Cap art and its shading must share the same silhouette and crop. Body/cap shading visibility follows partial-fill geometry.
 

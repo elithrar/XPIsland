@@ -11,7 +11,7 @@ T.definitions={
      trackColor={.14,.14,.18},trackAlpha=1,dividerColor={.18,.18,.22,1},
      capTexture=media.."cap.tga",shadingAlpha=0},
     {id="forever",label="Forever",headerHeight=28,headerInset=10,labelGap=8,segmentHeight=10,segmentGap=3,
-     segmentBorder={size=1,top={.57,.44,.25,1},bottom={.24,.17,.09,1},side={.39,.28,.15,1}},
+     segmentBorder={size=1,top={.57,.44,.25,1},bottom={.57,.44,.25,1},side={.57,.44,.25,1}},
      chromeTexture=media.."forever-chrome.tga",chromeRadius=6,
      optionsBorder="dialog",
      palette={surface={.08,.065,.045,.97},border={.57,.44,.25,1},accent={.83,.72,.49,1},text={.94,.90,.80,1},muted={.7,.65,.55,1}},
