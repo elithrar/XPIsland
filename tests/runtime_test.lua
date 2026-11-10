@@ -1,6 +1,24 @@
 local W=dofile("tests/wow_mock.lua")
 os.execute("mkdir -p dist")
+-- Blizzard reads this global before native command dispatch. Reject even a
+-- same-value assignment during real addon startup; plain Lua cannot model taint.
+local slashRegistry=SlashCmdList
+local nativePVP=function() end
+slashRegistry.PVP=nativePVP
+local originalGlobals=getmetatable(_G)
+rawset(_G,"SlashCmdList",nil)
+setmetatable(_G,{
+    __index=function(_,key) if key=="SlashCmdList" then return slashRegistry end end,
+    __newindex=function(target,key,value)
+        assert(key~="SlashCmdList","addon must not reassign Blizzard's SlashCmdList")
+        rawset(target,key,value)
+    end,
+})
 local ns=W.load()
+assert(SlashCmdList==slashRegistry and SlashCmdList.PVP==nativePVP,
+    "addon startup must preserve the native slash registry and handlers")
+setmetatable(_G,originalGlobals)
+rawset(_G,"SlashCmdList",slashRegistry)
 local X,UI,O=ns.owner,ns.UI,ns.Options
 local n=0
 local function eq(a,b,why) n=n+1;assert(a==b,(why or "assertion")..": "..tostring(a).." ~= "..tostring(b)) end
@@ -137,13 +155,17 @@ print("PASS: "..n.." runtime/UI assertions; SVG previews use a mocked WoW UI")
 -- Each logout ends a native client lifetime: SND deliberately disposes its scopes.
 -- Verify every checkpoint reason in a fresh lifetime, including scope cleanup.
 for _,reason in ipairs({"clean","reload","departed"}) do
-    local client=dofile("tests/wow_mock.lua");local fresh=client.load()
+    local client=dofile("tests/wow_mock.lua")
+    local nativeRegistry=SlashCmdList;nativeRegistry.PVP=nativePVP
+    local fresh=client.load()
     client.event("ADDON_LOADED","XPIsland");client.event("PLAYER_ENTERING_WORLD",true,false)
     if reason=="clean" then Logout() elseif reason=="reload" then ReloadUI() end
     client.event("PLAYER_LOGOUT")
     eq(XPIslandSession.reason,reason)
     eq(fresh.App:IsReady(),false,"logout disposes scoped callbacks")
     eq(SlashCmdList.XPISLAND_SND_XPISLAND,nil,"logout removes owned slash command")
+    eq(SlashCmdList,nativeRegistry,"logout preserves Blizzard's slash registry")
+    eq(SlashCmdList.PVP,nativePVP,"logout preserves native slash commands")
 end
 
 -- Protect the new ownership boundary: a legacy account database must round-trip
