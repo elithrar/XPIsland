@@ -168,7 +168,7 @@ explanation. The existing all-source XP/hour and time-to-level formulas are
 unchanged. Solo, group, dungeon, rested and level transitions keep kill history;
 new rewards gradually dominate. The estimate assumes similar future rewards.
 
-Tracking offers explicit Experience or Honor & PvP mode, plus an off-by-default
+Tracking offers explicit Experience, Honor & PvP or Reputation mode, plus an off-by-default
 switch at the actual player level cap. Selecting a mode disables automatic
 switching. Mode changes start collapsed, clear stale tooltips and level notices,
 and preserve XP session history. Honor mode's bar represents PvP rank progression;
@@ -187,3 +187,27 @@ history, duplicate identity lifetime, reload/reset behavior and live-client chec
 ### Shared typography
 
 Stat titles, values, inline details, header values, level notices and bounded options controls share measured clipping clearance and fitting. Footer text follows the stat-title size and the same effective UI/island scale. Registered fonts are checked for successful loading before application; an unavailable face falls back consistently without changing the saved choice. Native menu rows receive an addon-owned Font object through the compositor-supported setter. Late SharedMedia fonts refresh the island and settings together. See [review and validation limits](TYPOGRAPHY-REVIEW.md).
+
+
+## Watched reputation (0.7.8)
+
+Select **Reputation** in Tracking settings or right-click the value label and
+choose Reputation. Its submenu offers Percentage, Current / total reputation,
+and Reputation remaining; Experience and Honor & PvP have their own submenus.
+Click a mode to use its saved format, or choose a format to select that mode.
+Changing the format of an automatically displayed PvP bar retains its cap policy.
+
+Reputation follows the faction marked **Show as Experience Bar** in the native
+Reputation panel. Changing or clearing that selection immediately refreshes the
+island. It remains visible at player level cap, with XP disabled, and with no
+watched faction (a hover explains how to select one). Explicit Reputation takes
+precedence over the optional Honor-at-cap policy. XP history continues unchanged.
+
+The bar shows progress within the current standing, including negative
+reputations. The expanded row shows faction, standing, current/required reputation
+and remaining reputation. Long faction/standing names are shortened with an
+ellipsis; hovers retain their full text and exact numbers. Maximum reputation is
+shown as a full bar. Renown, friendship and paragon use their own thresholds;
+pending paragon rewards are labeled explicitly. There are no reputation/hour or
+ETA estimates. No faction choice is saved by XPIsland: the client owns that
+character's watched faction; profiles save only mode and label format.

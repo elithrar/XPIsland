@@ -25,6 +25,9 @@ jobs:
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SystemDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SharedTraitsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/MajorFactionsDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/ReputationInfoDocumentation.lua
+            /Interface/AddOns/Blizzard_APIDocumentationGenerated/GossipInfoDocumentation.lua
+            /Interface/AddOns/Blizzard_UIPanels_Game/Camelot/ReputationFrame.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/LegacyConstantsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretAspectConstantsDocumentation.lua
             /Interface/AddOns/Blizzard_APIDocumentationGenerated/ForbiddenAspectConstantsDocumentation.lua
@@ -51,6 +54,7 @@ jobs:
           luajit tests/kills_test.lua
           luajit tests/progression_test.lua
           luajit tests/progression_events_test.lua
+          luajit tests/reputation_test.lua .blizzard-api/Interface/AddOns
           luajit tests/font_selection_test.lua
           luajit tests/font_startup_test.lua
           luajit tests/font_startup_test.lua --fail-paths

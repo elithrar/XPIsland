@@ -10,16 +10,21 @@ local xpFormats={
 local pvpFormats={
     {value="honor",label="Honor available"},{value="rankLeft",label="Rank Points to next rank"}
 }
-local modes={{value="xp",label="Experience"},{value="pvp",label="Honor & PvP"}}
+local reputationFormats={
+    {value="percent",label="Percentage"},{value="fraction",label="Current / total reputation"},
+    {value="left",label="Reputation remaining"}
+}
+local modes={{value="xp",label="Experience"},{value="pvp",label="Honor & PvP"},{value="reputation",label="Reputation"}}
 
 function O:SetMode(value)
-    if value~="xp" and value~="pvp" then return end
+    if value~="xp" and value~="pvp" and value~="reputation" then return end
     self:CloseIndicatorMenu()
     UI.owner:SettingsResult(ns.App:SetMany({mode=value,pvpAtCap=false}))
 end
 
 function O:IndicatorFormats(mode)
     if mode=="pvp" then return pvpFormats,"pvpFormat" end
+    if mode=="reputation" then return reputationFormats,"reputationFormat" end
     return xpFormats,"format"
 end
 
@@ -28,7 +33,11 @@ function O:SetIndicatorFormat(mode,value)
     for _,entry in ipairs(entries) do
         if entry.value==value then
             self:CloseIndicatorMenu()
-            UI.owner:SettingsResult(ns.App:Set(key,value))
+            if UI.owner:Mode()==mode then
+                UI.owner:SettingsResult(ns.App:Set(key,value))
+            else
+                UI.owner:SettingsResult(ns.App:SetMany({mode=mode,pvpAtCap=false,[key]=value}))
+            end
             return
         end
     end
@@ -48,7 +57,6 @@ function O:OpenIndicatorMenu(region)
     self:CloseIndicatorMenu()
     UI:CancelStatTooltip();GameTooltip:Hide()
     local mode,profile=owner:Mode(),owner.profile
-    local entries,key=self:IndicatorFormats(mode)
     -- Native proxy frames are pooled; use per-opening ownership for callbacks.
     local context={}
     local function current()
@@ -57,17 +65,18 @@ function O:OpenIndicatorMenu(region)
     end
     local menu=MenuUtil.CreateContextMenu(region,function(_,root)
         for _,entry in ipairs(modes) do
-            root:CreateRadio(entry.label,function(value) return owner:Mode()==value end,function(value)
+            local selectedMode=entry.value
+            local submenu=root:CreateRadio(entry.label,function(value) return owner:Mode()==value end,function(value)
                 if current() then self:SetMode(value) end
             end,entry.value)
-        end
-        root:CreateDivider()
-        for _,entry in ipairs(entries) do
-            root:CreateRadio(entry.label,function(value) return profile[key]==value end,function(value)
-                -- A queued click must not survive combat, dismissal or a profile/mode change.
-                if not current() then return end
-                self:SetIndicatorFormat(mode,value)
-            end,entry.value)
+            local entries,key=self:IndicatorFormats(selectedMode)
+            for _,format in ipairs(entries) do
+                submenu:CreateRadio(format.label,function(value) return owner:Mode()==selectedMode and profile[key]==value end,function(value)
+                    -- A queued click must not survive combat, dismissal or a profile/mode change.
+                    if not current() then return end
+                    self:SetIndicatorFormat(selectedMode,value)
+                end,format.value)
+            end
         end
     end)
     if menu then
@@ -134,6 +143,8 @@ function O:Configure(app)
         }}}},
         {id='tracking',label='Tracking',sections={{controls={
             choice('mode','Track',modes),choice('format','Experience label',xpFormats),choice('pvpFormat','Honor label',pvpFormats),
+            choice('reputationFormat','Reputation label',reputationFormats),
+            {type='description',text='Reputation follows the faction marked Show as Experience Bar in your Reputation panel.'},
             check('pvpAtCap','Track Honor at the level cap'),check('showPet','Show pet experience'),check('showRank','Show PvP rank'),check('showKills','Show kills to level'),
             {type='description',text='Estimates use recent confirmed kills. Rested XP and group rewards affect XP per kill. Hover over a stat for details.'},
         }}}},profiles,

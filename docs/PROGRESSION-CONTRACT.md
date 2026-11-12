@@ -107,3 +107,43 @@ OnUpdate or additional recurring timers. Run existing ETA, source accounting,
 played-time, integration, motion, tooltip, performance and packaging suites.
 Live Forever testing must verify currency identity/values, event ordering,
 localized kill messages, real fonts and taint; offline mocks cannot establish it.
+
+
+## Watched reputation contract (0.7.8)
+
+Verified against the workflow pin `943764493e6b16d63ded3ab304150d1f05e58b57`
+(Forever 1.60.1.70338). `C_Reputation.GetWatchedFactionData()` returns optional
+`FactionData`; nil or faction ID 0 means no watched faction. The Camelot
+`ReputationFrame.lua` checkbox calls `SetWatchedFactionByIndex` and its panel
+refreshes on `UPDATE_FACTION`. XPIsland only reads the selection, refreshing on
+world entry, `UPDATE_FACTION` and renown notifications through existing handlers.
+It never sets the watched faction, expands the reputation list or hooks its UI.
+
+`Progression:Reputation()` stores a runtime snapshot separate from XP accounting.
+Ordinary progress subtracts `currentReactionThreshold` from `currentStanding`
+and `nextReactionThreshold`; absolute negative standings are valid. Reaction 8
+is the maximum ordinary standing. As in the pinned Shared/ReputationBar.lua,
+paragon takes priority, then major factions, then friendship, then ordinary rep.
+Paragon uses `GetFactionParagonInfo`, modulo its positive threshold and adding a
+threshold for pending rewards. Major factions use `GetMajorFactionData`'s earned
+reputation/threshold/renown level and `HasMaximumRenown`. Friendships use
+`GetFriendshipReputation`'s standing/reaction/next thresholds; nil next threshold
+means maximum. Full maximum bars never divide by zero or invent a next standing.
+The friendship API is marked `MayReturnNothing`: an absent result falls through
+to ordinary reputation, matching the native panel's type resolver. Restricted or
+malformed friendship data remains unavailable rather than being treated as absent.
+Unavailable or unreadable snapshots replace old data with dashes.
+
+Schema 2 adds validated `mode="reputation"` and `reputationFormat` (percent,
+fraction, left; percent default). The client owns the watched faction, so faction
+IDs and reputation values are not profile data. Explicit reputation stays visible
+at cap and takes precedence over `pvpAtCap`; manual mode choice disables that
+policy. Existing XP and PvP formats remain independent. Native mode rows have
+format submenus with the same profile/mode/per-opening callback guards.
+
+`tests/reputation_test.lua` exercises the registered handlers and settings UI,
+including threshold rollover, missing/restricted data, special reputations,
+maximum states, visible tooltip refresh, long UTF-8 names, profile/reload
+persistence, object reuse and one shared ticker. It also verifies generated API
+contracts and the native watched-checkbox consumer when passed the pinned source.
+Live event timing, submenu input/rendering and taint remain unobserved.

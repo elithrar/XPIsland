@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options, P = ns.Model, ns.UI, ns.Options, ns.Progression
-local X = {version="0.7.7", formats={}}
+local X = {version="0.7.8", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -92,11 +92,12 @@ function X:AtLevelCap()
 end
 
 function X:Mode()
+    if self.profile.mode=="reputation" then return "reputation" end
     return (self.profile.mode=="pvp" or (self.profile.pvpAtCap and self:AtLevelCap())) and "pvp" or "xp"
 end
 
 function X:CanShow()
-    return self:Mode()=="pvp" or (self:IsCapped()==false and self.tracker and M.Number(self.tracker.cap) and self.tracker.cap>0)
+    return self:Mode()~="xp" or (self:IsCapped()==false and self.tracker and M.Number(self.tracker.cap) and self.tracker.cap>0)
 end
 
 function X:RefreshMode()
@@ -149,7 +150,7 @@ end
 function X:Toggle()
     if not self.session then return end
     self:CancelAutoCollapse()
-    if not self:CanShow() then say("XP unavailable, capped or disabled. Select Honor & PvP in Tracking settings.");return end
+    if not self:CanShow() then say("XP unavailable, capped or disabled. Select Honor & PvP or Reputation in Tracking settings.");return end
     if not UI.expanded then self:SettingsResult(app:Set("expandedOnce",true)) end
     UI:SetExpanded(not UI.expanded)
     if UI.expanded and self.profile.autoCollapse then self:ArmCollapse(self.profile.autoCollapseDuration) end
@@ -503,7 +504,7 @@ local function onEvent(_,event,...)
             UI:Update()
         end
     elseif event=="UPDATE_FACTION" or event=="MAJOR_FACTION_RENOWN_LEVEL_CHANGED" or event=="CURRENCY_DISPLAY_UPDATE" then
-        P:PvP();UI:Update()
+        P:PvP();P:Reputation();UI:Update()
         if event=="MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
             local faction=...
             if M.Number(faction) and faction==LEGACY_FACTION then X:DeferSample() end
