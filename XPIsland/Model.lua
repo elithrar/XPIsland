@@ -23,7 +23,7 @@ M.defaults = {
     autoCollapse = true, collapseCombat = true,
     levelUpDuration = 10, autoCollapseDuration = 15,
     position = {x = 0, y = -8},
-    mode = "xp", pvpAtCap = false, pvpFormat = "honor",
+    mode = "xp", pvpAtCap = false, pvpFormat = "honor", reputationFormat = "percent",
     showPet = true, showRank = true, showKills = true,
 }
 
@@ -32,8 +32,9 @@ function M.Profile(p)
     local clean = M.Copy(M.defaults)
     if p.format == "percent" or p.format == "fraction" or p.format == "left" or p.format == "leftPercent" or p.format == "eta" or p.format == "kills" then clean.format = p.format end
     clean.theme = ns.Themes.Get(p.theme).id
-    if p.mode == "pvp" then clean.mode = "pvp" end
+    if p.mode == "pvp" or p.mode == "reputation" then clean.mode = p.mode end
     if p.pvpFormat == "rankLeft" then clean.pvpFormat = "rankLeft" end
+    if p.reputationFormat == "fraction" or p.reputationFormat == "left" then clean.reputationFormat = p.reputationFormat end
     if M.Number(p.scale) then clean.scale = max(0.5, min(1.5, p.scale)) end
     if M.Number(p.fontSize) then clean.fontSize = max(10, min(18, floor(p.fontSize))) end
     if type(p.font) == "string" and #p.font < 120 then clean.font = p.font end

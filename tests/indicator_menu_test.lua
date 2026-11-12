@@ -24,7 +24,9 @@ local function rootDescription()
     local root={entries={}}
     function root:Insert(entry) self.entries[#self.entries+1]=entry;return entry end
     function root:CreateRadio(text,selected,choose,value)
-        return self:Insert({label=text,isSelected=selected,select=choose,value=value})
+        local child=rootDescription()
+        child.label,child.isSelected,child.select,child.value=text,selected,choose,value
+        return self:Insert(child)
     end
     function root:CreateDivider() return self:Insert({divider=true}) end
     return root
@@ -42,7 +44,9 @@ if arg[1] then
     eq(MenuVariants.GetDefaultContextMenuMixin(),MenuStyle2Mixin,'native context style')
     MenuTemplates=setmetatable({}, {__index=function() return function() end end})
     function MenuTemplates.CreateRadio(text,selected,choose,value)
-        return {label=text,isSelected=selected,select=choose,value=value}
+        local child=rootDescription()
+        child.label,child.isSelected,child.select,child.value=text,selected,choose,value
+        return child
     end
     function MenuTemplates.CreateDivider() return {divider=true} end
     Menu={CreateRootMenuDescription=function(mixin)
@@ -82,17 +86,22 @@ local function open()
     W.click(target,'RightButton')
     return assert(menuManager.current,'menu failed to open')
 end
-local function entry(menu,value)
+local function entry(menu,value,mode)
     for _,row in ipairs(menu.root.entries) do if row.value==value then return row end end
-    error('missing mode '..value)
+    for _,row in ipairs(menu.root.entries) do
+        if row.value==(mode or X:Mode()) then
+            for _,child in ipairs(row.entries) do if child.value==value then return child end end
+        end
+    end
+    error('missing mode/format '..value)
 end
 local function choose(menu,value) entry(menu,value).select(value) end
 eq(O.frame,nil,'quick menu does not create the options window')
 local menu=open()
 eq(menu.owner,target,'native owner is the indicator')
-eq(#menu.root.entries,9)
+eq(#menu.root.entries,3);eq(#entry(menu,'xp').entries,6);eq(#entry(menu,'reputation').entries,3)
 eq(entry(menu,'xp').label,'Experience');eq(entry(menu,'pvp').label,'Honor & PvP')
-eq(entry(menu,'xp').isSelected('xp'),true);eq(menu.root.entries[3].divider,true)
+eq(entry(menu,'xp').isSelected('xp'),true);eq(entry(menu,'reputation').label,'Reputation')
 eq(entry(menu,'percent').isSelected('percent'),true,'saved current mode marked')
 eq(UI.expanded,false,'right click does not expand')
 local opens=menuManager.opens
@@ -103,13 +112,13 @@ eq(target.dragButtons[1],'LeftButton')
 
 -- Compare every menu entry with the settings dropdown, then exercise every setter.
 W.open()
-for _,mode in ipairs({'xp','pvp'}) do
+for _,mode in ipairs({'xp','pvp','reputation'}) do
     W.set('mode',mode);X:ApplyProfile()
-    local dropdown=mode=='xp' and W.control('format','tracking') or W.control('pvpFormat','tracking')
-    local key=mode=='xp' and 'format' or 'pvpFormat'
+    local key=mode=='xp' and 'format' or mode=='pvp' and 'pvpFormat' or 'reputationFormat'
+    local dropdown=W.control(key,'tracking')
     for _,row in ipairs(dropdown.menuDescription.entries) do
         menu=open()
-        eq(#menu.root.entries,#dropdown.menuDescription.entries+3,'mode choices plus same label options')
+        eq(#menu.root.entries,3,'all modes accessible');eq(#entry(menu,mode).entries,#dropdown.menuDescription.entries,'same label submenu options')
         eq(entry(menu,row.value).label,row.label,'same user-facing label')
         choose(menu,row.value)
         eq(X.profile[key],row.value,'active profile updated')
@@ -131,7 +140,7 @@ eq(X.profile.format,'left','stale callback cannot change switched profile')
 
 -- Auto-switching resolves choices from the displayed bar, without changing mode policy.
 W.set('pvpAtCap',true);W.level=60;X:RefreshMode();UI:Update()
-menu=open();eq(#menu.root.entries,5,'automatic PvP gets PvP choices');choose(menu,'rankLeft')
+menu=open();eq(#entry(menu,'pvp').entries,2,'automatic PvP gets PvP choices');choose(menu,'rankLeft')
 eq(X.profile.pvpAtCap,true);eq(X.profile.mode,'xp');eq(X.profile.pvpFormat,'rankLeft')
 W.level=10;X:RefreshMode();UI:Update()
 menu=open();stale=entry(menu,'eta');W.set('mode','pvp');X:ApplyProfile();stale.select('eta')
@@ -158,6 +167,14 @@ menu=open();stale=entry(menu,'xp');W.combat=true;stale.select('xp');eq(X.profile
 W.event('PLAYER_REGEN_DISABLED');W.combat=false;W.event('PLAYER_REGEN_ENABLED');stale.select('xp')
 eq(X.profile.mode,'pvp','combat-dismissed mode choice stays stale')
 menu=open();choose(menu,'xp');W.open('tracking');eq(W.control('mode','tracking').Text:GetText(),'Experience');O.panel:Close()
+
+menu=open()
+local repChoice=entry(menu,'fraction','reputation')
+repChoice.select('fraction')
+eq(X:Mode(),'reputation');eq(X.profile.reputationFormat,'fraction');eq(X.profile.pvpAtCap,false)
+eq(UI.label:GetText(),'Rep · —')
+menu=open();stale=entry(menu,'left','reputation');choose(menu,'xp');stale.select('left')
+eq(X.profile.reputationFormat,'fraction','dismissed submenu callback stays stale')
 
 -- Native menu frame proxies are pooled. Old closures must not gain ownership
 -- when the exact same proxy is reused for a later menu on the same profile.

@@ -100,3 +100,19 @@ The user subsequently confirmed that the packaged infinity looks good in client.
 Native contracts were inspected at Forever revision `943764493e6b16d63ded3ab304150d1f05e58b57`: `Blizzard_Menu/Classic/MenuTemplates.xml`, `MenuTemplates.lua`, `DropdownButton.xml`, `DropdownButton.lua`, `Blizzard_SharedXML/Shared/InputBox/InputBoxTemplates.xml`, and generated SimpleSlider/SimpleCheckbox API documentation. The native dropdown still owns selection, menu generation and input. SND hides only its closed-control Background/Arrow artwork and retains the template scripts. Edit fields retain InputBoxScriptTemplate's focus/Tab/Escape behavior. Slider/check textures are owned Texture assets.
 
 Remaining client checks: open every page in Modern and Forever; select a duration/font/profile; drag the scale and scrollbar thumbs; toggle and disable controls; check long-font captions, keyboard input, Escape, resizing/display changes and reopening. Confirm no native art reappears on hover/press/disable, no overlapping text, and no Lua errors. Offline tests cannot establish those rendered/input outcomes.
+
+
+## Watched reputation (0.7.8)
+
+Both workflows run `luajit tests/reputation_test.lua .blizzard-api/Interface/AddOns`
+with the same pinned Forever source. The suite exercises settings/event handlers,
+ordinary and special reputation thresholds, zero/maximum/missing and restricted
+data, tooltip refresh, profile/reload persistence, long UTF-8 names, background
+XP accounting and bounded UI/timer ownership. The indicator menu suite covers all
+three modes and their format submenus, including cross-mode selection, settings
+synchronization and stale callbacks. All workflow Lua checks, offline release
+guards and addon-only package validation passed locally.
+
+`dist/preview-reputation.svg` is an offline layout fixture, not a game screenshot.
+Native submenu input/rendering, reputation event timing and combat/taint checks
+remain unrun; see the watched-reputation row in the live progression checklist.

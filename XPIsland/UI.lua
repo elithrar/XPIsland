@@ -253,6 +253,7 @@ end
 
 local labels = {"XP remaining", "XP/hour", "Time to level", "Rested XP", "Kill XP", "Quest XP", "Dungeon XP", "Other XP"}
 local pvpLabels={"Honor available","PvP rank","Rank Points left","Current rank cap"}
+local reputationLabels={"Faction","Standing","Reputation","Remaining"}
 -- Retain functional stat explanations and Blizzard tooltip styling.
 local tooltipLabels = {"XP remaining", "XP/hour", "Time to level", "Rested XP", "Outdoor kills", "Outdoor quests", "Dungeons", "Other"}
 local explanations = {
@@ -316,6 +317,9 @@ function UI:ShowStatTooltip(cell,i)
             self:AddKillTooltip()
         end
         GameTooltip:Show();return
+    elseif owner:Mode()=="reputation" then
+        GameTooltip:AddLine(reputationLabels[i] or "Reputation",1,1,1)
+        self:AddReputationTooltip();GameTooltip:Show();return
     elseif owner:Mode()=="pvp" then
         GameTooltip:AddLine(pvpLabels[i] or "PvP progression",1,1,1)
         GameTooltip:AddLine(i==1 and "Spendable Honor balance. Spending Honor does not lower rank."
@@ -359,6 +363,10 @@ end
 function UI:ShowBarTooltip()
     local owner,f=self.owner,self.frame
     local t=owner.tracker
+    if owner:Mode()=="reputation" then
+        GameTooltip:SetOwner(f,"ANCHOR_BOTTOM");GameTooltip:AddLine("Reputation",1,1,1)
+        self:AddReputationTooltip();GameTooltip:Show();self.barTooltip=true;return
+    end
     if owner:Mode()=="pvp" then
         GameTooltip:SetOwner(f,"ANCHOR_BOTTOM");GameTooltip:AddLine("Honor & PvP · rank progression",1,1,1)
         self:AddPvPTooltip();GameTooltip:Show();self.barTooltip=true;return
@@ -404,6 +412,22 @@ function UI:AddKillTooltip()
     GameTooltip:AddLine(M.KillMessages[state],.75,.77,.82,true)
     if kills then GameTooltip:AddLine("About "..M.Compact(kills).." kills · "..M.Compact(mean).." XP/kill",.8,.65,1,true) end
     if count and count>0 then GameTooltip:AddLine(M.Compact(count).." recent confirmed kills",.75,.77,.82,true) end
+end
+
+function UI:AddReputationTooltip()
+    local r=P.reputation
+    if not r then
+        GameTooltip:AddLine(P.reputationState=="none" and 'Choose a faction in your Reputation panel and enable "Show as Experience Bar".'
+            or "Watched reputation is currently unavailable.",.75,.77,.82,true)
+        return
+    end
+    GameTooltip:AddLine(r.name.." · "..r.standing,.8,.65,1,true)
+    if r.maximum then GameTooltip:AddLine("Maximum reputation reached.",.75,.77,.82,true)
+    else
+        GameTooltip:AddLine(string.format("%s / %s reputation · %.1f%%",BreakUpLargeNumbers(r.xp),BreakUpLargeNumbers(r.cap),r.xp*100/r.cap),.8,.65,1,true)
+        GameTooltip:AddLine(r.rewardPending and "Paragon reward ready to collect." or BreakUpLargeNumbers(r.left).." reputation to the next standing.",.75,.77,.82,true)
+    end
+    GameTooltip:AddLine('Follows "Show as Experience Bar" in your Reputation panel.',.75,.77,.82,true)
 end
 
 function UI:AddPvPTooltip()
@@ -605,6 +629,8 @@ function UI:BarLabel(rate,duration)
     local infinity=false
     if self.owner:Mode()=="pvp" then
         text=P:Label(p.pvpFormat)
+    elseif self.owner:Mode()=="reputation" then
+        text=P:ReputationLabel(p.reputationFormat)
     elseif p.format=="kills" then
         local kills=M.KillsToLevel(self.owner.session,t and t.xp,t and t.cap,self.owner:IsCapped()~=false)
         text=M.Compact(kills).." kills"
@@ -910,13 +936,14 @@ function UI:PaintBar(geometryChanged)
         self:ClearHighlights()
     end
     local t=o.tracker
-    local rank=o:Mode()=="pvp" and P.rank
+    local mode=o:Mode()
+    local rank=mode=="pvp" and P.rank or mode=="reputation" and P.reputation
     local cap,xp=t and t.cap or 0,t and t.xp or 0
-    if o:Mode()=="pvp" then cap=rank and rank.cap or 0;xp=rank and rank.xp or 0 end
+    if mode~="xp" then cap=rank and rank.cap or 0;xp=rank and rank.xp or 0 end
     local fraction=rank and rank.maximum and 1 or cap>0 and math.min(1,math.max(0,xp/cap)) or 0
     local color=(o.rested or 0)>0 and self:ColorValue("rested") or self:ColorValue("normal")
     local preview=cap>0 and math.min(1,(xp+math.max(0,o.rested or 0))/cap) or 0
-    if o:Mode()=="pvp" then preview=0;color=self:ColorValue("normal") end
+    if mode~="xp" then preview=0;color=self:ColorValue("normal") end
     if preview<=fraction then preview=0 end
     local previewColor=self.restedColor
     local trackColor=self.trackColor or TRACK_COLOR
@@ -960,15 +987,22 @@ function UI:Update()
         M.Compact(s.buckets.kills), M.Compact(s.buckets.quests), M.Compact(s.buckets.dungeons), M.Compact(s.buckets.other),
     }
     local pvp=o:Mode()=="pvp"
+    local reputation=o:Mode()=="reputation"
     if pvp then
         local r=P.rank
         values[1]=M.Compact(P.honor)
         values[2]=r and (r.level==0 and "Unranked" or tostring(r.level)) or "—"
         values[3]=r and (r.maximum and "Maximum rank" or r.weekCapped and "Cap reached" or M.Compact(r.left)) or "—"
         values[4]=r and r.ceiling and M.Compact(r.total).." / "..M.Compact(r.ceiling) or "—"
+    elseif reputation then
+        local r=P.reputation
+        values[1]=r and r.name or (P.reputationState=="none" and "Select faction" or "Unavailable")
+        values[2]=r and r.standing or "—"
+        values[3]=r and (r.maximum and "Maximum" or M.Compact(r.xp).." / "..M.Compact(r.cap)) or "—"
+        values[4]=r and (r.maximum and "—" or r.rewardPending and "Reward ready" or M.Compact(r.left)) or "—"
     end
     for i,c in ipairs(self.cells) do
-        local title=pvp and pvpLabels[i] or labels[i]
+        local title=reputation and reputationLabels[i] or pvp and pvpLabels[i] or labels[i]
         if c.titleSource~=title then c.titleSource=title;c.title:SetText(title or "") end
         if i>=5 then
             local share=s.total>0 and s.buckets[SOURCE_KEYS[i-4]]/s.total or 0
@@ -977,10 +1011,10 @@ function UI:Update()
                 c.shareFraction=share;c.shareFill:SetWidth(math.max(.001,c.shareWidth*share));c.shareFill:SetShown(share>0)
             end
         end
-        if c.sourceValue~=values[i] or c.measuredFont~=self.font or c.measuredSize~=p.fontSize or ((i==1 or pvp) and c.measuredWidth~=c:GetWidth()) then
+        if c.sourceValue~=values[i] or c.measuredFont~=self.font or c.measuredSize~=p.fontSize or ((i==1 or pvp or reputation) and c.measuredWidth~=c:GetWidth()) then
             c.sourceValue,c.measuredFont,c.measuredSize,c.measuredWidth=values[i],self.font,p.fontSize,c:GetWidth()
             c.value:SetText(values[i])
-            if i==1 and not pvp and c.value:GetUnboundedStringWidth()>c:GetWidth() then
+            if i==1 and not pvp and not reputation and c.value:GetUnboundedStringWidth()>c:GetWidth() then
                 c.value:SetText(M.Compact(left,0).." / "..M.Compact(cap,0))
             end
         end
@@ -989,6 +1023,17 @@ function UI:Update()
             c.fitKey=fitKey
             local width=(self.layout.expanded-76)/4
             c.title:SetScale(1);c.value:SetScale(1)
+            if reputation and i<=2 then
+                -- Faction/standing names can be long in any locale. Keep the
+                -- chosen font readable; the hover retains the complete name.
+                local short=values[i]
+                c.value:SetText(short)
+                while UI.Measure(c.value)>width and #short>0 do
+                    local trimmed=short:gsub("[%z\1-\127\194-\244][\128-\191]*$","")
+                    short=#trimmed<#short and trimmed or ""
+                    c.value:SetText(short.."…")
+                end
+            end
             c.title.xpNaturalWidth=UI.Measure(c.title);c.value.xpNaturalWidth=UI.Measure(c.value)
             c.titleScale=UI.FitText(c.title,width);c.valueScale=UI.FitText(c.value,width)
             c.title:SetWidth(c:GetWidth()/c.titleScale);c.value:SetWidth(c:GetWidth()/c.valueScale)

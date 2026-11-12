@@ -13,7 +13,8 @@ function ns.ConfigureSettings(app)
     field('font','font',{maxLength=119});field('fontSize','integer',{min=10,max=18})
     field('scale','number',{min=.5,max=1.5})
     field('format','enum',{values={'percent','fraction','left','leftPercent','eta','kills'}})
-    field('mode','enum',{values={'xp','pvp'}});field('pvpFormat','enum',{values={'honor','rankLeft'}})
+    field('mode','enum',{values={'xp','pvp','reputation'}});field('pvpFormat','enum',{values={'honor','rankLeft'}})
+    field('reputationFormat','enum',{values={'percent','fraction','left'}})
     field('placement','enum',{values={'top','bottom','custom'}})
     local themeIDs,appearances={},{}
     for _,theme in ipairs(ns.Themes.definitions) do

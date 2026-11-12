@@ -4,6 +4,7 @@ A compact XP bar for World of Warcraft: Forever, inspired by Dynamic Island.
 
 - Track rested XP, XP remaining and estimated time to level.
 - Expand for session XP sources, pet XP, PvP rank and estimated kills to level.
+- Track the faction marked **Show as Experience Bar** in your Reputation panel, including at max level. Select Reputation in Tracking settings or by right-clicking the island’s value label.
 - Track Honor and Rank Points in PvP mode, including at level cap. Enable it in Tracking settings or opt into switching at level cap.
 - Choose Modern or WoW Forever themes, shared or character profiles, fonts and scale. The island fits your UI and stays compact on ultrawide screens.
 - Hide Blizzard's XP, reputation and Honor bars. Other addons keep control of their bars.
@@ -11,6 +12,8 @@ A compact XP bar for World of Warcraft: Forever, inspired by Dynamic Island.
 ## Installation
 
 Copy `XPIsland` into your Forever client's `Interface/AddOns` folder, then restart WoW. `XPIsland.toc` must be directly inside `XPIsland`.
+
+Right-click the value label to choose Experience, Honor & PvP or Reputation; each has a submenu of label formats.
 
 Use `/xpisland` for settings and `/xpisland reset` to reset session stats. Click the island to expand or collapse it, or bind “Expand / collapse XPIsland” in WoW's Keybindings.
 
