@@ -124,12 +124,14 @@ end
 
 function P:ReputationLabel(format)
     local r=self.reputation
-    if not r then return self.reputationState=="none" and "Rep · Select faction" or "Rep · —" end
-    if r.maximum then return "Rep · Maximum" end
-    if r.rewardPending then return "Rep · Reward ready" end
-    if format=="fraction" then return M.Compact(r.xp).." / "..M.Compact(r.cap).." Rep" end
-    if format=="left" then return M.Compact(r.left).." Rep left" end
-    return string.format("Rep · %.1f%%",r.xp*100/r.cap)
+    if not r then return self.reputationState=="none" and "Select faction" or "Reputation · —" end
+    local value
+    if r.maximum then value="Maximum"
+    elseif r.rewardPending then value="Reward ready"
+    elseif format=="fraction" then value=M.Compact(r.xp).." / "..M.Compact(r.cap)
+    elseif format=="left" then value=M.Compact(r.left).." left"
+    else value=string.format("%.1f%%",r.xp*100/r.cap) end
+    return r.name.." · "..value,value
 end
 
 function P:Refresh()

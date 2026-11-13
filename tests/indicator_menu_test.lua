@@ -172,7 +172,7 @@ menu=open()
 local repChoice=entry(menu,'fraction','reputation')
 repChoice.select('fraction')
 eq(X:Mode(),'reputation');eq(X.profile.reputationFormat,'fraction');eq(X.profile.pvpAtCap,false)
-eq(UI.label:GetText(),'Rep · —')
+eq(UI.label:GetText(),'Reputation · —')
 menu=open();stale=entry(menu,'left','reputation');choose(menu,'xp');stale.select('left')
 eq(X.profile.reputationFormat,'fraction','dismissed submenu callback stays stale')
 
