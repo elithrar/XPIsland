@@ -3,7 +3,7 @@
 ## Notes: Compact XP, reputation and PvP tracking for World of Warcraft: Forever.
 ## Author: Matt
 ## X-Curse-Project-ID: 1727059
-## Version: 0.7.8
+## Version: 0.7.9
 ## SavedVariables: XPIslandDB
 ## SavedVariablesPerCharacter: XPIslandSession, XPIslandPlayed
 ## OptionalDeps: LibSharedMedia-3.0

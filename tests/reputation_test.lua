@@ -26,12 +26,12 @@ local function update()W.event('UPDATE_FACTION')end
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 W.open('tracking');W.choose(W.control('mode','tracking'),'reputation')
 eq(X:Mode(),'reputation');eq(UI.frame:IsShown(),true);eq(UI.expanded,false)
-eq(P.reputationState,'none');eq(UI.label:GetText(),'Rep · Select faction')
+eq(P.reputationState,'none');eq(UI.label:GetText(),'Select faction')
 UI:ShowBarTooltip();assert(W.tooltip.lines[2][1]:find('Show as Experience Bar',1,true))
 -- The native checkbox updates the watched faction and sends UPDATE_FACTION.
 watched=faction(72,'Stormwind',5,3000,9000,4500);update()
 eq(P.reputation.name,'Stormwind');eq(P.reputation.xp,1500);eq(P.reputation.cap,6000);eq(P.reputation.left,4500)
-near(UI.barFraction,.25);eq(UI.label:GetText(),'Rep · 25.0%');eq(UI.restedFraction,0)
+near(UI.barFraction,.25);eq(UI.label:GetText(),'Stormwind · 25.0%');eq(UI.restedFraction,0)
 X:Toggle();W.advance(.3)
 eq(UI.cells[1].value:GetText(),'Stormwind');eq(UI.cells[2].value:GetText(),'Friendly')
 eq(UI.cells[3].value:GetText(),'1.5K / 6K');eq(UI.cells[4].value:GetText(),'4.5K')
@@ -40,21 +40,22 @@ local totals=X.session.total
 W.hover=UI.indicator;UI:ShowBarTooltip()
 watched=faction(76,'Orgrimmar',3,-3000,0,-1500);update()
 eq(P.reputation.id,76);near(UI.barFraction,.5);eq(UI.cells[2].value:GetText(),'Unfriendly')
+eq(UI.label:GetText(),'Orgrimmar · 50.0%','switching the watched faction changes the header')
 assert(W.tooltip.lines[2][1]:find('Orgrimmar',1,true),'hover changes with watched faction')
 eq(X.session.total,totals,'reputation never changes XP accounting')
 watched.currentStanding=-2000;update();near(UI.barFraction,1/3)
 watched.currentStanding=0;watched.currentReactionThreshold=0;watched.nextReactionThreshold=3000;watched.reaction=4;update()
-eq(UI.label:GetText(),'Rep · 0.0%');eq(UI.cells[4].value:GetText(),'3K')
-W.choose(W.control('reputationFormat','tracking'),'fraction');eq(UI.label:GetText(),'0 / 3K Rep')
-W.choose(W.control('reputationFormat','tracking'),'left');eq(UI.label:GetText(),'3K Rep left')
+eq(UI.label:GetText(),'Orgrimmar · 0.0%');eq(UI.cells[4].value:GetText(),'3K')
+W.choose(W.control('reputationFormat','tracking'),'fraction');eq(UI.label:GetText(),'Orgrimmar · 0 / 3K')
+W.choose(W.control('reputationFormat','tracking'),'left');eq(UI.label:GetText(),'Orgrimmar · 3K left')
 W.xp=W.xp+100;W.event('PLAYER_XP_UPDATE','player');W.advance(0)
 eq(X.session.total,totals+100,'XP gains still count while reputation is displayed')
-eq(UI.label:GetText(),'3K Rep left','XP events do not replace the watched reputation')
+eq(UI.label:GetText(),'Orgrimmar · 3K left','XP events do not replace the watched reputation')
 -- Explicit reputation wins at player cap, even with the optional XP-to-PvP policy.
 W.level=60;W.cap=0;W.set('pvpAtCap',true);X:Sample()
 eq(X:Mode(),'reputation');eq(UI.frame:IsShown(),true)
 watched=faction(72,'Stormwind',8,42000,42000,42000);update()
-eq(UI.barFraction,1);eq(UI.label:GetText(),'Rep · Maximum');eq(UI.cells[4].value:GetText(),'—')
+eq(UI.barFraction,1);eq(UI.label:GetText(),'Stormwind · Maximum');eq(UI.cells[4].value:GetText(),'—')
 UI:ShowBarTooltip();eq(W.tooltip.lines[3][1],'Maximum reputation reached.')
 -- Clearing the checkbox clears old data while keeping an actionable mode visible.
 watched=nil;update();eq(P.reputation,nil);eq(P.reputationState,'none');eq(UI.barFraction,0);eq(UI.frame:IsShown(),true)
@@ -64,7 +65,7 @@ watched={factionID=0};update();eq(P.reputationState,'none')
 local good=faction(72,'Stormwind',5,3000,9000,4500)
 for _,field in ipairs({'factionID','name','reaction','currentReactionThreshold','nextReactionThreshold','currentStanding'})do
  watched=M.Copy(good);update();watched[field]=secret;update();eq(P.reputation,nil,'restricted '..field)
- eq(P.reputationState,'unavailable');eq(UI.label:GetText(),'Rep · —');eq(UI.barFraction,0)
+ eq(P.reputationState,'unavailable');eq(UI.label:GetText(),'Reputation · —');eq(UI.barFraction,0)
 end
 for _,bad in ipairs({0/0,math.huge,-math.huge,'123'})do
  watched=M.Copy(good);watched.currentStanding=bad;update();eq(P.reputation,nil)
@@ -90,10 +91,39 @@ near(UI.barFraction,.5);eq(P.reputation.standing,'Good friend')
 friend.nextThreshold=nil;update();eq(UI.barFraction,1)
 friend.nextThreshold=secret;update();eq(P.reputation,nil);friend=nil
 paragon=true;earned=12500;threshold=10000;pending=false;update();near(UI.barFraction,.25);eq(P.reputation.left,7500)
-pending=true;update();eq(UI.barFraction,1);eq(UI.label:GetText(),'Rep · Reward ready');eq(P.reputation.left,0)
+pending=true;update();eq(UI.barFraction,1);eq(UI.label:GetText(),'Stormwind · Reward ready');eq(P.reputation.left,0)
 threshold=0;update();eq(P.reputation,nil)
 threshold=secret;update();eq(P.reputation,nil)
 paragon=false
+-- Long names keep the numeric suffix, chosen font size and useful bar space.
+watched=M.Copy(good);watched.name='Les défenseurs de la très ancienne cité de Stormwind';update()
+for _,theme in ipairs({'modern','forever'})do
+ for _,size in ipairs({14,18})do
+  for _,scale in ipairs({.75,1.5})do
+   W.set('theme',theme);W.set('fontSize',size);W.set('scale',scale)
+   for _,format in ipairs({'percent','fraction','left'})do
+    W.set('reputationFormat',format);UI:SetExpanded(false,true)
+    local suffix=format=='percent' and ' · 25.0%' or format=='fraction' and ' · 1.5K / 6K' or ' · 4.5K left'
+    local label=UI.label:GetText()
+    eq(label:sub(-#suffix),suffix,'complete progress stays visible')
+    eq(label:sub(1,3),'Les','faction remains recognizable')
+    assert(label:find('…',1,true),'long faction is shortened')
+    eq(UI.label:GetEffectiveScale(),UI.frame:GetEffectiveScale(),'header text retains its selected size')
+    assert(UI.Measure(UI.label)<=260,'name and progress fit the bounded label')
+    local labelLeft=UI.label:GetLeft()
+    local last=UI.segments[20].track
+    assert(last:GetLeft()+last:GetWidth()<labelLeft,'bar never overlaps the faction label')
+    assert(UI.segments[1].width>=4,'collapsed segments remain useful')
+    UI:SetExpanded(true);W.advance(.3)
+    eq(UI.label:GetText(),label,'expansion retains the same faction label')
+   end
+  end
+ end
+end
+-- Short UTF-8 names remain intact, including after a long name or font change.
+W.set('theme','modern');W.set('fontSize',14);W.set('scale',1);W.set('reputationFormat','percent')
+watched.name='銀色黎明';update();eq(UI.label:GetText(),'銀色黎明 · 25.0%')
+W.set('reputationFormat','left')
 -- Full names remain in hovers while cells retain their chosen text size.
 watched=M.Copy(good);watched.name='Les défenseurs de la très ancienne cité de Stormwind';update()
 ns.Options.panel:Close();UIParent:SetSize(800,600);W.set('fontSize',18);UI:SetExpanded(true,true)

@@ -45,6 +45,11 @@ function UI.FitText(text,available)
     return fit
 end
 
+local function shortenUTF8(text)
+    local trimmed=text:gsub("[%z\1-\127\194-\244][\128-\191]*$","")
+    return #trimmed<#text and trimmed or ""
+end
+
 -- Offsets passed to a scaled FontString are in that FontString's local units.
 -- Keep the caller's inset in its parent's coordinate space when fitting text.
 function UI.AnchorText(text,point,parent,relativePoint,x,y)
@@ -626,11 +631,12 @@ end
 function UI:BarLabel(rate,duration)
     local p,t=self.owner.profile,self.owner.tracker
     local text="—"
+    local reputationValue
     local infinity=false
     if self.owner:Mode()=="pvp" then
         text=P:Label(p.pvpFormat)
     elseif self.owner:Mode()=="reputation" then
-        text=P:ReputationLabel(p.reputationFormat)
+        text,reputationValue=P:ReputationLabel(p.reputationFormat)
     elseif p.format=="kills" then
         local kills=M.KillsToLevel(self.owner.session,t and t.xp,t and t.cap,self.owner:IsCapped()~=false)
         text=M.Compact(kills).." kills"
@@ -652,7 +658,16 @@ function UI:BarLabel(rate,duration)
     self.labelScale=self.frame:GetEffectiveScale()
     self.label:SetText(text)
     local width=UI.Measure(self.label)
-    if width>200 then
+    if reputationValue then
+        -- The header caps at 440 units and reserves 180 for the bar/insets.
+        -- Shorten only the faction name; preserve the complete progress value.
+        local name=P.reputation.name
+        while width>260 and #name>0 do
+            name=shortenUTF8(name)
+            text=name.."… · "..reputationValue;self.label:SetText(text)
+            width=UI.Measure(self.label)
+        end
+    elseif width>200 then
         text=text:gsub(" XP","");self.label:SetText(text)
         width=UI.Measure(self.label)
     end
@@ -1029,8 +1044,7 @@ function UI:Update()
                 local short=values[i]
                 c.value:SetText(short)
                 while UI.Measure(c.value)>width and #short>0 do
-                    local trimmed=short:gsub("[%z\1-\127\194-\244][\128-\191]*$","")
-                    short=#trimmed<#short and trimmed or ""
+                    short=shortenUTF8(short)
                     c.value:SetText(short.."…")
                 end
             end

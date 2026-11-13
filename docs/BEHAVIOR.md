@@ -203,6 +203,9 @@ island. It remains visible at player level cap, with XP disabled, and with no
 watched faction (a hover explains how to select one). Explicit Reputation takes
 precedence over the optional Honor-at-cap policy. XP history continues unchanged.
 
+The header names the watched faction, for example `Stormwind · 31.9%`, in every
+reputation label format. Long names shorten with an ellipsis while keeping the
+complete progress value and the selected font size; hovers retain the full name.
 The bar shows progress within the current standing, including negative
 reputations. The expanded row shows faction, standing, current/required reputation
 and remaining reputation. Long faction/standing names are shortened with an
