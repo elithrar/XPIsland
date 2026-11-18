@@ -92,7 +92,7 @@ Sessions belong to a character, independently of settings profiles. Connected se
 
 Settings schema 2 migrates unmarked Arial/12 defaults to the new face/size while preserving other choices and dragged positions. Version 0.1 did not record whether selecting Arial/12 was intentional, so that ambiguous old-default case follows the new default. Explicit choices are recorded from this version onward. Profile copies preserve those choices.
 
-**Shared** is the account-wide default. Changes affect every character selecting it. **Use character** creates an independent copy for the current character. **Duplicate** creates and selects a named copy. **Copy into active** and **Reset active** require explicit confirmation. Color picker previews are transient; only acceptance commits settings. Session totals and WoW keybindings are not copied with a profile.
+**Shared** is the account-wide default. Changes affect every character selecting it. **Use character** creates an independent copy for the current character. **Duplicate** creates and selects a named copy. **Copy into active** and **Reset active** require explicit confirmation. Color picker previews are transient; only acceptance commits settings. Successful profile commands discard old edits and cancel active movement even when the profile name and values are unchanged. Session totals and WoW keybindings are not copied with a profile.
 
 ## Optional Blizzard tracking-bar hiding
 

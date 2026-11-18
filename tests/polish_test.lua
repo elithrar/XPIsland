@@ -103,7 +103,7 @@ for _,font in ipairs({'Game tooltip','Arial','Friz Quadrata','Missing custom fon
   end
  end
 end
-W.choose(W.control('format','tracking'),'leftPercent');eq(W.control('format','tracking').Text:GetText(),'XP remaining (%)')
+W.open('tracking');W.choose(W.control('format','tracking'),'leftPercent');eq(W.control('format','tracking').Text:GetText(),'XP remaining (%)')
 eq(O.panel._pool['profile-select']._fullCaption,longName,'long profile selection preserved')
 -- Retain the two-row padding contract when optional inline details are disabled.
 W.set('showRank',false);W.set('showKills',false)
