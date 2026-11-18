@@ -36,7 +36,7 @@ eq(W.tooltip.lines[2][1],'Confirmed kill XP outside instances, including rested 
 eq(GameTooltipText:GetFont(),originalTooltipFont,'no tooltip font mutation')
 SlashCmdList.XPISLAND_SND_XPISLAND('');eq(O.frame.template,'BackdropTemplate');eq(W.control('scale','appearance').template,'BackdropTemplate');eq(W.control('fontSize','appearance').template,'InputBoxScriptTemplate,BackdropTemplate')
 W.click(W.control('locked','behavior'));eq(X.profile.locked,false,'native checkbox updates profile')
-W.choose(W.control('font','appearance'),'Arial');eq(X.profile.fontCustomized,true)
+W.open('appearance');W.choose(W.control('font','appearance'),'Arial');eq(X.profile.fontCustomized,true)
 W.set('font','Game tooltip');W.set('fontSize',14)
 W.click(W.control('format','tracking'));eq(#W.control('format','tracking').menuDescription.entries,6);eq(W.control('format','tracking').menuDescription.entries[2].label,'Current / total XP');eq(W.control('format','tracking').menuDescription.entries[5].label,'Time to level')
 W.choose(W.control('format','tracking'),'eta');eq(UI.infinity:IsShown(),true,'no-activity infinity symbol')

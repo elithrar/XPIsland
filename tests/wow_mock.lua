@@ -323,6 +323,7 @@ function W.inputClick(button)
     W.click(button);return true
 end
 function W.choose(dropdown,value)
+    assert(dropdown:IsVisible() and dropdown:IsEnabled(), 'open the page before choosing a dropdown value')
     dropdown:GenerateMenu()
     for _,e in ipairs(dropdown.menuDescription.entries) do
         if e.value==value then e.select(value);dropdown:CloseMenu();return end

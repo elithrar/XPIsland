@@ -201,11 +201,13 @@ do
     eq(XPIslandDB.profiles.Shared.position.y,fresh.owner.profile.position.y,'drag commits both axes')
     -- Native drag-stop can arrive after a settings replacement, even on the same
     -- named profile. It must not publish coordinates from the previous gesture.
-    for _,operation in ipairs({'switch','reset','copy'})do
+    for _,operation in ipairs({'switch','reset','copy','switch-same','copy-same'})do
         assert(fresh.App:SetMany({locked=false,['position.x']=25,['position.y']=-80,placement='custom'}))
         fresh.UI.frame.scripts.OnDragStart();eq(fresh.UI.dragging,true)
         if operation=='switch' then assert(fresh.App.profiles:Switch('Existing'))
         elseif operation=='reset' then assert(fresh.App.profiles:Reset())
+        elseif operation=='switch-same' then assert(fresh.App.profiles:Switch(fresh.App.profiles:Active()))
+        elseif operation=='copy-same' then assert(fresh.App.profiles:CopyFrom(fresh.App.profiles:Active()))
         else assert(fresh.App.profiles:CopyFrom('Existing')) end
         eq(fresh.UI.dragging,nil,'settings replacement cancels native movement')
         local saved=fresh.App:Get('position.x');local savedY=fresh.App:Get('position.y')

@@ -145,6 +145,7 @@ W.rank=rank(0,0,1000,1);W.season=2;W.advance(1);eq(P.rank.level,0)
 local timers=0;for _,timer in ipairs(W.timers) do if not timer.cancelled and timer.repeatEvery then timers=timers+1 end end
 eq(timers,1);eq(UI.frame.scripts.OnUpdate,nil)
 -- Mode changes dismiss pending tooltips/notices and combat never auto-reopens.
+W.open('tracking') -- The preview above closed the page; native hidden controls cannot receive input.
 W.hover=UI.cells[1];UI.cells[1].scripts.OnEnter();W.choose(W.control('mode','tracking'),'xp');eq(UI.tooltipTimer,nil)
 eq(X.levelNotice,nil);eq(X.levelWindow,nil)
 W.choose(W.control('mode','tracking'),'pvp');X:Toggle();W.advance(.3);W.event('PLAYER_REGEN_DISABLED');eq(UI.expanded,false)
