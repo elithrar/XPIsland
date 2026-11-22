@@ -1,6 +1,6 @@
 local addon, ns = ...
 local M, UI, Options, P = ns.Model, ns.UI, ns.Options, ns.Progression
-local X = {version="0.7.10", formats={}}
+local X = {version="0.7.11", formats={}}
 ns.owner=X
 local interface=select(4,GetBuildInfo())
 if not M.Number(interface) or interface < 16000 or interface >= 20000 then return end
@@ -434,7 +434,10 @@ function X:Initialize(reloading)
     UI:Create(self);self:Sample();self:Integration()
     self.ticker=C_Timer.NewTicker(1,function()
         self:Clock();self.tracker:Expire(GetTime())
-        if self.online and (self.transition or self.tracker.pending or self.levelPending or self.restedPending) then self:Sample() end
+        -- XP may become readable after the event and its deferred sample.
+        -- Retry while a source hint is still eligible for reconciliation.
+        if self.online and (self.transition or self.tracker.pending or self.levelPending or self.restedPending
+            or #self.tracker.hints > 0) then self:Sample() end
         ns.Played:Pump()
         local changed=P:Pump()
         self:RefreshMode()
@@ -573,7 +576,11 @@ for _,event in ipairs({"PLAYER_ENTERING_WORLD","ADDON_LOADED","TIME_PLAYED_MSG",
     "PLAYER_REGEN_ENABLED","PLAYER_REGEN_DISABLED","UI_SCALE_CHANGED","DISPLAY_SIZE_CHANGED","NOTCHED_DISPLAY_MODE_CHANGED","UPDATE_BINDINGS",
     "PLAYER_MAX_LEVEL_UPDATE","ENABLE_XP_GAIN","DISABLE_XP_GAIN","TRAIT_CONFIG_UPDATED","TRAIT_CONFIG_CREATED","TRAIT_CONFIG_LIST_UPDATED",
     "TRAIT_NODE_CHANGED","TRAIT_NODE_CHANGED_PARTIAL","MAJOR_FACTION_UNLOCKED"}) do
-    required(scope:Event(event, function(...) onEvent(nil, event, ...) end))
+    local ok, err = scope:Event(event, function(...) onEvent(nil, event, ...) end)
+    if not ok then
+        app.log:Warn("Could not register " .. event, {reason=err.message})
+        say("Could not register " .. event .. ".")
+    end
 end
 
 required(scope:PostHook("Logout",function() X.cleanIntent=true end))

@@ -9,7 +9,20 @@ XPIslandDB={version=3}
 W.event('ADDON_LOADED','XPIsland');W.event('PLAYER_ENTERING_WORLD',true,false)
 eq(XPIslandDB.version,3);eq(X.session,nil);eq(UI.frame,nil)
 -- A new client lifetime restores a repaired database; live globals are not a second settings owner.
-XPIslandDB=nil;W=dofile('tests/wow_mock.lua');ns=W.load();X,M,UI=ns.owner,ns.Model,ns.UI
+XPIslandDB=nil;W=dofile('tests/wow_mock.lua')
+-- A client refusing an unrelated event must still deliver XP and install the slash command.
+local createFrame=CreateFrame
+function CreateFrame(...)
+ local frame=createFrame(...)
+ local register=frame.RegisterEvent
+ function frame:RegisterEvent(event)
+  if event=='TIME_PLAYED_MSG' then return false end
+  return register(self,event)
+ end
+ return frame
+end
+ns=W.load();CreateFrame=createFrame;X,M,UI=ns.owner,ns.Model,ns.UI
+eq(type(SlashCmdList.XPISLAND_SND_XPISLAND),'function','startup reaches slash registration')
 W.event('ADDON_LOADED','XPIsland')
 local guid=UnitGUID;UnitGUID=function() return nil end
 W.event('PLAYER_ENTERING_WORLD',false,false);eq(X.session,nil);eq(UI.frame,nil)
@@ -49,4 +62,11 @@ eq(select(2,M.KillsToLevel(X.session,W.xp,W.cap)),'warming')
 -- Mode changes preserve ongoing XP accounting.
 W.set('mode','pvp');X:ApplyProfile()
 eq(X.session.total,470,'mode and integration leave XP accounting alone')
+-- The player XP read can still be stale when the zero-delay sample runs.
+hint('Snapjaw dies, you gain 400 experience.',903)
+W.event('PLAYER_XP_UPDATE','player');W.advance(.1)
+eq(X.session.total,470)
+W.xp=W.xp+400;W.advance(1)
+eq(X.session.total,870);eq(X.session.buckets.kills,750)
+eq(X.tracker.xp,W.xp,'ticker reconciles a late authoritative XP read')
 print('PASS: '..n..' progression event assertions (initialization, synthetic locale ingestion, ordering, duplicates and mode changes)')
