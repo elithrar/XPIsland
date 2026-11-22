@@ -114,7 +114,12 @@ function methods:GetScript(event) return self.scripts[event] end
 function methods:SetScript(event,f) self.scripts[event]=f end
 function methods:HookScript(event,f) local old=self.scripts[event];self.scripts[event]=function(...) if old then old(...) end;f(...) end end
 function methods:IsEventRegistered(e) return self.events and self.events[e] or false end
-function methods:RegisterEvent(e) self.events=self.events or {};self.events[e]=true end
+function methods:RegisterEvent(e)
+    if self:IsEventRegistered(e) then return false end
+    self.events=self.events or {}
+    self.events[e]=true
+    return true
+end
 function methods:RegisterUnitEvent(e) self:RegisterEvent(e) end
 function methods:UnregisterEvent(event) self.events[event]=nil end
 function methods:UnregisterAllEvents() self.events={} end
